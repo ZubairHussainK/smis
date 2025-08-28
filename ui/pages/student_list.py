@@ -118,6 +118,22 @@ class StudentListPage(QWidget):
         """Create export button section."""
         export_layout = QHBoxLayout()
         
+        # Table information label - shows total records and filter status
+        self.table_info_label = QLabel("Total: 0 records")
+        self.table_info_label.setStyleSheet(f"""
+            QLabel {{
+                color: {COLORS['gray_600']};
+                font-size: 14px;
+                font-weight: 500;
+                padding: 8px 15px;
+                background: {COLORS['gray_100']};
+                border-radius: 6px;
+                border: 1px solid {COLORS['gray_200']};
+                min-width: 280px;
+                max-width: 400px;
+            }}
+        """)
+        
         # Export button with modern styling
         self.export_btn = QPushButton("📊 Export to Excel")
         self.export_btn.setStyleSheet(f"""
@@ -140,6 +156,8 @@ class StudentListPage(QWidget):
         """)
         self.export_btn.clicked.connect(self._export_data)
         
+        export_layout.addWidget(self.table_info_label)
+        export_layout.addSpacing(10)  # Add 10px spacing between label and button
         export_layout.addStretch()
         export_layout.addWidget(self.export_btn)
         
@@ -227,6 +245,7 @@ class StudentListPage(QWidget):
         """Handle search input changes - filter current data."""
         if not text.strip():
             self._populate_table(self.students_data)
+            self._update_table_info()
             return
         
         # Filter students based on search text
@@ -244,6 +263,7 @@ class StudentListPage(QWidget):
                 filtered_students.append(student)
         
         self._populate_table(filtered_students)
+        self._update_table_info()
         print(f"🔍 Search: '{text}' - Found {len(filtered_students)} students")
 
     def _load_students(self):
@@ -277,6 +297,7 @@ class StudentListPage(QWidget):
             self.students_data = students  # Store for search functionality
             
             self._populate_table(students)
+            self._update_table_info()  # Update the info label
             print(f"📚 Loaded {len(students)} students in student list")
             
         except Exception as e:
@@ -501,3 +522,46 @@ class StudentListPage(QWidget):
     def get_total_students_count(self):
         """Get total number of currently displayed students."""
         return self.student_table.rowCount()
+
+    def _update_table_info(self):
+        """Update the table information label with current filter status and record count."""
+        try:
+            # Get current filter values
+            current_school = self.school_combo.currentText()
+            current_class = self.class_combo.currentText()
+            current_section = self.section_combo.currentText()
+            current_search = self.search_input.text().strip()
+            
+            # Count records
+            total_records = self.student_table.rowCount()
+            
+            # Start with base text - always show total records
+            info_text = f"Total: {total_records} records"
+            
+            # Build filter info only when filters are actually applied
+            filter_parts = []
+            
+            # Add filter information only if not default values
+            if current_school and current_school != "All Schools":
+                filter_parts.append(f"School: {current_school}")
+            
+            if current_class and current_class != "All Classes":
+                filter_parts.append(f"Class: {current_class}")
+                
+            if current_section and current_section != "All Sections":
+                filter_parts.append(f"Section: {current_section}")
+                
+            if current_search:
+                filter_parts.append(f"Search: '{current_search}'")
+            
+            # Only add filter info if there are active filters
+            if filter_parts:
+                filter_text = " | ".join(filter_parts)
+                info_text += f" ({filter_text})"
+            
+            # Update label
+            self.table_info_label.setText(info_text)
+            
+        except Exception as e:
+            print(f"Error updating table info: {e}")
+            self.table_info_label.setText(f"Total: {self.student_table.rowCount()} records")
