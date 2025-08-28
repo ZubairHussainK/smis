@@ -344,8 +344,9 @@ class StudentListPage(QWidget):
             ]
             
             for col_idx, value in enumerate(row_data):
-                item = QTableWidgetItem(str(value))
-                self.student_table.setItem(row_idx, col_idx, item)
+                if col_idx < len(self.table_columns):  # Safety check
+                    item = QTableWidgetItem(str(value))
+                    self.student_table.setItem(row_idx, col_idx, item)
 
     def _export_data(self):
         """Export current table data (filtered or all) to Excel/CSV."""

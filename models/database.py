@@ -454,20 +454,8 @@ class Database:
             students = []
             for row in rows:
                 student_data = dict(row)
-                
-                students.append({
-                    "ID": student_data.get("id"),
-                    "Student_ID": student_data.get("student_id"),
-                    "Name": student_data.get("student_name"),
-                    "Class": student_data.get("class"),
-                    "Section": student_data.get("section"),
-                    "School_ID": student_data.get("school_id"),  # Added missing school_id
-                    "Gender": student_data.get("gender"),
-                    "DOB": student_data.get("date_of_birth"),
-                    "Father": student_data.get("father_name"),
-                    "Address": student_data.get("address"),
-                    "Status": student_data.get("status")
-                })
+                # Return the complete raw database row data for full field access
+                students.append(student_data)
             
             return {
                 'students': students,
