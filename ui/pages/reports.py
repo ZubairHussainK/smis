@@ -3,12 +3,14 @@ from PyQt5.QtWidgets import (QWidget, QVBoxLayout, QFormLayout, QComboBox,
                            QPushButton, QTableWidget)
 from datetime import datetime
 from ui.styles.table_styles import apply_standard_table_style
+from models.database import Database
 
 class ReportsPage(QWidget):
     """Reports generation and export page."""
 
     def __init__(self):
         super().__init__()
+        self.db = Database()
         self._init_ui()
 
     def _init_ui(self):
@@ -19,10 +21,16 @@ class ReportsPage(QWidget):
         filter_layout = QFormLayout()
         
         self.class_filter = QComboBox()
+        self.class_filter.addItem("All Classes")  # Default option
         self.school_filter = QComboBox()
+        self.school_filter.addItem("All Schools")  # Default option
         self.month_filter = QComboBox()
         self.year_filter = QComboBox()
         self.period_filter = QComboBox()
+        
+        # Load filter data from database
+        self._load_schools_data()
+        self._load_classes_data()
         
         # Set up filter options
         current_year = datetime.now().year
@@ -91,3 +99,25 @@ class ReportsPage(QWidget):
             'year': self.year_filter.currentText(),
             'period': self.period_filter.currentText()
         }
+
+    def _load_schools_data(self):
+        """Load schools from database and populate school filter."""
+        try:
+            schools = self.db.get_schools()
+            for school in schools:
+                school_name = school.get('name', 'Unknown School')
+                school_id = school.get('id', '')
+                self.school_filter.addItem(school_name, school_id)
+            print(f"📚 Loaded {len(schools)} schools in reports page")
+        except Exception as e:
+            print(f"❌ Error loading schools: {e}")
+
+    def _load_classes_data(self, school_id=None):
+        """Load classes from database and populate class filter."""
+        try:
+            classes = self.db.get_classes(school_id)
+            for class_name in classes:
+                self.class_filter.addItem(class_name)
+            print(f"📚 Loaded {len(classes)} classes in reports page")
+        except Exception as e:
+            print(f"❌ Error loading classes: {e}")

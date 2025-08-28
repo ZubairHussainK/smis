@@ -18,6 +18,11 @@ class StudentListPage(QWidget):
         super().__init__()
         # Initialize member variables
         self.student_table = None
+        self.organization_combo = None
+        self.province_combo = None
+        self.district_combo = None
+        self.union_council_combo = None
+        self.nationality_combo = None
         self.school_combo = None
         self.class_combo = None
         self.section_combo = None
@@ -62,7 +67,7 @@ class StudentListPage(QWidget):
         self.setLayout(main_layout)
 
     def _create_filter_section(self):
-        """Create modern filter section with 2x2 grid layout including search."""
+        """Create enhanced filter section with 3x3 grid layout including all filters."""
         filters_frame = QFrame()
         filters_frame.setStyleSheet(f"""
             QFrame {{
@@ -76,7 +81,7 @@ class StudentListPage(QWidget):
         filters_layout = QVBoxLayout(filters_frame)
         filters_layout.setSpacing(8)
         
-        # Create 2x2 grid layout for filters and search
+        # Create 3x3 grid layout for enhanced filters and search
         filter_grid = QGridLayout()
         filter_grid.setSpacing(8)
         filter_grid.setColumnStretch(0, 1)  # Equal column widths
@@ -84,32 +89,28 @@ class StudentListPage(QWidget):
         
         styles = get_attendance_styles()
         
-        # Row 1, Column 1: School filter (with placeholder)
+        # Create filter widgets - Basic 2x2 layout: School, Class, Section, Search
         self.school_combo = QComboBox()
         self.school_combo.addItem("Please Select School")  # Placeholder
         self.school_combo.setStyleSheet(styles['combobox_standard'])
         
-        # Row 1, Column 2: Class filter (with placeholder)
         self.class_combo = QComboBox()
         self.class_combo.addItem("Please Select Class")  # Placeholder
         self.class_combo.setStyleSheet(styles['combobox_standard'])
         
-        # Row 2, Column 1: Section filter (with placeholder)
         self.section_combo = QComboBox()
         self.section_combo.addItem("Please Select Section")  # Placeholder
         self.section_combo.setStyleSheet(styles['combobox_standard'])
         
-        # Row 2, Column 2: Search input
         self.search_input = QLineEdit()
         self.search_input.setPlaceholderText("Search by name, ID, phone...")
         self.search_input.setStyleSheet(styles['search_input'])
         
         # Add widgets to grid: 2x2 layout
-        filter_grid.addWidget(self.school_combo, 0, 0)    # Row 1, Col 1
-        filter_grid.addWidget(self.class_combo, 0, 1)     # Row 1, Col 2
-        filter_grid.addWidget(self.section_combo, 1, 0)   # Row 2, Col 1
-        filter_grid.addWidget(self.search_input, 1, 1)    # Row 2, Col 2
-        
+        filter_grid.addWidget(self.school_combo, 0, 0)          # Row 1, Col 1
+        filter_grid.addWidget(self.class_combo, 0, 1)           # Row 1, Col 2
+        filter_grid.addWidget(self.section_combo, 1, 0)         # Row 2, Col 1
+        filter_grid.addWidget(self.search_input, 1, 1)          # Row 2, Col 2
         filters_layout.addLayout(filter_grid)
         
         return filters_frame
@@ -213,7 +214,7 @@ class StudentListPage(QWidget):
         return table
 
     def _load_initial_data(self):
-        """Load initial data for filters from database."""
+        """Load initial data for basic filters from database."""
         try:
             # Load schools
             schools = self.db.get_schools()

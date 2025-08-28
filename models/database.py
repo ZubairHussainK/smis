@@ -79,11 +79,85 @@ class Database:
         """Create necessary database tables with enhanced security."""
         try:
             with self.db_conn.transaction():
+                # Organizations table
+                self.cursor.execute('''CREATE TABLE IF NOT EXISTS organizations (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    name TEXT UNIQUE NOT NULL,
+                    type TEXT,
+                    code TEXT UNIQUE,
+                    description TEXT,
+                    address TEXT,
+                    contact_number TEXT,
+                    email TEXT,
+                    registration_number TEXT,
+                    head_office_address TEXT,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    created_by INTEGER,
+                    status TEXT DEFAULT 'active' CHECK(status IN ('active', 'inactive'))
+                )''')
+                
+                # Provinces table
+                self.cursor.execute('''CREATE TABLE IF NOT EXISTS provinces (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    name TEXT UNIQUE NOT NULL,
+                    code TEXT UNIQUE,
+                    country TEXT DEFAULT 'Pakistan',
+                    capital_city TEXT,
+                    population INTEGER,
+                    area_km2 REAL,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    created_by INTEGER,
+                    status TEXT DEFAULT 'active' CHECK(status IN ('active', 'inactive'))
+                )''')
+                
+                # Districts table
+                self.cursor.execute('''CREATE TABLE IF NOT EXISTS districts (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    name TEXT NOT NULL,
+                    code TEXT UNIQUE,
+                    province_id INTEGER NOT NULL,
+                    headquarters TEXT,
+                    population INTEGER,
+                    area_km2 REAL,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    created_by INTEGER,
+                    status TEXT DEFAULT 'active' CHECK(status IN ('active', 'inactive')),
+                    FOREIGN KEY (province_id) REFERENCES provinces (id) ON DELETE CASCADE,
+                    UNIQUE(name, province_id)
+                )''')
+                
+                # Union Councils table
+                self.cursor.execute('''CREATE TABLE IF NOT EXISTS union_councils (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    name TEXT NOT NULL,
+                    code TEXT UNIQUE,
+                    district_id INTEGER NOT NULL,
+                    province_id INTEGER NOT NULL,
+                    population INTEGER,
+                    area_km2 REAL,
+                    chairman_name TEXT,
+                    contact_number TEXT,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    created_by INTEGER,
+                    status TEXT DEFAULT 'active' CHECK(status IN ('active', 'inactive')),
+                    FOREIGN KEY (district_id) REFERENCES districts (id) ON DELETE CASCADE,
+                    FOREIGN KEY (province_id) REFERENCES provinces (id) ON DELETE CASCADE,
+                    UNIQUE(name, district_id)
+                )''')
+                
                 # Enhanced schools table
                 self.cursor.execute('''CREATE TABLE IF NOT EXISTS schools (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     name TEXT UNIQUE NOT NULL,
                     type TEXT,
+                    org_id INTEGER,
+                    province_id INTEGER,
+                    district_id INTEGER,
+                    union_council_id INTEGER,
                     address TEXT,
                     contact_number TEXT,
                     principal_name TEXT,
@@ -92,6 +166,31 @@ class Database:
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                     created_by INTEGER,
+                    status TEXT DEFAULT 'active' CHECK(status IN ('active', 'inactive')),
+                    FOREIGN KEY (org_id) REFERENCES organizations (id) ON DELETE SET NULL,
+                    FOREIGN KEY (province_id) REFERENCES provinces (id) ON DELETE SET NULL,
+                    FOREIGN KEY (district_id) REFERENCES districts (id) ON DELETE SET NULL,
+                    FOREIGN KEY (union_council_id) REFERENCES union_councils (id) ON DELETE SET NULL
+                )''')
+                
+                # Classes table
+                self.cursor.execute('''CREATE TABLE IF NOT EXISTS classes (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    class_name TEXT UNIQUE NOT NULL,
+                    class_level INTEGER,
+                    description TEXT,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    status TEXT DEFAULT 'active' CHECK(status IN ('active', 'inactive'))
+                )''')
+                
+                # Sections table
+                self.cursor.execute('''CREATE TABLE IF NOT EXISTS sections (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    section_name TEXT UNIQUE NOT NULL,
+                    description TEXT,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                     status TEXT DEFAULT 'active' CHECK(status IN ('active', 'inactive'))
                 )''')
                 
@@ -269,22 +368,57 @@ class Database:
                 # Primary student identification indexes
                 "CREATE INDEX IF NOT EXISTS idx_students_student_id ON students(student_id)",
                 "CREATE INDEX IF NOT EXISTS idx_students_final_unique_codes ON students(final_unique_codes)",
-                "CREATE INDEX IF NOT EXISTS idx_students_registration_number ON students(registration_number)",
                 
-                # New structured field indexes
+                # Basic student field indexes (only for fields that exist in current schema)
                 "CREATE INDEX IF NOT EXISTS idx_students_student_name ON students(student_name)",
-                "CREATE INDEX IF NOT EXISTS idx_students_org_school ON students(org_id, school_id)",
-                "CREATE INDEX IF NOT EXISTS idx_students_location ON students(province_id, district_id, union_council_id)",
                 "CREATE INDEX IF NOT EXISTS idx_students_class_section ON students(class, section)",
                 "CREATE INDEX IF NOT EXISTS idx_students_status ON students(status)",
                 "CREATE INDEX IF NOT EXISTS idx_students_gender ON students(gender)",
-                "CREATE INDEX IF NOT EXISTS idx_students_admission_year ON students(year_of_admission)",
-                "CREATE INDEX IF NOT EXISTS idx_students_class_teacher ON students(class_teacher_name)",
                 
-                # Family information indexes
+                # Family information indexes (only for existing fields)
                 "CREATE INDEX IF NOT EXISTS idx_students_father_cnic ON students(father_cnic)",
                 "CREATE INDEX IF NOT EXISTS idx_students_mother_cnic ON students(mother_cnic)",
-                "CREATE INDEX IF NOT EXISTS idx_students_alternate_cnic ON students(alternate_cnic)",
+                
+                # Organizations table indexes
+                "CREATE INDEX IF NOT EXISTS idx_organizations_name ON organizations(name)",
+                "CREATE INDEX IF NOT EXISTS idx_organizations_code ON organizations(code)",
+                "CREATE INDEX IF NOT EXISTS idx_organizations_type ON organizations(type)",
+                "CREATE INDEX IF NOT EXISTS idx_organizations_status ON organizations(status)",
+                
+                # Provinces table indexes
+                "CREATE INDEX IF NOT EXISTS idx_provinces_name ON provinces(name)",
+                "CREATE INDEX IF NOT EXISTS idx_provinces_code ON provinces(code)",
+                "CREATE INDEX IF NOT EXISTS idx_provinces_country ON provinces(country)",
+                "CREATE INDEX IF NOT EXISTS idx_provinces_status ON provinces(status)",
+                
+                # Districts table indexes
+                "CREATE INDEX IF NOT EXISTS idx_districts_name ON districts(name)",
+                "CREATE INDEX IF NOT EXISTS idx_districts_province_id ON districts(province_id)",
+                "CREATE INDEX IF NOT EXISTS idx_districts_code ON districts(code)",
+                "CREATE INDEX IF NOT EXISTS idx_districts_status ON districts(status)",
+                "CREATE INDEX IF NOT EXISTS idx_districts_name_province ON districts(name, province_id)",
+                
+                # Union Councils table indexes
+                "CREATE INDEX IF NOT EXISTS idx_union_councils_name ON union_councils(name)",
+                "CREATE INDEX IF NOT EXISTS idx_union_councils_district_id ON union_councils(district_id)",
+                "CREATE INDEX IF NOT EXISTS idx_union_councils_province_id ON union_councils(province_id)",
+                "CREATE INDEX IF NOT EXISTS idx_union_councils_code ON union_councils(code)",
+                "CREATE INDEX IF NOT EXISTS idx_union_councils_status ON union_councils(status)",
+                "CREATE INDEX IF NOT EXISTS idx_union_councils_name_district ON union_councils(name, district_id)",
+                
+                # Schools table indexes (enhanced)
+                "CREATE INDEX IF NOT EXISTS idx_schools_name ON schools(name)",
+                "CREATE INDEX IF NOT EXISTS idx_schools_type ON schools(type)",
+                "CREATE INDEX IF NOT EXISTS idx_schools_status ON schools(status)",
+                
+                # Classes table indexes
+                "CREATE INDEX IF NOT EXISTS idx_classes_name ON classes(class_name)",
+                "CREATE INDEX IF NOT EXISTS idx_classes_level ON classes(class_level)",
+                "CREATE INDEX IF NOT EXISTS idx_classes_status ON classes(status)",
+                
+                # Sections table indexes
+                "CREATE INDEX IF NOT EXISTS idx_sections_name ON sections(section_name)",
+                "CREATE INDEX IF NOT EXISTS idx_sections_status ON sections(status)",
                 
                 # Attendance and audit indexes
                 "CREATE INDEX IF NOT EXISTS idx_attendance_student_date ON attendance(student_id, date)",
@@ -294,19 +428,23 @@ class Database:
                 "CREATE INDEX IF NOT EXISTS idx_activity_log_user_timestamp ON activity_log(user_id, timestamp)",
                 
                 # Composite indexes for common queries
-                "CREATE INDEX IF NOT EXISTS idx_students_search ON students(student_name, student_id, father_name)",
-                "CREATE INDEX IF NOT EXISTS idx_students_demographic ON students(gender, date_of_birth, nationality_id)"
+                "CREATE INDEX IF NOT EXISTS idx_students_search ON students(student_name, student_id, father_name)"
             ]
             
             for index_sql in indexes:
-                self.cursor.execute(index_sql)
+                try:
+                    self.cursor.execute(index_sql)
+                except Exception as index_error:
+                    # Log but don't fail - some indexes might reference columns that don't exist yet
+                    logger.warning(f"Could not create index: {index_sql} - {index_error}")
             
             self.conn.commit()
             logger.info("Database indexes created successfully")
             
         except Exception as e:
             logger.error(f"Error creating indexes: {e}")
-            raise DatabaseError(f"Failed to create database indexes: {e}")
+            # Don't raise exception to avoid breaking database initialization
+            logger.warning("Some indexes may not have been created - continuing with database initialization")
     
     def _create_triggers(self):
         """Create database triggers for automatic auditing."""
@@ -868,89 +1006,362 @@ class Database:
         self.db_conn.close()
 
     def _insert_dummy_data(self):
-        """Insert dummy data for schools if tables are empty."""
+        """Insert dummy data for organizations, provinces, districts, union councils, schools, classes, and sections if tables are empty."""
         try:
+            # Check if organizations table is empty
+            self.cursor.execute("SELECT COUNT(*) FROM organizations")
+            if self.cursor.fetchone()[0] == 0:
+                # Insert dummy organizations
+                organizations_data = [
+                    ("Department of Education Punjab", "Government", "DOE-PB", "Provincial education department", "Civil Secretariat, Lahore", "042-99200000", "doe@punjab.gov.pk", "GOV-PB-001", "Civil Secretariat, Punjab"),
+                    ("Education Foundation Pakistan", "Non-Profit", "EFP", "Educational foundation", "Islamabad", "051-9876543", "info@efp.org.pk", "NGO-001", "F-8/2, Islamabad"),
+                    ("Private Schools Association", "Association", "PSA", "Private schools regulatory body", "Karachi", "021-3456789", "admin@psa.edu.pk", "ASSOC-001", "Clifton, Karachi"),
+                    ("Ministry of Education", "Federal", "MOE", "Federal education ministry", "Islamabad", "051-9207000", "moe@education.gov.pk", "FED-001", "Sector G-5/2, Islamabad")
+                ]
+                
+                for org in organizations_data:
+                    self.cursor.execute("""INSERT OR IGNORE INTO organizations 
+                        (name, type, code, description, address, contact_number, email, registration_number, head_office_address) 
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""", org)
+
+            # Check if provinces table is empty
+            self.cursor.execute("SELECT COUNT(*) FROM provinces")
+            if self.cursor.fetchone()[0] == 0:
+                # Insert Pakistan provinces
+                provinces_data = [
+                    ("Punjab", "PB", "Pakistan", "Lahore", 120000000, 205344),
+                    ("Sindh", "SD", "Pakistan", "Karachi", 55000000, 140914),
+                    ("Khyber Pakhtunkhwa", "KP", "Pakistan", "Peshawar", 40000000, 101741),
+                    ("Balochistan", "BA", "Pakistan", "Quetta", 15000000, 347190),
+                    ("Islamabad Capital Territory", "ICT", "Pakistan", "Islamabad", 2500000, 906),
+                    ("Gilgit-Baltistan", "GB", "Pakistan", "Gilgit", 2000000, 72971),
+                    ("Azad Jammu and Kashmir", "AJK", "Pakistan", "Muzaffarabad", 4500000, 13297)
+                ]
+                
+                for province in provinces_data:
+                    self.cursor.execute("""INSERT OR IGNORE INTO provinces 
+                        (name, code, country, capital_city, population, area_km2) 
+                        VALUES (?, ?, ?, ?, ?, ?)""", province)
+
+            # Check if districts table is empty
+            self.cursor.execute("SELECT COUNT(*) FROM districts")
+            if self.cursor.fetchone()[0] == 0:
+                # Get province IDs first
+                self.cursor.execute("SELECT id, name FROM provinces")
+                province_map = {row['name']: row['id'] for row in self.cursor.fetchall()}
+                
+                # Insert sample districts for major provinces
+                districts_data = [
+                    # Punjab districts
+                    ("Lahore", "LHR", province_map.get("Punjab", 1), "Lahore", 12000000, 1772),
+                    ("Karachi", "KHI", province_map.get("Sindh", 2), "Karachi", 16000000, 3527),
+                    ("Faisalabad", "FSD", province_map.get("Punjab", 1), "Faisalabad", 8000000, 5856),
+                    ("Rawalpindi", "RWP", province_map.get("Punjab", 1), "Rawalpindi", 6000000, 5286),
+                    ("Peshawar", "PSH", province_map.get("Khyber Pakhtunkhwa", 3), "Peshawar", 5000000, 1257),
+                    ("Multan", "MLT", province_map.get("Punjab", 1), "Multan", 4500000, 3720),
+                    ("Hyderabad", "HYD", province_map.get("Sindh", 2), "Hyderabad", 2500000, 26000),
+                    ("Gujranwala", "GRW", province_map.get("Punjab", 1), "Gujranwala", 2500000, 3622),
+                    ("Islamabad", "ISB", province_map.get("Islamabad Capital Territory", 5), "Islamabad", 2500000, 906),
+                    ("Quetta", "QTA", province_map.get("Balochistan", 4), "Quetta", 2500000, 2653)
+                ]
+                
+                for district in districts_data:
+                    self.cursor.execute("""INSERT OR IGNORE INTO districts 
+                        (name, code, province_id, headquarters, population, area_km2) 
+                        VALUES (?, ?, ?, ?, ?, ?)""", district)
+
+            # Check if union_councils table is empty
+            self.cursor.execute("SELECT COUNT(*) FROM union_councils")
+            if self.cursor.fetchone()[0] == 0:
+                # Get district and province IDs
+                self.cursor.execute("SELECT id, name, province_id FROM districts")
+                districts = self.cursor.fetchall()
+                
+                # Insert sample union councils for major districts
+                union_councils_data = []
+                uc_counter = 1
+                
+                for district in districts[:5]:  # Only for first 5 districts to keep data manageable
+                    district_name = district['name']
+                    district_id = district['id']
+                    province_id = district['province_id']
+                    
+                    # Add 3-5 union councils per district
+                    for i in range(1, 4):
+                        uc_name = f"{district_name} UC-{i}"
+                        uc_code = f"UC-{uc_counter:03d}"
+                        chairman = f"Chairman {district_name} {i}"
+                        contact = f"03{uc_counter:02d}{1000000 + uc_counter}"
+                        
+                        union_councils_data.append((uc_name, uc_code, district_id, province_id, 50000 + (uc_counter * 1000), 25.5, chairman, contact))
+                        uc_counter += 1
+                
+                for uc in union_councils_data:
+                    self.cursor.execute("""INSERT OR IGNORE INTO union_councils 
+                        (name, code, district_id, province_id, population, area_km2, chairman_name, contact_number) 
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?)""", uc)
+
             # Check if schools table is empty
             self.cursor.execute("SELECT COUNT(*) FROM schools")
             if self.cursor.fetchone()[0] == 0:
-                # Insert dummy schools
+                # Get organization, province, district, and union council IDs
+                self.cursor.execute("SELECT id FROM organizations LIMIT 1")
+                org_id = self.cursor.fetchone()
+                org_id = org_id['id'] if org_id else 1
+                
+                self.cursor.execute("SELECT id FROM provinces WHERE name = 'Punjab' LIMIT 1")
+                province_id = self.cursor.fetchone()
+                province_id = province_id['id'] if province_id else 1
+                
+                self.cursor.execute("SELECT id FROM districts WHERE name = 'Lahore' LIMIT 1")
+                district_id = self.cursor.fetchone()
+                district_id = district_id['id'] if district_id else 1
+                
+                self.cursor.execute("SELECT id FROM union_councils LIMIT 1")
+                uc_id = self.cursor.fetchone()
+                uc_id = uc_id['id'] if uc_id else 1
+                
+                # Insert dummy schools with foreign key references
                 schools_data = [
-                    ("Greenfield Public School", "Public", "123 Education Street, Karachi", "021-12345678", "Dr. Ahmad Khan"),
-                    ("Elite Grammar School", "Private", "456 Learning Avenue, Lahore", "042-87654321", "Mrs. Fatima Sheikh"),
-                    ("Sunrise Academy", "Private", "789 Knowledge Road, Islamabad", "051-11223344", "Mr. Hassan Ali"),
-                    ("City Model School", "Public", "321 School Lane, Peshawar", "091-55667788", "Ms. Ayesha Malik"),
-                    ("Future Leaders Institute", "Private", "654 Academic Plaza, Multan", "061-99887766", "Prof. Muhammad Iqbal")
+                    ("Greenfield Public School", "Public", org_id, province_id, district_id, uc_id, "123 Education Street, Karachi", "021-12345678", "Dr. Ahmad Khan", "greenfield@education.pk", "SCH-001"),
+                    ("Elite Grammar School", "Private", org_id, province_id, district_id, uc_id, "456 Learning Avenue, Lahore", "042-87654321", "Mrs. Fatima Sheikh", "elite@grammar.edu.pk", "SCH-002"),
+                    ("Sunrise Academy", "Private", org_id, province_id, district_id, uc_id, "789 Knowledge Road, Islamabad", "051-11223344", "Mr. Hassan Ali", "sunrise@academy.edu.pk", "SCH-003"),
+                    ("City Model School", "Public", org_id, province_id, district_id, uc_id, "321 School Lane, Peshawar", "091-55667788", "Ms. Ayesha Malik", "citymodel@education.pk", "SCH-004"),
+                    ("Future Leaders Institute", "Private", org_id, province_id, district_id, uc_id, "654 Academic Plaza, Multan", "061-99887766", "Prof. Muhammad Iqbal", "future@leaders.edu.pk", "SCH-005"),
+                    ("Al-Huda International School", "Private", org_id, province_id, district_id, uc_id, "987 Campus Drive, Faisalabad", "041-33445566", "Dr. Zainab Ahmed", "alhuda@international.edu.pk", "SCH-006")
                 ]
                 
                 for school in schools_data:
                     self.cursor.execute("""INSERT OR IGNORE INTO schools 
-                        (name, type, address, contact_number, principal_name) 
-                        VALUES (?, ?, ?, ?, ?)""", school)
+                        (name, type, org_id, province_id, district_id, union_council_id, address, contact_number, principal_name, email, registration_number) 
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""", school)
+            
+            # Check if classes table is empty
+            self.cursor.execute("SELECT COUNT(*) FROM classes")
+            if self.cursor.fetchone()[0] == 0:
+                # Insert classes data
+                classes_data = [
+                    ("Kachi", 0, "Pre-Primary class"),
+                    ("Paki", 1, "Primary class"),
+                    ("1", 2, "Grade 1"),
+                    ("2", 3, "Grade 2"),
+                    ("3", 4, "Grade 3"),
+                    ("4", 5, "Grade 4"),
+                    ("5", 6, "Grade 5"),
+                    ("6", 7, "Grade 6"),
+                    ("7", 8, "Grade 7"),
+                    ("8", 9, "Grade 8"),
+                    ("9", 10, "Grade 9"),
+                    ("10", 11, "Grade 10")
+                ]
+                
+                for class_data in classes_data:
+                    self.cursor.execute("""INSERT OR IGNORE INTO classes 
+                        (class_name, class_level, description) 
+                        VALUES (?, ?, ?)""", class_data)
+            
+            # Check if sections table is empty
+            self.cursor.execute("SELECT COUNT(*) FROM sections")
+            if self.cursor.fetchone()[0] == 0:
+                # Insert sections data
+                sections_data = [
+                    ("A", "Section A"),
+                    ("B", "Section B"),
+                    ("C", "Section C"),
+                    ("D", "Section D"),
+                    ("E", "Section E"),
+                    ("F", "Section F")
+                ]
+                
+                for section_data in sections_data:
+                    self.cursor.execute("""INSERT OR IGNORE INTO sections 
+                        (section_name, description) 
+                        VALUES (?, ?)""", section_data)
             
             # For students table, we'll skip dummy data since we have a clean structure now
             # and want to avoid column reference issues
             
             self.conn.commit()
-            logging.info("Dummy data inserted successfully")
+            logging.info("Dummy data inserted successfully for all tables")
             
         except Exception as e:
             logging.error(f"Error inserting dummy data: {e}")
+            # Don't raise the exception to avoid breaking database initialization
 
     def get_schools(self):
-        """Get all schools."""
+        """Get all schools from schools table."""
         try:
-            self.cursor.execute("SELECT * FROM schools ORDER BY name")
-            return [dict(row) for row in self.cursor.fetchall()]
+            self.cursor.execute("SELECT * FROM schools WHERE status = 'active' ORDER BY name")
+            schools = []
+            for row in self.cursor.fetchall():
+                school_dict = dict(row)
+                # Ensure backward compatibility by providing both 'name' and 'school_name' keys
+                school_dict['school_name'] = school_dict.get('name', '')
+                schools.append(school_dict)
+            return schools
         except Exception as e:
             logging.error(f"Error getting schools: {e}")
             return []
 
     def get_classes(self, school_id=None):
-        """Get distinct classes from students table."""
+        """Get classes from classes table."""
         try:
-            if school_id:
-                self.cursor.execute("""
-                    SELECT DISTINCT class 
-                    FROM students 
-                    WHERE is_deleted = 0 AND school_id = ? AND class IS NOT NULL AND class != ''
-                    ORDER BY class
-                """, (school_id,))
-            else:
-                self.cursor.execute("""
-                    SELECT DISTINCT class 
-                    FROM students 
-                    WHERE is_deleted = 0 AND class IS NOT NULL AND class != ''
-                    ORDER BY class
-                """)
-            return [row['class'] for row in self.cursor.fetchall()]
+            self.cursor.execute("""
+                SELECT name 
+                FROM classes 
+                ORDER BY name
+            """)
+            return [row['name'] for row in self.cursor.fetchall()]
         except Exception as e:
             logging.error(f"Error getting classes: {e}")
-            return []
+            # Fallback to distinct values from students table
+            try:
+                if school_id:
+                    self.cursor.execute("""
+                        SELECT DISTINCT class 
+                        FROM students 
+                        WHERE is_deleted = 0 AND school_id = ? AND class IS NOT NULL AND class != ''
+                        ORDER BY class
+                    """, (school_id,))
+                else:
+                    self.cursor.execute("""
+                        SELECT DISTINCT class 
+                        FROM students 
+                        WHERE is_deleted = 0 AND class IS NOT NULL AND class != ''
+                        ORDER BY class
+                    """)
+                return [row['class'] for row in self.cursor.fetchall()]
+            except Exception as fallback_error:
+                logging.error(f"Error getting classes from students table: {fallback_error}")
+                return []
 
     def get_sections(self, school_id=None, class_name=None):
-        """Get distinct sections from students table."""
+        """Get sections from sections table."""
         try:
-            query = """
-                SELECT DISTINCT section 
-                FROM students 
-                WHERE is_deleted = 0 AND section IS NOT NULL AND section != ''
-            """
-            params = []
-            
-            if school_id:
-                query += " AND school_id = ?"
-                params.append(school_id)
-                
-            if class_name:
-                query += " AND class = ?"
-                params.append(class_name)
-                
-            query += " ORDER BY section"
-            
-            self.cursor.execute(query, params)
-            return [row['section'] for row in self.cursor.fetchall()]
+            self.cursor.execute("""
+                SELECT name 
+                FROM sections 
+                ORDER BY name
+            """)
+            return [row['name'] for row in self.cursor.fetchall()]
         except Exception as e:
             logging.error(f"Error getting sections: {e}")
+            # Fallback to distinct values from students table
+            try:
+                query = """
+                    SELECT DISTINCT section 
+                    FROM students 
+                    WHERE is_deleted = 0 AND section IS NOT NULL AND section != ''
+                """
+                params = []
+                
+                if school_id:
+                    query += " AND school_id = ?"
+                    params.append(school_id)
+                    
+                if class_name:
+                    query += " AND class = ?"
+                    params.append(class_name)
+                    
+                query += " ORDER BY section"
+                
+                self.cursor.execute(query, params)
+                return [row['section'] for row in self.cursor.fetchall()]
+            except Exception as fallback_error:
+                logging.error(f"Error getting sections from students table: {fallback_error}")
+                return []
+
+    def get_organizations(self):
+        """Get all organizations from organizations table."""
+        try:
+            self.cursor.execute("SELECT * FROM organizations WHERE status = 'active' ORDER BY name")
+            organizations = []
+            for row in self.cursor.fetchall():
+                org_dict = dict(row)
+                organizations.append(org_dict)
+            return organizations
+        except Exception as e:
+            logging.error(f"Error getting organizations: {e}")
+            return []
+
+    def get_provinces(self):
+        """Get all provinces from provinces table."""
+        try:
+            self.cursor.execute("SELECT * FROM provinces WHERE status = 'active' ORDER BY name")
+            provinces = []
+            for row in self.cursor.fetchall():
+                province_dict = dict(row)
+                provinces.append(province_dict)
+            return provinces
+        except Exception as e:
+            logging.error(f"Error getting provinces: {e}")
+            return []
+
+    def get_districts(self, province_id=None):
+        """Get districts from districts table, optionally filtered by province."""
+        try:
+            if province_id:
+                self.cursor.execute("""
+                    SELECT * FROM districts 
+                    WHERE status = 'active' AND province_id = ? 
+                    ORDER BY name
+                """, (province_id,))
+            else:
+                self.cursor.execute("SELECT * FROM districts WHERE status = 'active' ORDER BY name")
+            
+            districts = []
+            for row in self.cursor.fetchall():
+                district_dict = dict(row)
+                districts.append(district_dict)
+            return districts
+        except Exception as e:
+            logging.error(f"Error getting districts: {e}")
+            return []
+
+    def get_union_councils(self, district_id=None, province_id=None):
+        """Get union councils from union_councils table, optionally filtered by district or province."""
+        try:
+            query = "SELECT * FROM union_councils WHERE status = 'active'"
+            params = []
+            
+            if district_id:
+                query += " AND district_id = ?"
+                params.append(district_id)
+            elif province_id:
+                query += " AND province_id = ?"
+                params.append(province_id)
+                
+            query += " ORDER BY name"
+            
+            self.cursor.execute(query, params)
+            union_councils = []
+            for row in self.cursor.fetchall():
+                uc_dict = dict(row)
+                union_councils.append(uc_dict)
+            return union_councils
+        except Exception as e:
+            logging.error(f"Error getting union councils: {e}")
+            return []
+
+    def get_nationalities(self):
+        """Get nationalities list. For now, return Pakistani and common nationalities."""
+        try:
+            # For now, return a hardcoded list. Later this can be from a nationalities table
+            nationalities = [
+                {"id": 1, "name": "Pakistani", "code": "PAK"},
+                {"id": 2, "name": "Indian", "code": "IND"},
+                {"id": 3, "name": "Bangladeshi", "code": "BGD"},
+                {"id": 4, "name": "Afghan", "code": "AFG"},
+                {"id": 5, "name": "British", "code": "GBR"},
+                {"id": 6, "name": "American", "code": "USA"},
+                {"id": 7, "name": "Canadian", "code": "CAN"},
+                {"id": 8, "name": "Australian", "code": "AUS"},
+                {"id": 9, "name": "Chinese", "code": "CHN"},
+                {"id": 10, "name": "Other", "code": "OTH"}
+            ]
+            return nationalities
+        except Exception as e:
+            logging.error(f"Error getting nationalities: {e}")
             return []
 
     def get_student_id_by_student_id(self, student_id_code):
@@ -1121,6 +1532,89 @@ class Database:
         except Exception as e:
             logging.error(f"Error adding student with history: {e}")
             raise
+
+    def add_student(self, student_data: Dict[str, Any]) -> int:
+        """Add new student with only non-audit fields."""
+        try:
+            # Define allowed non-audit fields based on database schema
+            allowed_fields = [
+                # Primary and System Fields
+                'status', 'student_id', 'final_unique_codes',
+                
+                # Organization and Location IDs
+                'org_id', 'school_id', 'province_id', 'district_id', 
+                'union_council_id', 'nationality_id',
+                
+                # School Information
+                'registration_number', 'class_teacher_name',
+                
+                # Student Basic Information
+                'student_name', 'gender', 'date_of_birth', 'students_bform_number',
+                'year_of_admission', 'year_of_admission_alt', 'class', 'section', 'address',
+                
+                # Father Information
+                'father_name', 'father_cnic', 'father_phone',
+                
+                # Household Information
+                'household_size',
+                
+                # Mother Information
+                'mother_name', 'mother_date_of_birth', 'mother_marital_status',
+                'mother_id_type', 'mother_cnic', 'mother_cnic_doi', 
+                'mother_cnic_exp', 'mother_mwa',
+                
+                # Household Head Information
+                'household_role', 'household_name', 'hh_gender', 
+                'hh_date_of_birth', 'recipient_type',
+                
+                # Alternate/Guardian Information (Optional)
+                'alternate_name', 'alternate_date_of_birth', 'alternate_marital_status',
+                'alternate_id_type', 'alternate_cnic', 'alternate_cnic_doi',
+                'alternate_cnic_exp', 'alternate_mwa', 'alternate_relationship_with_mother'
+            ]
+            
+            # Filter data to include only allowed fields
+            filtered_data = {k: v for k, v in student_data.items() if k in allowed_fields}
+            
+            # Validate required fields
+            required_fields = [
+                'student_id', 'final_unique_codes', 'org_id', 'school_id',
+                'province_id', 'district_id', 'union_council_id', 'nationality_id',
+                'registration_number', 'class_teacher_name', 'student_name', 'gender',
+                'date_of_birth', 'students_bform_number', 'year_of_admission',
+                'year_of_admission_alt', 'class', 'section', 'address',
+                'father_name', 'father_cnic', 'father_phone', 'household_size',
+                'mother_name', 'mother_date_of_birth', 'mother_marital_status',
+                'mother_id_type', 'mother_cnic', 'mother_cnic_doi',
+                'mother_cnic_exp', 'mother_mwa', 'household_role',
+                'household_name', 'hh_gender', 'hh_date_of_birth', 'recipient_type'
+            ]
+            
+            missing_fields = [field for field in required_fields if field not in filtered_data or not filtered_data[field]]
+            if missing_fields:
+                raise ValidationError("missing_fields", f"Required fields missing: {', '.join(missing_fields)}")
+            
+            # Set default status if not provided
+            if 'status' not in filtered_data:
+                filtered_data['status'] = 'active'
+            
+            # Build and execute INSERT query
+            fields = ", ".join(filtered_data.keys())
+            placeholders = ", ".join(["?" for _ in filtered_data])
+            values = list(filtered_data.values())
+            
+            query = f"INSERT INTO students ({fields}) VALUES ({placeholders})"
+            self.cursor.execute(query, values)
+            student_id = self.cursor.lastrowid
+            
+            self.conn.commit()
+            logger.info(f"Student {filtered_data.get('student_id')} added successfully with ID: {student_id}")
+            return student_id
+            
+        except Exception as e:
+            self.conn.rollback()
+            logger.error(f"Error adding student: {e}")
+            raise DatabaseError(f"Failed to add student: {e}")
 
     def update_mother_info(self, student_id_code: str, info: Dict[str, Any]) -> bool:
         """Update mother/guardian fields for a student identified by student_id."""

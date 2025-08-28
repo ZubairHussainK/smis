@@ -555,7 +555,8 @@ class MotherRegPage(QWidget):
         school_label = QLabel("School:")
         school_label.setStyleSheet("color: #6B7280; font-family: 'Poppins'; font-size: 14px;")
         self.school_combo = QComboBox()
-        self.school_combo.addItems(["All Schools", "Pine Valley School", "Green Park Academy", "Sunshine High"])
+        self.school_combo.addItem("All Schools")  # Default option
+        self._load_schools_data()  # Load from database
         self.school_combo.setStyleSheet(self._get_combo_style())
         school_layout.addWidget(school_label)
         school_layout.addWidget(self.school_combo)
@@ -563,7 +564,8 @@ class MotherRegPage(QWidget):
         class_label = QLabel("Class:")
         class_label.setStyleSheet("color: #6B7280; font-family: 'Poppins'; font-size: 14px;")
         self.class_combo = QComboBox()
-        self.class_combo.addItems(["All Classes"] + [f"Class {i}" for i in range(1, 13)])
+        self.class_combo.addItem("All Classes")  # Default option
+        self._load_classes_data()  # Load from database
         self.class_combo.setStyleSheet(self._get_combo_style())
         class_layout.addWidget(class_label)
         class_layout.addWidget(self.class_combo)
@@ -571,7 +573,8 @@ class MotherRegPage(QWidget):
         section_label = QLabel("Section:")
         section_label.setStyleSheet("color: #6B7280; font-family: 'Poppins'; font-size: 14px;")
         self.section_combo = QComboBox()
-        self.section_combo.addItems(["All Sections", "A", "B", "C", "D", "E"])
+        self.section_combo.addItem("All Sections")  # Default option
+        self._load_sections_data()  # Load from database
         self.section_combo.setStyleSheet(self._get_combo_style())
         section_layout.addWidget(section_label)
         section_layout.addWidget(self.section_combo)
@@ -1027,6 +1030,44 @@ class MotherRegPage(QWidget):
         header_layout.addStretch()
         header_layout.addLayout(actions_layout)
         return header_frame
+
+    def _load_schools_data(self):
+        """Load schools from database and populate school combo."""
+        try:
+            schools = self.db.get_schools()
+            for school in schools:
+                school_name = school.get('name', 'Unknown School')
+                school_id = school.get('id', '')
+                self.school_combo.addItem(school_name, school_id)
+            print(f"📚 Loaded {len(schools)} schools in mother registration page")
+        except Exception as e:
+            print(f"❌ Error loading schools: {e}")
+            # Add some default options if database fails
+            self.school_combo.addItems(["Pine Valley School", "Green Park Academy", "Sunshine High"])
+
+    def _load_classes_data(self, school_id=None):
+        """Load classes from database and populate class combo."""
+        try:
+            classes = self.db.get_classes(school_id)
+            for class_name in classes:
+                self.class_combo.addItem(class_name)
+            print(f"📚 Loaded {len(classes)} classes in mother registration page")
+        except Exception as e:
+            print(f"❌ Error loading classes: {e}")
+            # Add some default options if database fails
+            self.class_combo.addItems([f"Class {i}" for i in range(1, 13)])
+
+    def _load_sections_data(self, school_id=None, class_name=None):
+        """Load sections from database and populate section combo."""
+        try:
+            sections = self.db.get_sections(school_id, class_name)
+            for section_name in sections:
+                self.section_combo.addItem(section_name)
+            print(f"📚 Loaded {len(sections)} sections in mother registration page")
+        except Exception as e:
+            print(f"❌ Error loading sections: {e}")
+            # Add some default options if database fails
+            self.section_combo.addItems(["A", "B", "C", "D", "E"])
 
     # ...
     # For brevity, copy all other methods from StudentPage, replacing 'student' with 'mother', and update labels/icons as needed.
