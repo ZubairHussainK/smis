@@ -2,7 +2,7 @@
 from PyQt5.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel,
                            QPushButton, QComboBox, QTableWidget, QFrame,
                            QMessageBox, QTableWidgetItem, QHeaderView, QLineEdit,
-                           QGridLayout, QFileDialog)
+                           QGridLayout, QFileDialog, QSizePolicy)
 from PyQt5.QtCore import Qt
 from models.database import Database
 from ui.styles.table_styles import apply_standard_table_style
@@ -129,13 +129,15 @@ class StudentListPage(QWidget):
                 background: {COLORS['gray_100']};
                 border-radius: 6px;
                 border: 1px solid {COLORS['gray_200']};
-                min-width: 400px;
-                max-width: 600px;
+                min-width: 700px;
+
             }}
         """)
+        # Set size policy to expand horizontally
+        self.table_info_label.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
         
         # Export button with modern styling
-        self.export_btn = QPushButton("📊 Export to Excel")
+        self.export_btn = QPushButton("Export to Excel")
         self.export_btn.setStyleSheet(f"""
             QPushButton {{
                 background: {COLORS['primary']};
@@ -156,9 +158,8 @@ class StudentListPage(QWidget):
         """)
         self.export_btn.clicked.connect(self._export_data)
         
-        export_layout.addWidget(self.table_info_label)
+        export_layout.addWidget(self.table_info_label, 1)  # Add stretch factor to expand
         export_layout.addSpacing(10)  # Add 10px spacing between label and button
-        export_layout.addStretch()
         export_layout.addWidget(self.export_btn)
         
         return export_layout
