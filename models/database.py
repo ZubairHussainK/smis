@@ -399,14 +399,21 @@ class Database:
             per_page = per_page or 50  # Default page size
             offset = (page - 1) * per_page
             
-            # Build secure query with parameterized values
+            # Build secure query with JOIN to schools table for school names
             base_query = """
                 SELECT s.*, 
+                       sch.name as school_name,
                        COUNT(*) OVER() as total_count
                 FROM students s 
+                LEFT JOIN schools sch ON s.school_id = sch.id
                 WHERE s.is_deleted = 0
             """
-            count_query = "SELECT COUNT(*) FROM students s WHERE s.is_deleted = 0"
+            count_query = """
+                SELECT COUNT(*) 
+                FROM students s 
+                LEFT JOIN schools sch ON s.school_id = sch.id
+                WHERE s.is_deleted = 0
+            """
             params = []
             
             # Add filters with validation

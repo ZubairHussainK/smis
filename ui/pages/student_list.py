@@ -149,10 +149,10 @@ class StudentListPage(QWidget):
         """Create the students table with ALL database columns."""
         table = QTableWidget()
         
-        # Define ALL non-audit columns from database schema - complete student information
+        # Define ALL non-audit columns with names instead of IDs - complete student information
         self.table_columns = [
             "ID", "Status", "Student ID", "Final Unique Codes",
-            "Org ID", "School ID", "Province ID", "District ID", "Union Council ID", "Nationality ID",
+            "Organization", "School Name", "Province", "District", "Union Council", "Nationality",
             "Registration Number", "Class Teacher Name",
             "Student Name", "Gender", "Date of Birth", "B-Form Number", 
             "Year of Admission", "Year of Admission Alt", "Class", "Section", "Address",
@@ -292,18 +292,18 @@ class StudentListPage(QWidget):
             if not isinstance(student, dict):
                 continue
                 
-            # Map ALL non-audit database fields to table columns - comprehensive data
+            # Map ALL non-audit database fields with proper name handling
             row_data = [
                 str(student.get("id", "")),
                 student.get("status", ""),
                 student.get("student_id", ""),
                 student.get("final_unique_codes", ""),
-                str(student.get("org_id", "")),
-                str(student.get("school_id", "")),
-                str(student.get("province_id", "")),
-                str(student.get("district_id", "")),
-                str(student.get("union_council_id", "")),
-                str(student.get("nationality_id", "")),
+                f"Org {student.get('org_id', '')}" if student.get('org_id') else "",  # Organization ID as text
+                student.get("school_name", ""),        # School name from JOIN
+                f"Province {student.get('province_id', '')}" if student.get('province_id') else "",  # Province ID as text
+                f"District {student.get('district_id', '')}" if student.get('district_id') else "",  # District ID as text  
+                f"UC {student.get('union_council_id', '')}" if student.get('union_council_id') else "",  # Union Council ID as text
+                f"Nationality {student.get('nationality_id', '')}" if student.get('nationality_id') else "",  # Nationality ID as text
                 student.get("registration_number", ""),
                 student.get("class_teacher_name", ""),
                 student.get("student_name", ""),
@@ -365,19 +365,19 @@ class StudentListPage(QWidget):
                         student_data[header] = item.text() if item else ""
                     current_students.append(student_data)
             else:
-                # Use all loaded data - map to ALL non-audit database fields
+                # Use all loaded data - map to ALL non-audit database fields with proper names
                 for student in self.students_data:
                     student_data = {
                         "ID": str(student.get("id", "")),
                         "Status": student.get("status", ""),
                         "Student ID": student.get("student_id", ""),
                         "Final Unique Codes": student.get("final_unique_codes", ""),
-                        "Org ID": str(student.get("org_id", "")),
-                        "School ID": str(student.get("school_id", "")),
-                        "Province ID": str(student.get("province_id", "")),
-                        "District ID": str(student.get("district_id", "")),
-                        "Union Council ID": str(student.get("union_council_id", "")),
-                        "Nationality ID": str(student.get("nationality_id", "")),
+                        "Organization": f"Org {student.get('org_id', '')}" if student.get('org_id') else "",
+                        "School Name": student.get("school_name", ""),
+                        "Province": f"Province {student.get('province_id', '')}" if student.get('province_id') else "",
+                        "District": f"District {student.get('district_id', '')}" if student.get('district_id') else "",
+                        "Union Council": f"UC {student.get('union_council_id', '')}" if student.get('union_council_id') else "",
+                        "Nationality": f"Nationality {student.get('nationality_id', '')}" if student.get('nationality_id') else "",
                         "Registration Number": student.get("registration_number", ""),
                         "Class Teacher Name": student.get("class_teacher_name", ""),
                         "Student Name": student.get("student_name", ""),
