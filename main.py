@@ -2,9 +2,9 @@ import sys
 import logging
 import os
 from typing import Optional, Dict, Any
-from PyQt5.QtWidgets import QApplication, QMessageBox, QSplashScreen
+from PyQt5.QtWidgets import QApplication, QMessageBox
 from PyQt5.QtCore import Qt, QTimer
-from PyQt5.QtGui import QIcon, QPixmap, QPainter, QFont, QLinearGradient, QBrush
+from PyQt5.QtGui import QIcon, QPixmap, QPainter, QFont
 from dotenv import load_dotenv
 
 try:
@@ -15,28 +15,11 @@ try:
     # Define constants for better type checking
     AA_EnableHighDpiScaling = getattr(Qt, 'AA_EnableHighDpiScaling', 0x1000000)
     AA_UseHighDpiPixmaps = getattr(Qt, 'AA_UseHighDpiPixmaps', 0x2000000)
-    AlignCenter = getattr(Qt, 'AlignCenter', 0x0004)
-    AlignBottom = getattr(Qt, 'AlignBottom', 0x0040)
-    WindowStaysOnTopHint = getattr(Qt, 'WindowStaysOnTopHint', 0x00040000)
-    SplashScreen = getattr(Qt, 'SplashScreen', 0x00000004)
-    # Color constants
-    QtTransparent = getattr(Qt, 'transparent', QColor(0, 0, 0, 0))
-    QtWhite = getattr(Qt, 'white', QColor(255, 255, 255))
-    QtBlue = getattr(Qt, 'blue', QColor(0, 0, 255))
-    QtDarkBlue = getattr(Qt, 'darkBlue', QColor(0, 0, 139))
 except ImportError:
     # Fallback values
     from PyQt5.QtGui import QColor
     AA_EnableHighDpiScaling = 0x1000000
     AA_UseHighDpiPixmaps = 0x2000000
-    AlignCenter = 0x0004
-    AlignBottom = 0x0040
-    WindowStaysOnTopHint = 0x00040000
-    SplashScreen = 0x00000004
-    QtTransparent = QColor(0, 0, 0, 0)
-    QtWhite = QColor(255, 255, 255)
-    QtBlue = QColor(0, 0, 255)
-    QtDarkBlue = QColor(0, 0, 139)
 
 
 # Load environment variables first
@@ -111,35 +94,16 @@ class SMISApplication:
             # Initialize core services
             self._initialize_services()
             
-            # Show splash screen
-            splash = self._create_splash_screen()
-            splash.show()
-            
-            # Process events to show splash
-            self.app.processEvents()
-            
-            # Initialize database with progress updates
-            splash.showMessage("Initializing database...", AlignBottom | AlignCenter)
-            self.app.processEvents()
-            
+            # Initialize database
             db = Database()
-            
-            splash.showMessage("Starting backup service...", AlignBottom | AlignCenter)
-            self.app.processEvents()
             
             # Start backup service
             self.backup_manager = get_backup_manager()
             if Config.AUTO_BACKUP:
                 self.backup_manager.start_scheduled_backups()
             
-            splash.showMessage("Loading security modules...", AlignBottom | AlignCenter)
-            self.app.processEvents()
-            
             # Initialize authentication
             self.auth_manager = get_auth_manager()
-            
-            # Close splash screen
-            splash.finish(None)
             
             return True
             
@@ -159,52 +123,14 @@ class SMISApplication:
             else:
                 # Create a simple default icon if file not found
                 pixmap = QPixmap(32, 32)
-                pixmap.fill(QtTransparent)
+                pixmap.fill(Qt.transparent)
                 painter = QPainter(pixmap)
                 painter.setFont(QFont("Arial", 20))
-                painter.drawText(pixmap.rect(), AlignCenter, "📚")
+                painter.drawText(pixmap.rect(), Qt.AlignCenter, "📚")
                 painter.end()
                 self.app.setWindowIcon(QIcon(pixmap))  # type: ignore
         except Exception as e:
             logging.warning(f"Could not set application icon: {e}")
-    
-    def _create_splash_screen(self):
-        """Create and return splash screen."""
-        try:
-            # Create splash screen pixmap
-            pixmap = QPixmap(400, 300)
-            pixmap.fill(QtWhite)
-            
-            painter = QPainter(pixmap)
-            painter.setRenderHint(QPainter.Antialiasing)
-            
-            # Draw gradient background
-            from PyQt5.QtGui import QLinearGradient, QBrush
-            gradient = QLinearGradient(0, 0, 0, 300)
-            gradient.setColorAt(0, QtBlue)
-            gradient.setColorAt(1, QtDarkBlue)
-            painter.fillRect(pixmap.rect(), QBrush(gradient))
-            
-            # Draw title
-            painter.setPen(QtWhite)
-            painter.setFont(QFont("Arial", 24, QFont.Bold))
-            painter.drawText(pixmap.rect(), AlignCenter, "SMIS\nSchool Management\nInformation System")
-            
-            # Draw version
-            painter.setFont(QFont("Arial", 10))
-            painter.drawText(10, 280, f"Version {self.app.applicationVersion()}")  # type: ignore
-            
-            painter.end()
-            
-            splash = QSplashScreen(pixmap)
-            splash.setWindowFlags(WindowStaysOnTopHint | SplashScreen)  # type: ignore
-            return splash
-            
-        except Exception as e:
-            logging.warning(f"Could not create splash screen: {e}")
-            # Return empty splash screen
-            return QSplashScreen(QPixmap(400, 300))
-    
     def _initialize_services(self):
         """Initialize application services."""
         try:
