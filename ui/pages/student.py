@@ -1616,7 +1616,7 @@ class StudentPage(QWidget):
             
             # Student Basic Information
             ("Student Name*", "student_name", "text", True),
-            ("Gender*", "gender", "combo", True, [["Male", "Female", "Other"]]),
+            ("Gender*", "gender", "combo", True, [["Boy", "Girl", "Other"]]),
             ("Date of Birth*", "date_of_birth", "date", True),
             ("B-Form Number*", "students_bform_number", "text", True),
             ("Year of Admission*", "year_of_admission", "date", True),
@@ -1749,6 +1749,14 @@ class StudentPage(QWidget):
                         widget.setObjectName("required_field")
                     else:
                         widget.addItems(["Not Specified"] + combo_options)
+                    
+                    # Store original items for later restoration
+                    widget._original_items = []
+                    for i in range(widget.count()):
+                        widget._original_items.append(widget.itemText(i))
+                
+                # Apply universal dropdown fix
+                self._apply_combo_box_dropdown_fix(widget, "combo")
                         
             # Database-driven combo boxes
             elif field_type == "school_combo":
@@ -1759,6 +1767,9 @@ class StudentPage(QWidget):
                     widget.setObjectName("required_field")
                 else:
                     widget.addItems(["Not Specified"] + schools)
+                
+                # Apply universal dropdown fix
+                self._apply_combo_box_dropdown_fix(widget, "school_combo")
                     
             elif field_type == "org_combo":
                 widget = QComboBox()
@@ -1768,6 +1779,9 @@ class StudentPage(QWidget):
                     widget.setObjectName("required_field")
                 else:
                     widget.addItems(["Not Specified"] + organizations)
+                
+                # Apply universal dropdown fix
+                self._apply_combo_box_dropdown_fix(widget, "org_combo")
                     
             elif field_type == "province_combo":
                 widget = QComboBox()
@@ -1777,6 +1791,9 @@ class StudentPage(QWidget):
                     widget.setObjectName("required_field")
                 else:
                     widget.addItems(["Not Specified"] + provinces)
+                
+                # Apply universal dropdown fix
+                self._apply_combo_box_dropdown_fix(widget, "province_combo")
                     
             elif field_type == "district_combo":
                 widget = QComboBox()
@@ -1786,6 +1803,9 @@ class StudentPage(QWidget):
                     widget.setObjectName("required_field")
                 else:
                     widget.addItems(["Not Specified"] + districts)
+                
+                # Apply universal dropdown fix
+                self._apply_combo_box_dropdown_fix(widget, "district_combo")
                     
             elif field_type == "union_council_combo":
                 widget = QComboBox()
@@ -1795,6 +1815,9 @@ class StudentPage(QWidget):
                     widget.setObjectName("required_field")
                 else:
                     widget.addItems(["Not Specified"] + union_councils)
+                
+                # Apply universal dropdown fix
+                self._apply_combo_box_dropdown_fix(widget, "union_council_combo")
                     
             elif field_type == "nationality_combo":
                 widget = QComboBox()
@@ -1804,6 +1827,9 @@ class StudentPage(QWidget):
                     widget.setObjectName("required_field")
                 else:
                     widget.addItems(["Not Specified"] + nationalities)
+                
+                # Apply universal dropdown fix
+                self._apply_combo_box_dropdown_fix(widget, "nationality_combo")
             
             # Apply styling based on required status
             if is_required:
@@ -1933,23 +1959,33 @@ class StudentPage(QWidget):
                 widget = QComboBox()
                 # Load schools from database
                 try:
+                    print(f"🏫 Loading schools for academic info tab...")
                     schools = self.db.get_schools()
+                    print(f"🏫 Found {len(schools)} schools for academic form")
+                    
                     if is_required:
                         widget.addItem("Select School...")
                     else:
                         widget.addItem("Not Specified")
+                    
                     for school in schools:
                         school_name = school.get('school_name', f"School {school.get('id', '')}")
                         widget.addItem(school_name, school.get('id'))
+                        
                     if not schools:
                         widget.addItem("No schools found")
+                    
+                    print(f"🏫 Academic school combo populated with {widget.count()} items")
                     
                     # Connect school selection change to auto-populate organizational fields
                     widget.currentIndexChanged.connect(self._on_school_selection_changed)
                     
                 except Exception as e:
-                    print(f"Error loading schools: {e}")
+                    print(f"❌ Error loading schools for academic form: {e}")
                     widget.addItems(["Error loading schools"])
+                
+                # Apply universal dropdown fix
+                self._apply_combo_box_dropdown_fix(widget, "school_combo")
                     
             elif field_type == "org_combo":
                 widget = QComboBox()
@@ -1959,6 +1995,9 @@ class StudentPage(QWidget):
                     widget.setObjectName("required_field")
                 else:
                     widget.addItems(["Not Specified"] + organizations)
+                
+                # Apply universal dropdown fix
+                self._apply_combo_box_dropdown_fix(widget, "org_combo")
                     
             elif field_type == "province_combo":
                 widget = QComboBox()
@@ -1968,6 +2007,9 @@ class StudentPage(QWidget):
                     widget.setObjectName("required_field")
                 else:
                     widget.addItems(["Not Specified"] + provinces)
+                
+                # Apply universal dropdown fix
+                self._apply_combo_box_dropdown_fix(widget, "province_combo")
                     
             elif field_type == "district_combo":
                 widget = QComboBox()
@@ -1977,6 +2019,9 @@ class StudentPage(QWidget):
                     widget.setObjectName("required_field")
                 else:
                     widget.addItems(["Not Specified"] + districts)
+                
+                # Apply universal dropdown fix
+                self._apply_combo_box_dropdown_fix(widget, "district_combo")
                     
             elif field_type == "union_council_combo":
                 widget = QComboBox()
@@ -1986,6 +2031,9 @@ class StudentPage(QWidget):
                     widget.setObjectName("required_field")
                 else:
                     widget.addItems(["Not Specified"] + union_councils)
+                
+                # Apply universal dropdown fix
+                self._apply_combo_box_dropdown_fix(widget, "union_council_combo")
                     
             elif field_type == "nationality_combo":
                 widget = QComboBox()
@@ -1995,6 +2043,9 @@ class StudentPage(QWidget):
                     widget.setObjectName("required_field")
                 else:
                     widget.addItems(["Not Specified"] + nationalities)
+                
+                # Apply universal dropdown fix
+                self._apply_combo_box_dropdown_fix(widget, "nationality_combo")
                     
             elif field_type == "combo":
                 widget = QComboBox()
@@ -2009,24 +2060,60 @@ class StudentPage(QWidget):
                         widget.addItems(["Select..."] + combo_options)
                     else:
                         widget.addItems(["Not Specified"] + combo_options)
+                    
+                    # Store original items for later restoration
+                    widget._original_items = []
+                    for i in range(widget.count()):
+                        widget._original_items.append(widget.itemText(i))
+                
+                # Apply universal dropdown fix
+                self._apply_combo_box_dropdown_fix(widget, "combo")
                         
             elif field_type == "class_combo":
                 widget = QComboBox()
-                classes = self.db.get_classes()
-                if is_required:
-                    widget.addItems(["Select Class..."] + classes)
-                    widget.setObjectName("required_field")
-                else:
-                    widget.addItems(["Not Specified"] + classes)
+                try:
+                    classes = self.db.get_classes()
+                    # Database method returns list of strings directly
+                    class_names = classes if classes else []
+                    
+                    if is_required:
+                        widget.addItem("Select Class...")
+                        widget.addItems(class_names)
+                        widget.setObjectName("required_field")
+                    else:
+                        widget.addItem("Not Specified")
+                        widget.addItems(class_names)
+                    
+                    print(f"📚 Loaded {len(class_names)} classes for form: {class_names}")
+                except Exception as e:
+                    print(f"❌ Error loading classes for form: {e}")
+                    widget.addItems(["Class 1", "Class 2", "Class 3"])
+                
+                # Apply universal dropdown fix
+                self._apply_combo_box_dropdown_fix(widget, "class_combo")
                     
             elif field_type == "section_combo":
                 widget = QComboBox()
-                sections = self.db.get_sections()
-                if is_required:
-                    widget.addItems(["Select Section..."] + sections)
-                    widget.setObjectName("required_field")
-                else:
-                    widget.addItems(["Not Specified"] + sections)
+                try:
+                    sections = self.db.get_sections()
+                    # Database method returns list of strings directly
+                    section_names = sections if sections else []
+                    
+                    if is_required:
+                        widget.addItem("Select Section...")
+                        widget.addItems(section_names)
+                        widget.setObjectName("required_field")
+                    else:
+                        widget.addItem("Not Specified")
+                        widget.addItems(section_names)
+                    
+                    print(f"📚 Loaded {len(section_names)} sections for form: {section_names}")
+                except Exception as e:
+                    print(f"❌ Error loading sections for form: {e}")
+                    widget.addItems(["Section A", "Section B", "Section C"])
+                
+                # Apply universal dropdown fix
+                self._apply_combo_box_dropdown_fix(widget, "section_combo")
                         
             elif field_type == "number":
                 widget = QSpinBox()
@@ -2226,6 +2313,14 @@ class StudentPage(QWidget):
                         widget.addItems(["Select..."] + combo_options)
                     else:
                         widget.addItems(["Not Specified"] + combo_options)
+                    
+                    # Store original items for later restoration
+                    widget._original_items = []
+                    for i in range(widget.count()):
+                        widget._original_items.append(widget.itemText(i))
+                
+                # Apply universal dropdown fix
+                self._apply_combo_box_dropdown_fix(widget, "combo")
             
             # Apply styling based on required status
             if is_required:
@@ -2252,10 +2347,191 @@ class StudentPage(QWidget):
         
         return tab
     
+    def _apply_combo_box_dropdown_fix(self, widget, combo_type="combo"):
+        """Apply dropdown functionality fix to any combo box widget."""
+        
+        # Set maximum visible items for dropdown to control height
+        widget.setMaxVisibleItems(2)  # Limit dropdown to only 2 visible items for ultra-compact height
+        
+        # Force a fixed size policy for the dropdown
+        widget.setSizePolicy(widget.sizePolicy().horizontalPolicy(), widget.sizePolicy().Fixed)
+        
+        # Store original items when combo is created to restore if needed
+        if not hasattr(widget, '_original_items'):
+            widget._original_items = []
+            for i in range(widget.count()):
+                widget._original_items.append(widget.itemText(i))
+        
+        # Override the showPopup method to control dropdown size
+        original_show_popup = widget.showPopup
+        
+        def custom_show_popup():
+            original_show_popup()
+            # Get the popup view and force exact size matching
+            popup = widget.view()
+            if popup:
+                # Match popup width exactly to combo box width
+                popup.setFixedWidth(widget.width())
+                
+                # Ultra-compact height for 2 items only
+                popup.setFixedHeight(44)  # Just enough for 2 items (20px each + 4px padding)
+                
+                # Position popup directly below combo box
+                global_pos = widget.mapToGlobal(widget.rect().bottomLeft())
+                popup.move(global_pos.x(), global_pos.y())
+                
+                # Remove any margins or borders that cause dual frame effect
+                popup.setContentsMargins(0, 0, 0, 0)
+                popup.setStyleSheet("""
+                    QAbstractItemView {
+                        border: 1px solid #D1D5DB;
+                        border-radius: 4px;
+                        background-color: #FFFFFF;
+                        margin: 0px;
+                        padding: 0px;
+                    }
+                """)
+        
+        widget.showPopup = custom_show_popup
+        
+        # Improve the mouse press event handling
+        original_mouse_press = widget.mousePressEvent
+        
+        def enhanced_mouse_press(event):
+            print(f"🎯 {combo_type} combo clicked - enhanced handling")
+            
+            # Check if items were cleared - repopulate if needed
+            if widget.count() == 0:
+                print(f"🎯 {combo_type} combo box is empty! Repopulating...")
+                try:
+                    # Repopulate based on combo type
+                    if combo_type == "school_combo":
+                        schools = self.db.get_schools()
+                        widget.addItem("Select School...")
+                        for school in schools:
+                            school_name = school.get('school_name', f"School {school.get('id', '')}")
+                            widget.addItem(school_name, school.get('id'))
+                    elif combo_type == "class_combo":
+                        classes = self.db.get_classes()
+                        widget.addItem("Select Class...")
+                        widget.addItems(classes)
+                    elif combo_type == "section_combo":
+                        sections = self.db.get_sections()
+                        widget.addItem("Select Section...")
+                        widget.addItems(sections)
+                    else:
+                        # For other combo types (gender, etc.), restore original items
+                        if hasattr(widget, '_original_items') and widget._original_items:
+                            widget.addItems(widget._original_items)
+                        else:
+                            widget.addItem("Select...")
+                    print(f"🎯 Repopulated {combo_type} with {widget.count()} items")
+                except Exception as e:
+                    print(f"🎯 Error repopulating {combo_type}: {e}")
+            
+            # Call the original mouse press event to maintain proper behavior
+            original_mouse_press(event)
+        
+        widget.mousePressEvent = enhanced_mouse_press
+        
+        # Apply improved combo box styling
+        self._apply_improved_combo_styling(widget, combo_type)
+        
+        # Also add keyboard support
+        def key_press_override(event):
+            from PyQt5.QtCore import Qt
+            if event.key() in [Qt.Key_Enter, Qt.Key_Return, Qt.Key_Space, Qt.Key_Down]:
+                print(f"🎯 {combo_type} combo opened via keyboard")
+                widget.showPopup()
+                event.accept()
+            else:
+                super(QComboBox, widget).keyPressEvent(event)
+        
+        widget.keyPressEvent = key_press_override
+    
+    def _apply_improved_combo_styling(self, widget, combo_type):
+        """Apply single-frame combo box styling to eliminate dual background."""
+        improved_style = """
+            QComboBox {
+                background-color: #FFFFFF;
+                border: 1px solid #D1D5DB;
+                border-radius: 4px;
+                padding: 6px 8px;
+                font-family: 'Poppins Medium';
+                font-size: 12px;
+                color: #1E293B;
+                min-height: 24px;
+                max-height: 32px;
+            }
+            QComboBox:focus {
+                border: 2px solid #3B82F6;
+                background-color: #FFFFFF;
+            }
+            QComboBox:hover {
+                border: 1px solid #6B7280;
+                background-color: #F9FAFB;
+            }
+            QComboBox::drop-down {
+                subcontrol-origin: padding;
+                subcontrol-position: top right;
+                width: 20px;
+                border: none;
+                border-left: 1px solid #D1D5DB;
+                border-top-right-radius: 4px;
+                border-bottom-right-radius: 4px;
+                background: #F3F4F6;
+            }
+            QComboBox::down-arrow {
+                width: 0;
+                height: 0;
+                border-left: 4px solid transparent;
+                border-right: 4px solid transparent;
+                border-top: 5px solid #6B7280;
+                margin: auto;
+            }
+            QComboBox::down-arrow:hover {
+                border-top: 5px solid #374151;
+            }
+            QComboBox QAbstractItemView {
+                border: 1px solid #D1D5DB;
+                border-radius: 4px;
+                background-color: #FFFFFF;
+                selection-background-color: #3B82F6;
+                selection-color: white;
+                outline: none;
+                show-decoration-selected: 1;
+                margin: 0px;
+                padding: 0px;
+            }
+            QComboBox QAbstractItemView::item {
+                height: 20px;
+                padding: 4px 8px;
+                border: none;
+                background-color: transparent;
+                margin: 0px;
+            }
+            QComboBox QAbstractItemView::item:selected {
+                background-color: #3B82F6;
+                color: white;
+            }
+            QComboBox QAbstractItemView::item:hover {
+                background-color: #EBF4FF;
+                color: #1E293B;
+            }
+        """
+        
+        # Apply style based on field requirements
+        if hasattr(widget, 'objectName') and widget.objectName() == "required_field":
+            # Red styling for required fields
+            required_style = improved_style.replace("#E2E8F0", "#FCA5A5").replace("#3B82F6", "#DC2626")
+            widget.setStyleSheet(required_style)
+        else:
+            widget.setStyleSheet(improved_style)
+
     def _get_input_style(self):
         """Return standard input field styling."""
         return """
-            QLineEdit, QComboBox, QSpinBox, QDateEdit {
+            QLineEdit, QSpinBox, QDateEdit {
                 background-color: #F8FAFC;
                 border: 2px solid #E2E8F0;
                 border-radius: 8px;
@@ -2264,30 +2540,16 @@ class StudentPage(QWidget):
                 font-size: 13px;
                 color: #1E293B;
                 selection-background-color: #3B82F6;
-                min-height: 14px;
-                max-height: 14px;
+                min-height: 30px;
+                max-height: 44px;
             }
-            QLineEdit:focus, QComboBox:focus, QSpinBox:focus, QDateEdit:focus {
+            QLineEdit:focus, QSpinBox:focus, QDateEdit:focus {
                 border: 2px solid #3B82F6;
                 background-color: #FFFFFF;
             }
-            QLineEdit:hover, QComboBox:hover, QSpinBox:hover, QDateEdit:hover {
+            QLineEdit:hover, QSpinBox:hover, QDateEdit:hover {
                 border: 2px solid #CBD5E1;
                 background-color: #FFFFFF;
-            }
-            QComboBox::drop-down {
-                subcontrol-origin: padding;
-                subcontrol-position: top right;
-                width: 30px;
-                border-left: 2px solid #E2E8F0;
-                border-top-right-radius: 8px;
-                border-bottom-right-radius: 8px;
-                background: #F1F5F9;
-            }
-            QComboBox::down-arrow {
-                image: url(assets/icons/chevron-down.png);
-                width: 12px;
-                height: 12px;
             }
             QSpinBox::up-button, QSpinBox::down-button {
                 width: 20px;
@@ -2308,7 +2570,7 @@ class StudentPage(QWidget):
     def _get_required_input_style(self):
         """Return required field input styling with red accent."""
         return """
-            QLineEdit, QComboBox, QSpinBox, QDateEdit {
+            QLineEdit, QSpinBox, QDateEdit {
                 background-color: #FEF2F2;
                 border: 2px solid #FCA5A5;
                 border-radius: 8px;
@@ -2317,25 +2579,16 @@ class StudentPage(QWidget):
                 font-size: 13px;
                 color: #1E293B;
                 selection-background-color: #DC2626;
-                min-height: 14px;
-                max-height: 14px;
+                min-height: 30px;
+                max-height: 44px;
             }
-            QLineEdit:focus, QComboBox:focus, QSpinBox:focus, QDateEdit:focus {
+            QLineEdit:focus, QSpinBox:focus, QDateEdit:focus {
                 border: 2px solid #DC2626;
                 background-color: #FFFFFF;
             }
-            QLineEdit:hover, QComboBox:hover, QSpinBox:hover, QDateEdit:hover {
+            QLineEdit:hover, QSpinBox:hover, QDateEdit:hover {
                 border: 2px solid #F87171;
                 background-color: #FFFFFF;
-            }
-            QComboBox::drop-down {
-                subcontrol-origin: padding;
-                subcontrol-position: top right;
-                width: 30px;
-                border-left: 2px solid #FCA5A5;
-                border-top-right-radius: 8px;
-                border-bottom-right-radius: 8px;
-                background: #FEE2E2;
             }
             QSpinBox::up-button, QSpinBox::down-button {
                 width: 20px;
