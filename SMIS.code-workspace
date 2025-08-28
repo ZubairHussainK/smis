@@ -1,0 +1,70 @@
+{
+    "folders": [
+        {
+            "path": "."
+        }
+    ],
+    "settings": {
+        "python.defaultInterpreterPath": "./.venv/Scripts/python.exe",
+        "python.terminal.activateEnvironment": true,
+        "files.exclude": {
+            "**/__pycache__": true,
+            "**/*.pyc": true,
+            "**/test_*.py": true,
+            "**/debug_*.py": true,
+            "**/*_fixed.py": true,
+            "**/check_*.py": true,
+            "**/verify_*.py": true,
+            "**/add_*.py": true,
+            "**/setup_*.py": true,
+            "**/demo_*.py": true,
+            "**/final_*.py": true,
+            "**/migrate_*.py": true,
+            "**/auto_*.py": true,
+            "**/*.txt": true,
+            "**/KeyGenerator": true,
+            "**/development_files": true,
+            "**/backup_attendance_files": true,
+            "**/attendance_modular_temp": true,
+            "**/school_backup*.db": true,
+            "**/.git": true
+        },
+        "search.exclude": {
+            "**/__pycache__": true,
+            "**/*.pyc": true,
+            "**/test_*.py": true,
+            "**/debug_*.py": true,
+            "**/*_fixed.py": true,
+            "**/KeyGenerator": true,
+            "**/development_files": true,
+            "**/.venv": true,
+            "**/node_modules": true
+        },
+        "files.watcherExclude": {
+            "**/__pycache__/**": true,
+            "**/*.pyc": true,
+            "**/test_*.py": true,
+            "**/debug_*.py": true,
+            "**/*_fixed.py": true,
+            "**/KeyGenerator/**": true,
+            "**/development_files/**": true,
+            "**/.venv/**": true
+        },
+        "files.associations": {
+            "*.py": "python"
+        },
+        "editor.formatOnSave": true,
+        "python.formatting.provider": "autopep8",
+        "workbench.startupEditor": "none",
+        "workbench.editor.restoreViewState": true,
+        "window.restoreWindows": "one",
+        "files.autoSave": "afterDelay",
+        "files.autoSaveDelay": 1000
+    },
+    "extensions": {
+        "recommendations": [
+            "ms-python.python",
+            "ms-python.vscode-pylance"
+        ]
+    }
+}

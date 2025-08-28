@@ -1,0 +1,59 @@
+# Development Files - Ignore in Production
+development_files/
+
+# Testing and Debug Files - Ignore temporary files
+test_*.py
+debug_*.py
+*_fixed.py
+check_*.py
+verify_*.py
+add_*.py
+setup_*.py
+demo_*.py
+final_*.py
+migrate_*.py
+auto_*.py
+*.txt
+*.md
+
+# KeyGenerator - Separate repository
+KeyGenerator/
+
+# Backup and Temporary Folders
+backup_attendance_files/
+attendance_modular_temp/
+attendance/
+*_temp/
+
+# Python Cache
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual Environment
+.venv/
+venv/
+env/
+
+# IDE Files - Keep workspace settings but ignore temp files
+.vscode/launch.json
+.vscode/tasks.json
+.idea/
+*.swp
+*.swo
+
+# OS Files
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs/
+
+# Database
+*.db-shm
+*.db-wal
+school_backup*.db
+
+# Backup Files
+backups/

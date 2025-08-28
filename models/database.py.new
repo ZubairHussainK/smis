@@ -1,0 +1,149 @@
+"""Database management and operations."""
+import sqlite3
+import logging
+from config.settings import DATABASE_PATH
+
+class Database:
+    """Handles all database operations."""
+    
+    def __init__(self):
+        """Initialize database connection."""
+        try:
+            self.conn = sqlite3.connect(DATABASE_PATH)
+            self.conn.row_factory = sqlite3.Row  # This allows accessing columns by name
+            self.cursor = self.conn.cursor()
+            self._create_tables()
+        except Exception as e:
+            logging.error(f"Database initialization error: {e}")
+            raise
+
+    def _create_tables(self):
+        """Create necessary database tables if they don't exist."""
+        try:
+            # Students table
+            self.cursor.execute('''CREATE TABLE IF NOT EXISTS students (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                serial_number TEXT UNIQUE,
+                name TEXT NOT NULL,
+                mobile_number TEXT,
+                organization TEXT,
+                bemis TEXT,
+                school_name TEXT,
+                school_type TEXT,
+                uc TEXT,
+                bform_number TEXT,
+                admission_year TEXT,
+                father_cnic TEXT,
+                father_contact TEXT,
+                guardian_address TEXT,
+                date_of_birth TEXT,
+                registration_number TEXT,
+                gender TEXT,
+                class_teacher TEXT,
+                register_serial TEXT,
+                class TEXT,
+                section TEXT,
+                father_name TEXT,
+                class_status TEXT,
+                verification_status TEXT,
+                status TEXT,
+                remarks TEXT,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )''')
+            self.conn.commit()
+        except Exception as e:
+            logging.error(f"Error creating tables: {e}")
+            raise
+
+    def student_exists(self, serial_number: str) -> bool:
+        """Check if a student exists by serial number."""
+        try:
+            self.cursor.execute("SELECT 1 FROM students WHERE serial_number = ?", (serial_number,))
+            return self.cursor.fetchone() is not None
+        except Exception as e:
+            logging.error(f"Error checking student existence: {e}")
+            raise
+
+    def get_students(self, school_name=None, class_name=None, section=None):
+        """Get filtered list of students."""
+        try:
+            query = "SELECT * FROM students WHERE 1=1"
+            params = []
+            
+            if school_name and school_name != "All Schools":
+                query += " AND school_name = ?"
+                params.append(school_name)
+            if class_name and class_name != "All Classes":
+                query += " AND class = ?"
+                params.append(class_name)
+            if section and section != "All Sections":
+                query += " AND section = ?"
+                params.append(section)
+                
+            self.cursor.execute(query, params)
+            
+            students = []
+            for row in self.cursor.fetchall():
+                student = dict(row)
+                students.append({
+                    "S#": student["serial_number"],
+                    "Name": student["name"],
+                    "School": student["school_name"],
+                    "Class": student["class"],
+                    "Section": student["section"],
+                    "Phone": student["mobile_number"],
+                    "Gender": student["gender"],
+                    "DOB": student["date_of_birth"],
+                    "Father": student["father_name"],
+                    "Address": student["guardian_address"]
+                })
+            return students
+            
+        except Exception as e:
+            logging.error(f"Error getting students: {e}")
+            raise
+
+    def save_student(self, data):
+        """Save a new student record."""
+        try:
+            self.cursor.execute("""INSERT INTO students (
+                serial_number, name, gender, date_of_birth,
+                guardian_address, mobile_number, school_name,
+                class, section, father_name
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""", (
+                data["S#"], data["Name"], data.get("Gender"), data.get("DOB"),
+                data.get("Address"), data.get("Phone"), data.get("School"),
+                data["Class"], data["Section"], data.get("Father")
+            ))
+            self.conn.commit()
+        except Exception as e:
+            logging.error(f"Error saving student: {e}")
+            raise
+
+    def update_student(self, data):
+        """Update an existing student record."""
+        try:
+            self.cursor.execute("""UPDATE students SET
+                name = ?, gender = ?, date_of_birth = ?,
+                guardian_address = ?, mobile_number = ?,
+                school_name = ?, class = ?, section = ?,
+                father_name = ?
+            WHERE serial_number = ?""", (
+                data["Name"], data.get("Gender"), data.get("DOB"),
+                data.get("Address"), data.get("Phone"), data.get("School"),
+                data["Class"], data["Section"], data.get("Father"),
+                data["S#"]
+            ))
+            self.conn.commit()
+        except Exception as e:
+            logging.error(f"Error updating student: {e}")
+            raise
+
+    def delete_student(self, serial_number):
+        """Delete a student record."""
+        try:
+            self.cursor.execute("DELETE FROM students WHERE serial_number = ?", (serial_number,))
+            self.conn.commit()
+        except Exception as e:
+            logging.error(f"Error deleting student: {e}")
+            raise
