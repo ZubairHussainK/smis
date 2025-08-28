@@ -1203,6 +1203,57 @@ class Database:
             logging.error(f"Error getting schools: {e}")
             return []
 
+    def get_school_organizational_data(self, school_id):
+        """Get organizational data for a school (org_id, province_id, district_id, union_council_id, nationality_id)."""
+        try:
+            self.cursor.execute("SELECT * FROM schools WHERE id = ?", (school_id,))
+            school = self.cursor.fetchone()
+            
+            if school:
+                # Convert to dict for easier access
+                school_dict = dict(school)
+                
+                # Default organizational data based on school info
+                # For now, we'll set default values - these can be enhanced later
+                organizational_data = {
+                    'org_id': 1,  # Default organization
+                    'province_id': 1,  # Default province (Punjab)
+                    'district_id': 1,  # Default district (Lahore)
+                    'union_council_id': 1,  # Default union council
+                    'nationality_id': 1  # Default nationality (Pakistani)
+                }
+                
+                # Try to map based on school's province/district text fields if available
+                province_text = school_dict.get('province', '').lower()
+                district_text = school_dict.get('district', '').lower()
+                
+                # Map province text to province_id
+                if 'sindh' in province_text:
+                    organizational_data['province_id'] = 2
+                elif 'khyber' in province_text or 'kp' in province_text:
+                    organizational_data['province_id'] = 3
+                elif 'balochistan' in province_text:
+                    organizational_data['province_id'] = 4
+                elif 'islamabad' in province_text:
+                    organizational_data['province_id'] = 5
+                    
+                # Map district text to district_id
+                if 'karachi' in district_text:
+                    organizational_data['district_id'] = 2
+                elif 'rawalpindi' in district_text:
+                    organizational_data['district_id'] = 3
+                elif 'peshawar' in district_text:
+                    organizational_data['district_id'] = 4
+                elif 'islamabad' in district_text:
+                    organizational_data['district_id'] = 6
+                
+                return organizational_data
+            
+            return None
+        except Exception as e:
+            logging.error(f"Error getting school organizational data: {e}")
+            return None
+
     def get_classes(self, school_id=None):
         """Get classes from classes table."""
         try:

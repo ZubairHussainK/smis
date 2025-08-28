@@ -1343,6 +1343,62 @@ class StudentPage(QWidget):
         
         # Apply filters
         self._apply_filters()
+
+    def _on_school_selection_changed(self):
+        """Auto-populate organizational fields when school is selected in form."""
+        try:
+            # Get the school combo widget from the sender
+            school_combo = self.sender()
+            if not school_combo or not hasattr(school_combo, 'currentData'):
+                return
+                
+            # Get selected school ID
+            school_id = school_combo.currentData()
+            if not school_id:
+                return
+                
+            print(f"🏫 School selected: ID {school_id}")
+            
+            # Get organizational data for this school
+            org_data = self.db.get_school_organizational_data(school_id)
+            if not org_data:
+                print("❌ No organizational data found for school")
+                return
+                
+            print(f"📊 Auto-populating organizational fields: {org_data}")
+            
+            # Auto-populate organizational fields
+            self._populate_organizational_fields(org_data)
+            
+        except Exception as e:
+            print(f"❌ Error in school selection change: {e}")
+            
+    def _populate_organizational_fields(self, org_data):
+        """Populate organizational fields based on school data."""
+        try:
+            # Map the organizational IDs to combo box selections
+            field_mappings = {
+                'org_id': ('org_id', self._get_organizations_from_database()),
+                'province_id': ('province_id', self._get_provinces_from_database()),
+                'district_id': ('district_id', self._get_districts_from_database()),
+                'union_council_id': ('union_council_id', self._get_union_councils_from_database()),
+                'nationality_id': ('nationality_id', self._get_nationalities_from_database())
+            }
+            
+            for data_key, (field_name, options_list) in field_mappings.items():
+                if field_name in self.student_fields and data_key in org_data:
+                    widget = self.student_fields[field_name]
+                    if isinstance(widget, QComboBox):
+                        # Get the ID value
+                        id_value = org_data[data_key]
+                        
+                        # For now, set to first available option (can be enhanced later)
+                        if widget.count() > 1:  # Skip "Select..." placeholder
+                            widget.setCurrentIndex(1)  # Set to first real option
+                            print(f"✅ Set {field_name} to index 1 (ID: {id_value})")
+                        
+        except Exception as e:
+            print(f"❌ Error populating organizational fields: {e}")
     
     def _show_form(self, title):
         """Show the student form with the given title."""
@@ -1816,15 +1872,10 @@ class StudentPage(QWidget):
         layout.setHorizontalSpacing(15)  # Better column spacing
         layout.setContentsMargins(20, 15, 20, 15)  # Better margins for proper alignment
         
-        # Academic fields - matching database schema exactly (non-audit fields only)
+        # Academic fields - simplified: only school selection, organizational data auto-populated
         academic_fields = [
-            # Organization and Location IDs (all required) - now combo boxes fetching from database
-            ("Organization*", "org_id", "org_combo", True),
+            # School Selection (required) - organizational data will be auto-populated
             ("School*", "school_id", "school_combo", True),
-            ("Province*", "province_id", "province_combo", True),
-            ("District*", "district_id", "district_combo", True),
-            ("Union Council*", "union_council_id", "union_council_combo", True),
-            ("Nationality*", "nationality_id", "nationality_combo", True),
             
             # School Information (all required)
             ("Registration Number*", "registration_number", "text", True),
@@ -1892,6 +1943,10 @@ class StudentPage(QWidget):
                         widget.addItem(school_name, school.get('id'))
                     if not schools:
                         widget.addItem("No schools found")
+                    
+                    # Connect school selection change to auto-populate organizational fields
+                    widget.currentIndexChanged.connect(self._on_school_selection_changed)
+                    
                 except Exception as e:
                     print(f"Error loading schools: {e}")
                     widget.addItems(["Error loading schools"])
@@ -2519,9 +2574,22 @@ class StudentPage(QWidget):
                     if value:  # Only include non-empty values
                         student_data[field_name] = value
                 elif isinstance(widget, QComboBox):
-                    value = widget.currentText()
-                    if value and value != "Select...":  # Only include valid selections
-                        student_data[field_name] = value
+                    if field_name == "school_id":
+                        # For school, get the ID from combo data
+                        school_id = widget.currentData()
+                        if school_id:
+                            student_data[field_name] = school_id
+                            
+                            # Auto-populate organizational fields from school data
+                            org_data = self.db.get_school_organizational_data(school_id)
+                            if org_data:
+                                print(f"🏫 Auto-adding organizational data: {org_data}")
+                                # Add organizational IDs to student data
+                                student_data.update(org_data)
+                    else:
+                        value = widget.currentText()
+                        if value and value != "Select...":  # Only include valid selections
+                            student_data[field_name] = value
                 elif isinstance(widget, QDateEdit):
                     student_data[field_name] = widget.date().toString("yyyy-MM-dd")
                 elif isinstance(widget, QTextEdit):
@@ -2530,6 +2598,8 @@ class StudentPage(QWidget):
                         student_data[field_name] = value
                 elif isinstance(widget, QSpinBox):
                     student_data[field_name] = widget.value()
+            
+            print(f"📊 Final student data with org fields: {student_data}")
             
             # Add the student to database using our new method
             success = self.db.add_student(student_data)
