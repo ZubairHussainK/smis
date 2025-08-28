@@ -33,6 +33,10 @@ class StudentPage(QWidget):
         self.current_student_id = None
         self.is_editing = False
         
+        # Form management variables
+        self.form_dialog = None
+        self.form_created = False
+        
         # Initialize database
         self.db = Database()
         
@@ -620,36 +624,93 @@ class StudentPage(QWidget):
     def _show_add_form(self):
         """Show the form for adding a new student."""
         try:
+            # Reset editing state
+            self.is_editing = False
+            self.current_student_id = None
+            
+            # Close any existing form dialog to prevent crashes
+            if hasattr(self, 'form_dialog') and self.form_dialog:
+                try:
+                    self.form_dialog.close()
+                    self.form_dialog.deleteLater()
+                except:
+                    pass
+                self.form_dialog = None
+            
             # Check if form_frame exists
             if not hasattr(self, 'form_frame') or not self.form_frame:
                 QMessageBox.critical(self, "Error", "Form frame not available.")
                 return
             
-            # If form is already visible, just return
+            # Hide form if already visible and reset
             if self.form_frame.isVisible():
-                return
+                self.form_frame.setVisible(False)
+                self._clear_form_safely()
             
-            # Check if layout already exists and has proper content
-            current_layout = self.form_frame.layout()
-            if not current_layout or current_layout.count() < 3:  # Should have header, tabs, buttons
-                # Clear existing layout if incomplete
-                if current_layout:
-                    self.form_frame.setLayout(None)
-                
-                # Create complete form with tabs
-                self._create_complete_form()
+            # Create fresh form
+            self._create_complete_form()
             
             # Show the form
             self.form_frame.setVisible(True)
+            
+            # Clear all input fields for new student
+            self._clear_form_fields()
             
         except Exception as e:
             QMessageBox.critical(self, "Error", f"Failed to open Add Student form:\n{str(e)}")
             import traceback
             traceback.print_exc()
     
+    def _clear_form_safely(self):
+        """Safely clear form layout and widgets."""
+        try:
+            if self.form_frame and self.form_frame.layout():
+                # Clear widget references
+                self.student_fields.clear()
+                
+                # Remove and delete layout
+                layout = self.form_frame.layout()
+                while layout.count():
+                    item = layout.takeAt(0)
+                    if item.widget():
+                        item.widget().deleteLater()
+                
+                # Remove layout
+                self.form_frame.setLayout(None)
+                layout.deleteLater()
+                
+                self.form_created = False
+                
+        except Exception as e:
+            print(f"Error clearing form safely: {e}")
+    
+    def _clear_form_fields(self):
+        """Clear all form input fields."""
+        try:
+            for field_name, field_widget in self.student_fields.items():
+                if hasattr(field_widget, 'clear'):
+                    field_widget.clear()
+                elif hasattr(field_widget, 'setCurrentIndex'):
+                    field_widget.setCurrentIndex(0)
+                elif hasattr(field_widget, 'setDate'):
+                    field_widget.setDate(QDate.currentDate())
+                elif hasattr(field_widget, 'setValue'):
+                    field_widget.setValue(0)
+                elif hasattr(field_widget, 'setChecked'):
+                    field_widget.setChecked(False)
+        except Exception as e:
+            print(f"Error clearing form fields: {e}")
+    
     def _create_complete_form(self):
         """Create a complete form with tabs for student details."""
         try:
+            # Prevent multiple form creation
+            if self.form_created:
+                return
+            
+            # Clear any existing layout first
+            self._clear_form_safely()
+            
             # Create main form layout with better structure
             form_layout = QVBoxLayout()
             form_layout.setContentsMargins(10, 0, 10, 5)  # Reduced side margins
@@ -793,7 +854,7 @@ class StudentPage(QWidget):
                     transform: translateY(1px);
                 }
             """)
-            self.cancel_btn.clicked.connect(lambda: self.form_frame.setVisible(False))
+            self.cancel_btn.clicked.connect(self._close_form)
             
             # Save button
             self.save_btn = QPushButton("💾 Save Student")
@@ -835,10 +896,14 @@ class StudentPage(QWidget):
             # Set the layout to the form frame
             self.form_frame.setLayout(form_layout)
             
+            # Mark form as created
+            self.form_created = True
+            
         except Exception as e:
             print(f"Error creating complete form: {e}")
             import traceback
             traceback.print_exc()
+            self.form_created = False
     
     def _create_simple_form(self):
         """This method is no longer used - keeping for compatibility."""
@@ -1192,16 +1257,19 @@ class StudentPage(QWidget):
     def _close_form(self):
         """Properly close and cleanup the form."""
         try:
-            # Simple and safe cleanup
+            # Hide form first
             if self.form_frame:
                 self.form_frame.setVisible(False)
             
-            # Clear student fields dictionary
-            self.student_fields.clear()
+            # Clear form safely
+            self._clear_form_safely()
             
             # Reset editing state
             self.is_editing = False
             self.current_student_id = None
+            
+            # Reset form created flag
+            self.form_created = False
                 
         except Exception as e:
             print(f"Error closing form: {e}")
