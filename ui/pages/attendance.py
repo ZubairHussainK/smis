@@ -69,7 +69,7 @@ class ModernCalendarWidget(QWidget):
                 background: white;
                 border-radius: 12px;
                 border: 1px solid #e5e7eb;
-                box-shadow: 0 2px 4px -1px rgba(0, 0, 0, 0.1);
+                
             }
         """)
         
@@ -1787,6 +1787,10 @@ class AttendancePage(QWidget):
                     self.update_calendar_with_saved_attendance()
                     print(f"🔄 Refreshed attendance for {self.selected_student.get('name')} for new month/year")
             
+            # Update selection info with new active week/month
+            if self.selected_student:
+                self.update_selection_info()
+            
             # Update last displayed month/year
             self.last_displayed_month = current_month
             self.last_displayed_year = current_year
@@ -1878,7 +1882,8 @@ class AttendancePage(QWidget):
                     self.selected_student = student
                     break
             
-            self.selection_info.setText(f"👤 Selected: {name} (Roll: {student_id})")
+            # Update selection info with active week and month only
+            self.update_selection_info()
             print(f"👤 Student selected: {name} (Roll: {student_id})")
             
             # Load saved attendance for this student
@@ -1962,6 +1967,38 @@ class AttendancePage(QWidget):
                 QTimer.singleShot(100, lambda: self.calendar.setFocus(Qt.OtherFocusReason))
                 print("🎯 Calendar will receive focus for keyboard navigation")
                 
+    def update_selection_info(self):
+        """Update the selection info label with student ID, active week and active month only."""
+        if not self.selected_student:
+            self.selection_info.setText("👤 No student selected")
+            return
+            
+        # Get student ID
+        student_id = self.selected_student.get("id", "N/A")
+        
+        # Get current calendar date for active week/month calculation
+        current_date = QDate.currentDate()
+        if hasattr(self, 'calendar') and hasattr(self.calendar, 'selectedDate'):
+            selected_date = self.calendar.selectedDate()
+            if selected_date.isValid():
+                current_date = selected_date
+        
+        # Calculate active month
+        month_names = [
+            "January", "February", "March", "April", "May", "June",
+            "July", "August", "September", "October", "November", "December"
+        ]
+        active_month = month_names[current_date.month() - 1]
+        
+        # Calculate active week (week number in the month)
+        first_day_of_month = QDate(current_date.year(), current_date.month(), 1)
+        days_from_start = first_day_of_month.daysTo(current_date)
+        active_week = (days_from_start // 7) + 1
+        
+        # Format: Student ID | Active Month | Week X
+        info_text = f"🆔 ID: {student_id} | 📅 {active_month} | 📅 Week {active_week}"
+        self.selection_info.setText(info_text)
+        
     def update_calendar_with_saved_attendance(self):
         """Update calendar to show saved attendance data from database."""
         if not hasattr(self, 'current_student_id') or self.current_student_id is None:
@@ -2268,11 +2305,11 @@ class AttendancePage(QWidget):
         selected_date_str = selected_date.toString("dddd, MMMM d, yyyy")
         print(f"📅 Date selected: {selected_date_str}")
         
-        if hasattr(self, 'selection_info'):
-            current_text = self.selection_info.text()
-            if "Selected:" in current_text:
-                # Update with date info
-                self.selection_info.setText(f"{current_text} | 📅 {selected_date.toString('dd/MM/yyyy')}")
+        # Update selection info with new active week/month based on selected date
+        if self.selected_student:
+            self.update_selection_info()
+        
+        print(f"📅 Selection info updated for date: {selected_date.toString('dd/MM/yyyy')}")
     
     def update_calendar_date(self, date, status):
         """Update calendar date with attendance status."""
