@@ -454,6 +454,7 @@ class Database:
                     "Name": student_data.get("student_name"),
                     "Class": student_data.get("class"),
                     "Section": student_data.get("section"),
+                    "School_ID": student_data.get("school_id"),  # Added missing school_id
                     "Gender": student_data.get("gender"),
                     "DOB": student_data.get("date_of_birth"),
                     "Father": student_data.get("father_name"),
@@ -907,6 +908,54 @@ class Database:
             return [dict(row) for row in self.cursor.fetchall()]
         except Exception as e:
             logging.error(f"Error getting schools: {e}")
+            return []
+
+    def get_classes(self, school_id=None):
+        """Get distinct classes from students table."""
+        try:
+            if school_id:
+                self.cursor.execute("""
+                    SELECT DISTINCT class 
+                    FROM students 
+                    WHERE is_deleted = 0 AND school_id = ? AND class IS NOT NULL AND class != ''
+                    ORDER BY class
+                """, (school_id,))
+            else:
+                self.cursor.execute("""
+                    SELECT DISTINCT class 
+                    FROM students 
+                    WHERE is_deleted = 0 AND class IS NOT NULL AND class != ''
+                    ORDER BY class
+                """)
+            return [row['class'] for row in self.cursor.fetchall()]
+        except Exception as e:
+            logging.error(f"Error getting classes: {e}")
+            return []
+
+    def get_sections(self, school_id=None, class_name=None):
+        """Get distinct sections from students table."""
+        try:
+            query = """
+                SELECT DISTINCT section 
+                FROM students 
+                WHERE is_deleted = 0 AND section IS NOT NULL AND section != ''
+            """
+            params = []
+            
+            if school_id:
+                query += " AND school_id = ?"
+                params.append(school_id)
+                
+            if class_name:
+                query += " AND class = ?"
+                params.append(class_name)
+                
+            query += " ORDER BY section"
+            
+            self.cursor.execute(query, params)
+            return [row['section'] for row in self.cursor.fetchall()]
+        except Exception as e:
+            logging.error(f"Error getting sections: {e}")
             return []
 
     def get_student_id_by_student_id(self, student_id_code):

@@ -783,8 +783,97 @@ class AttendancePage(QWidget):
         # Load student data from database
         self.load_students_from_database()
         
-    def load_students_from_database(self):
-        """Load students from database and populate the student list."""
+    def showEvent(self, event):
+        """Reset filters when page is shown."""
+        super().showEvent(event)
+        if hasattr(self, 'school_combo'):  # Ensure UI is initialized
+            self.reset_filters()
+    
+    def reset_filters(self):
+        """Reset all filters to default state."""
+        try:
+            print("🔄 Resetting attendance filters to default state")
+            
+            # Temporarily disconnect signals to prevent cascading calls
+            self.school_combo.currentTextChanged.disconnect()
+            self.class_combo.currentTextChanged.disconnect() 
+            self.section_combo.currentTextChanged.disconnect()
+            
+            # Reset school combo to placeholder
+            self.school_combo.setCurrentIndex(0)
+            
+            # Clear and reset class combo with placeholder
+            self.class_combo.clear()
+            self.class_combo.addItem("Please Select Class")
+            
+            # Clear and reset section combo with placeholder  
+            self.section_combo.clear()
+            self.section_combo.addItem("Please Select Section")
+            
+            # Reconnect signals
+            self.school_combo.currentTextChanged.connect(self.on_school_changed)
+            self.class_combo.currentTextChanged.connect(self.on_class_changed)
+            self.section_combo.currentTextChanged.connect(self.on_filters_changed)
+            
+            # Reload schools data and refresh
+            self.load_schools_data()
+            self.load_classes_data()
+            self.load_sections_data()
+            
+            # Load all students (no filters)
+            self.load_students_from_database()
+            
+            # Reset calendar and attendance data
+            self.reset_calendar_state()
+            
+            print("✅ Filters reset successfully")
+            
+        except Exception as e:
+            print(f"❌ Error resetting filters: {e}")
+            import traceback
+            traceback.print_exc()
+    
+    def reset_calendar_state(self):
+        """Reset calendar to current date and clear attendance data."""
+        try:
+            print("📅 Resetting calendar state")
+            
+            # Clear attendance data
+            self.attendance_data = {}
+            self.selected_student = None
+            self.has_unsaved_changes = False
+            self.edit_mode = False
+            self.saved_attendance = {}
+            
+            # Reset calendar to current date if available
+            if hasattr(self, 'calendar'):
+                current_date = QDate.currentDate()
+                self.calendar.current_date = current_date
+                self.calendar.selected_date = current_date
+                
+                # Clear calendar's attendance data
+                if hasattr(self.calendar, '_attendance_data'):
+                    self.calendar._attendance_data = {}
+                
+                # Update calendar display
+                if hasattr(self.calendar, '_update_display'):
+                    self.calendar._update_display()
+                    
+                print(f"📅 Calendar reset to current date: {current_date.toString('yyyy-MM-dd')}")
+            
+            # Clear student selection in table
+            if hasattr(self, 'students_table'):
+                self.students_table.clearSelection()
+                
+            print("✅ Calendar state reset successfully")
+            
+        except Exception as e:
+            print(f"❌ Error resetting calendar state: {e}")
+            import traceback
+            traceback.print_exc()
+        
+    def load_students_from_database(self, school_id=None, class_name=None, section_name=None):
+        """Load students from database with optional filters."""
         try:
             # Get students using the proper database method with pagination
             result = self.db.get_students(page=1, per_page=500)
@@ -804,7 +893,7 @@ class AttendancePage(QWidget):
                 else:
                     student_dict = dict(student) if hasattr(student, 'keys') else {}
                 
-                # Convert database format to internal format using the CORRECT field names from get_students()
+                # Convert database format to internal format
                 student_data = {
                     "id": str(student_dict.get("Student_ID", student_dict.get("ID", ""))),
                     "roll": str(student_dict.get("Student_ID", student_dict.get("ID", ""))),
@@ -812,16 +901,25 @@ class AttendancePage(QWidget):
                     "class": str(student_dict.get("Class", "")),
                     "section": str(student_dict.get("Section", "")),
                     "school": str(student_dict.get("School", "")),
+                    "school_id": str(student_dict.get("School_ID", "")),  # Fixed field name
                     "gender": str(student_dict.get("Gender", "")),
                     "phone": str(student_dict.get("Phone", student_dict.get("Contact", ""))),
                     "father": str(student_dict.get("Father", student_dict.get("Father_Name", "")))
                 }
                 
+                # Apply filters if provided
+                if school_id is not None and str(student_data.get("school_id", "")) != str(school_id):
+                    continue
+                if class_name is not None and student_data.get("class", "") != class_name:
+                    continue
+                if section_name is not None and student_data.get("section", "") != section_name:
+                    continue
+                
                 # Only add students with valid ID and name
                 if student_data["id"] and student_data["name"]:
                     self.students_data.append(student_data)
             
-            print(f"📚 Loaded {len(self.students_data)} students from database")
+            print(f"📚 Loaded {len(self.students_data)} students from database with filters: school_id={school_id}, class={class_name}, section={section_name}")
             self.populate_students_table()
             
         except Exception as e:
@@ -1233,10 +1331,7 @@ class AttendancePage(QWidget):
         layout = QVBoxLayout(left_frame)
         layout.setSpacing(8)
         
-        # Search section
-        self.create_search_section(layout)
-        
-        # Filters section
+        # Filters section (now includes search in 2x2 grid)
         self.create_filters_section(layout)
         
         # Students table
@@ -1244,74 +1339,61 @@ class AttendancePage(QWidget):
         
         return left_frame
         
-    def create_search_section(self, parent_layout):
-        """Create the search section."""
-        search_frame = QFrame()
-        search_frame.setStyleSheet(f"""
-            QFrame {{
-                background: {COLORS['gray_50']};
-                border: 1px solid {COLORS['gray_200']};
-                border-radius: 8px;
-                padding: 8px;
-            }}
-        """)
-        
-        search_layout = QVBoxLayout(search_frame)
-        search_layout.setSpacing(6)
-        
-        # Search input
-        self.search_input = QLineEdit()
-        self.search_input.setPlaceholderText("Search by name, roll number...")
-        
-        styles = get_attendance_styles()
-        self.search_input.setStyleSheet(styles['search_input'])
-        self.search_input.textChanged.connect(self.on_search_changed)
-        
-        search_layout.addWidget(self.search_input)
-        
-        parent_layout.addWidget(search_frame)
-        
     def create_filters_section(self, parent_layout):
-        """Create the filters section."""
+        """Create the filters section with 2x2 grid layout including search."""
         filters_frame = QFrame()
         filters_frame.setStyleSheet(f"""
             QFrame {{
                 background: {COLORS['gray_50']};
                 border: 1px solid {COLORS['gray_200']};
                 border-radius: 8px;
-                padding: 8px;
+                padding: 12px;
             }}
         """)
         
         filters_layout = QVBoxLayout(filters_frame)
-        filters_layout.setSpacing(6)
+        filters_layout.setSpacing(8)
         
-        # Filter controls
+        # Create 2x2 grid layout for filters and search
         filter_grid = QGridLayout()
-        filter_grid.setSpacing(6)
+        filter_grid.setSpacing(8)
+        filter_grid.setColumnStretch(0, 1)  # Equal column widths
+        filter_grid.setColumnStretch(1, 1)
         
         styles = get_attendance_styles()
         
-        # Class filter
-        class_label = QLabel("Class:")
-        class_label.setStyleSheet(f"color: {COLORS['gray_600']};")
-        self.class_combo = QComboBox()
-        self.class_combo.addItems(["All Classes", "9-A", "9-B", "10-A", "10-B"])
-        self.class_combo.setStyleSheet(styles['combobox_standard'])
-        self.class_combo.currentTextChanged.connect(self.on_filters_changed)
+        # Row 1, Column 1: School filter (with placeholder)
+        self.school_combo = QComboBox()
+        self.school_combo.addItem("Please Select School")  # Placeholder
+        self.load_schools_data()  # Load from database
+        self.school_combo.setStyleSheet(styles['combobox_standard'])
+        self.school_combo.currentTextChanged.connect(self.on_school_changed)
         
-        # Section filter
-        section_label = QLabel("Section:")
-        section_label.setStyleSheet(f"color: {COLORS['gray_600']};")
+        # Row 1, Column 2: Class filter (with placeholder)
+        self.class_combo = QComboBox()
+        self.class_combo.addItem("Please Select Class")  # Placeholder
+        self.load_classes_data()  # Load from database
+        self.class_combo.setStyleSheet(styles['combobox_standard'])
+        self.class_combo.currentTextChanged.connect(self.on_class_changed)
+        
+        # Row 2, Column 1: Section filter (with placeholder)
         self.section_combo = QComboBox()
-        self.section_combo.addItems(["All Sections", "Science", "Arts", "Commerce"])
+        self.section_combo.addItem("Please Select Section")  # Placeholder
+        self.load_sections_data()  # Load from database
         self.section_combo.setStyleSheet(styles['combobox_standard'])
         self.section_combo.currentTextChanged.connect(self.on_filters_changed)
         
-        filter_grid.addWidget(class_label, 0, 0)
-        filter_grid.addWidget(self.class_combo, 0, 1)
-        filter_grid.addWidget(section_label, 1, 0)
-        filter_grid.addWidget(self.section_combo, 1, 1)
+        # Row 2, Column 2: Search input
+        self.search_input = QLineEdit()
+        self.search_input.setPlaceholderText("Search by name, roll number...")
+        self.search_input.setStyleSheet(styles['search_input'])
+        self.search_input.textChanged.connect(self.on_search_changed)
+        
+        # Add widgets to grid: 2x2 layout
+        filter_grid.addWidget(self.school_combo, 0, 0)    # Row 1, Col 1
+        filter_grid.addWidget(self.class_combo, 0, 1)     # Row 1, Col 2
+        filter_grid.addWidget(self.section_combo, 1, 0)   # Row 2, Col 1
+        filter_grid.addWidget(self.search_input, 1, 1)    # Row 2, Col 2
         
         filters_layout.addLayout(filter_grid)
         
@@ -1833,6 +1915,92 @@ class AttendancePage(QWidget):
             self.students_table.setItem(row, 3, QTableWidgetItem(student["class"]))  # Class
             self.students_table.setItem(row, 4, QTableWidgetItem(student["section"]))  # Section
 
+    def load_schools_data(self):
+        """Load schools from database and populate school combo."""
+        try:
+            # Clear existing items except placeholder
+            while self.school_combo.count() > 1:
+                self.school_combo.removeItem(self.school_combo.count() - 1)
+                
+            schools = self.db.get_schools()
+            for school in schools:
+                school_name = school.get('name', 'Unknown School')
+                school_id = school.get('id', '')
+                self.school_combo.addItem(school_name, school_id)
+            print(f"📚 Loaded {len(schools)} schools from database")
+        except Exception as e:
+            print(f"❌ Error loading schools: {e}")
+            # Add some default options if database fails
+            self.school_combo.addItems(["Primary School", "Secondary School"])
+
+    def load_classes_data(self, school_id=None):
+        """Load classes from database and populate class combo."""
+        try:
+            # Clear existing items except placeholder
+            while self.class_combo.count() > 1:
+                self.class_combo.removeItem(self.class_combo.count() - 1)
+                
+            classes = self.db.get_classes(school_id)
+            for class_name in classes:
+                self.class_combo.addItem(class_name)
+            print(f"📚 Loaded {len(classes)} classes from database")
+        except Exception as e:
+            print(f"❌ Error loading classes: {e}")
+            # Add some default options if database fails
+            self.class_combo.addItems(["9", "10", "11", "12"])
+
+    def load_sections_data(self, school_id=None, class_name=None):
+        """Load sections from database and populate section combo."""
+        try:
+            # Clear existing items except placeholder
+            while self.section_combo.count() > 1:
+                self.section_combo.removeItem(self.section_combo.count() - 1)
+                
+            sections = self.db.get_sections(school_id, class_name)
+            for section_name in sections:
+                self.section_combo.addItem(section_name)
+            print(f"📚 Loaded {len(sections)} sections from database")
+        except Exception as e:
+            print(f"❌ Error loading sections: {e}")
+            # Add some default options if database fails
+            self.section_combo.addItems(["A", "B", "C"])
+
+    def on_school_changed(self, school_name):
+        """Handle school selection change."""
+        if school_name == "Please Select School":
+            school_id = None
+        else:
+            # Get school ID from combo data
+            current_index = self.school_combo.currentIndex()
+            school_id = self.school_combo.itemData(current_index)
+        
+        print(f"🏫 School changed to: {school_name} (ID: {school_id})")
+        
+        # Reload classes and sections for selected school
+        self.load_classes_data(school_id)
+        self.load_sections_data(school_id)
+        
+        # Apply filters
+        self.on_filters_changed()
+
+    def on_class_changed(self, class_name):
+        """Handle class selection change."""
+        # Get current school
+        school_id = None
+        if self.school_combo.currentText() not in ["Please Select School"]:
+            current_index = self.school_combo.currentIndex()
+            school_id = self.school_combo.itemData(current_index)
+        
+        # Reload sections for selected school and class
+        if class_name == "Please Select Class":
+            class_name = None
+        
+        print(f"📚 Class changed to: {class_name}")
+        self.load_sections_data(school_id, class_name)
+        
+        # Apply filters
+        self.on_filters_changed()
+
     def on_search_changed(self, text):
         """Handle search input changes."""
         # Filter students based on search text
@@ -1856,18 +2024,26 @@ class AttendancePage(QWidget):
         print(f"🔍 Search: '{text}' - Found {len(filtered_students)} students")
         
     def on_filters_changed(self):
-        """Handle filter changes."""
+        """Handle filter changes with database-driven filtering."""
+        school_filter = self.school_combo.currentText()
         class_filter = self.class_combo.currentText()
         section_filter = self.section_combo.currentText()
         
-        print(f"📋 Filters changed: Class={class_filter}, Section={section_filter}")
+        print(f"📋 Filters changed: School={school_filter}, Class={class_filter}, Section={section_filter}")
         
-        # Apply filters (simplified for demo)
-        filtered_count = len([s for s in self.students_data 
-                             if (class_filter == "All Classes" or s["class"] == class_filter) and
-                                (section_filter == "All Sections" or s["section"] == section_filter)])
+        # Get filter parameters for database query
+        school_id = None
+        if school_filter not in ["Please Select School"]:
+            current_index = self.school_combo.currentIndex()
+            school_id = self.school_combo.itemData(current_index)
         
-        print(f"📊 Filtered • {filtered_count} students • Filters active")
+        class_name = None if class_filter == "Please Select Class" else class_filter
+        section_name = None if section_filter == "Please Select Section" else section_filter
+        
+        # Reload students data with filters applied at database level
+        self.load_students_from_database(school_id=school_id, class_name=class_name, section_name=section_name)
+        
+        print(f"📊 Database filtering applied • School ID: {school_id}, Class: {class_name}, Section: {section_name}")
         
     def on_student_selected(self):
         """Handle student selection."""

@@ -150,13 +150,12 @@ QPushButton {
     font-weight: 600;
     min-width: 120px;
     min-height: 40px;
-    box-shadow: 0 2px 4px var(--shadow);
+    
 }
 
 QPushButton:hover {
     background-color: var(--primary-dark);
-    transform: translateY(-1px);
-    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    
 }
 
 QPushButton:pressed {
