@@ -129,8 +129,8 @@ class StudentListPage(QWidget):
                 background: {COLORS['gray_100']};
                 border-radius: 6px;
                 border: 1px solid {COLORS['gray_200']};
-                min-width: 280px;
-                max-width: 400px;
+                min-width: 400px;
+                max-width: 600px;
             }}
         """)
         
@@ -541,14 +541,17 @@ class StudentListPage(QWidget):
             # Build filter info only when filters are actually applied
             filter_parts = []
             
-            # Add filter information only if not default values
-            if current_school and current_school != "All Schools":
+            # Add filter information only if not default/placeholder values
+            if (current_school and 
+                current_school not in ["All Schools", "Please Select School"]):
                 filter_parts.append(f"School: {current_school}")
             
-            if current_class and current_class != "All Classes":
+            if (current_class and 
+                current_class not in ["All Classes", "Please Select Class"]):
                 filter_parts.append(f"Class: {current_class}")
                 
-            if current_section and current_section != "All Sections":
+            if (current_section and 
+                current_section not in ["All Sections", "Please Select Section"]):
                 filter_parts.append(f"Section: {current_section}")
                 
             if current_search:
