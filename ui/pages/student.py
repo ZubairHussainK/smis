@@ -4,7 +4,8 @@ from PyQt5.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel,
                            QLineEdit, QMessageBox, QTableWidget, QHeaderView,
                            QScrollArea, QTableWidgetItem, QSplitter, QTextEdit,
                            QGroupBox, QFormLayout, QCheckBox, QDateEdit,
-                           QSpinBox, QTabWidget, QDialog, QDialogButtonBox)
+                           QSpinBox, QTabWidget, QDialog, QDialogButtonBox,
+                           QAbstractItemView, QAbstractScrollArea, QSizePolicy)
 from PyQt5.QtCore import Qt, QDate, pyqtSignal, QRegExp
 from PyQt5.QtGui import QFont, QIcon, QColor, QRegExpValidator
 from models.database import Database
@@ -33,6 +34,7 @@ class StudentPage(QWidget):
         self.form_frame = None
         self.current_student_id = None
         self.is_editing = False
+        self.current_user = None  # Add current user tracking
         
         # Form management variables
         self.form_dialog = None
@@ -45,6 +47,10 @@ class StudentPage(QWidget):
         self._init_ui()
         self._load_data()
         self._connect_signals()
+
+    def set_current_user(self, user):
+        """Set the current user for this page."""
+        self.current_user = user
 
     def _init_ui(self):
         """Initialize the modern student management UI."""
@@ -489,7 +495,7 @@ class StudentPage(QWidget):
             }}
             QPushButton:pressed {{
                 background: {hover_color};
-                transform: translateY(1px);
+                
             }}
             QPushButton:disabled {{
                 background: #D1D5DB;
@@ -708,8 +714,8 @@ class StudentPage(QWidget):
             # Show the form
             self.form_frame.setVisible(True)
             
-            # Clear all input fields for new student
-            self._clear_form_fields()
+            # For new forms, don't clear fields immediately - let defaults show
+            # Field clearing will happen when user clicks Reset button if needed
             
         except Exception as e:
             QMessageBox.critical(self, "Error", f"Failed to open Add Student form:\n{str(e)}")
@@ -738,23 +744,6 @@ class StudentPage(QWidget):
                 
         except Exception as e:
             print(f"Error clearing form safely: {e}")
-    
-    def _clear_form_fields(self):
-        """Clear all form field values."""
-        try:
-            for field_name, widget in self.student_fields.items():
-                if isinstance(widget, QLineEdit):
-                    widget.clear()
-                elif isinstance(widget, QComboBox):
-                    widget.setCurrentIndex(0)  # Reset to first item (usually "Select...")
-                elif isinstance(widget, QSpinBox):
-                    widget.setValue(widget.minimum())
-                elif isinstance(widget, QDateEdit):
-                    widget.setDate(QDate.currentDate())
-                elif isinstance(widget, QTextEdit):
-                    widget.clear()
-        except Exception as e:
-            print(f"Error clearing form fields: {e}")
     
     def _validate_form(self):
         """Validate all form fields and show errors."""
@@ -804,11 +793,13 @@ class StudentPage(QWidget):
             if phone_text and (len(phone_text) != 11 or not phone_text.startswith('03')):
                 errors.append("Father's Phone must be 11 digits starting with 03")
         
-        # Student ID uniqueness check
+        # Student ID uniqueness check (skip for current student when editing)
         if 'student_id' in self.student_fields:
             student_id = self.student_fields['student_id'].text().strip()
             if student_id and self._check_student_id_exists(student_id):
-                errors.append(f"Student ID '{student_id}' already exists")
+                # Skip validation if this is the current student being edited
+                if not (hasattr(self, 'current_student_id') and self.current_student_id == student_id):
+                    errors.append(f"Student ID '{student_id}' already exists")
         
         return errors
     
@@ -827,28 +818,40 @@ class StudentPage(QWidget):
             error_message = "Please fix the following errors:\n\n" + "\n".join(f"• {error}" for error in errors)
             QMessageBox.warning(self, "Form Validation", error_message)
             return False
-    def _show_validation_errors(self, errors):
-        """Display validation errors to user."""
-        if errors:
-            error_message = "Please fix the following errors:\n\n" + "\n".join(f"• {error}" for error in errors)
-            QMessageBox.warning(self, "Form Validation", error_message)
-            return False
         return True
     
     def _clear_form_fields(self):
         """Clear all form input fields."""
         try:
+            if not hasattr(self, 'student_fields') or not self.student_fields:
+                return
+                
             for field_name, field_widget in self.student_fields.items():
-                if hasattr(field_widget, 'clear'):
-                    field_widget.clear()
-                elif hasattr(field_widget, 'setCurrentIndex'):
-                    field_widget.setCurrentIndex(0)
-                elif hasattr(field_widget, 'setDate'):
-                    field_widget.setDate(QDate.currentDate())
-                elif hasattr(field_widget, 'setValue'):
-                    field_widget.setValue(0)
-                elif hasattr(field_widget, 'setChecked'):
-                    field_widget.setChecked(False)
+                try:
+                    if field_widget is None:
+                        continue
+                        
+                    if hasattr(field_widget, 'clear'):
+                        field_widget.clear()
+                    elif hasattr(field_widget, 'setCurrentIndex'):
+                        field_widget.setCurrentIndex(0)
+                    elif hasattr(field_widget, 'setDate'):
+                        # Reset to current date but mark as not user selected
+                        field_widget.setDate(QDate.currentDate())
+                        if hasattr(field_widget, '_user_selected'):
+                            field_widget._user_selected = False
+                        if hasattr(field_widget, '_original_date'):
+                            field_widget._original_date = QDate.currentDate()
+                    elif hasattr(field_widget, 'setValue'):
+                        field_widget.setValue(0)
+                    elif hasattr(field_widget, 'setChecked'):
+                        field_widget.setChecked(False)
+                        
+                except Exception as field_error:
+                    # Skip individual field errors to prevent crash
+                    print(f"Warning: Could not clear field {field_name}: {field_error}")
+                    continue
+                    
         except Exception as e:
             print(f"Error clearing form fields: {e}")
     
@@ -952,7 +955,7 @@ class StudentPage(QWidget):
                 }
                 QPushButton:pressed {
                     background: #B91C1C;
-                    transform: translateY(1px);
+                    
                 }
             """)
             close_btn.clicked.connect(lambda: self.form_frame.setVisible(False))
@@ -977,7 +980,7 @@ class StudentPage(QWidget):
                 }
                 QPushButton:pressed {
                     background: #B45309;
-                    transform: translateY(1px);
+                    
                 }
             """)
             reset_btn.clicked.connect(self._reset_form)
@@ -1002,7 +1005,7 @@ class StudentPage(QWidget):
                 }
                 QPushButton:pressed {
                     background: #374151;
-                    transform: translateY(1px);
+                    
                 }
             """)
             self.cancel_btn.clicked.connect(self._close_form)
@@ -1027,7 +1030,7 @@ class StudentPage(QWidget):
                 }
                 QPushButton:pressed {
                     background: #047857;
-                    transform: translateY(1px);
+                    
                 }
             """)
             self.save_btn.clicked.connect(self._save_student)
@@ -1073,40 +1076,73 @@ class StudentPage(QWidget):
         selected_row = self.students_table.currentRow()
         if selected_row >= 0:
             try:
-                # Safely get table items with null checks
+                # Get table items for the 5 columns that actually exist
                 id_item = self.students_table.item(selected_row, 0)
                 name_item = self.students_table.item(selected_row, 1)
                 father_name_item = self.students_table.item(selected_row, 2)
                 class_item = self.students_table.item(selected_row, 3)
                 section_item = self.students_table.item(selected_row, 4)
-                phone_item = self.students_table.item(selected_row, 5)
                 
-                if not all([id_item, name_item, father_name_item, class_item, section_item, phone_item]):
+                # Validate that we can read the essential data
+                if not id_item or not name_item:
                     QMessageBox.warning(self, "Error", "Unable to read student data. Please refresh and try again.")
                     return
                 
-                student_id = id_item.text()
-                student_name = name_item.text()
-                student_father_name = father_name_item.text()
-                student_class = class_item.text()
-                student_section = section_item.text()
-                student_phone = phone_item.text()
+                student_id = id_item.text().strip()
+                student_name = name_item.text().strip()
                 
+                if not student_id:
+                    QMessageBox.warning(self, "Error", "Student ID is empty. Cannot edit student.")
+                    return
+                
+                print(f"🔧 Editing student: ID={student_id}, Name={student_name}")
+                
+                # Get complete student data from database using the student_id
+                full_student_data = self.db.get_student_by_id(student_id)
+                
+                if not full_student_data:
+                    QMessageBox.warning(self, "Error", f"Could not find complete data for student ID: {student_id}")
+                    return
+                
+                print(f"📋 Retrieved full student data: {type(full_student_data)}")
+                
+                # Set editing state
                 self.is_editing = True
                 self.current_student_id = student_id
-                self._show_form(f"Edit Student - {student_name}")
                 
-                # Load student data into form
-                self._load_student_data(student_id, {
-                    'id': student_id,
-                    'name': student_name,
-                    'father_name': student_father_name,
-                    'class': student_class,
-                    'section': student_section,
-                    'phone': student_phone
-                })
+                # Close any existing form dialog to prevent crashes
+                if hasattr(self, 'form_dialog') and self.form_dialog:
+                    try:
+                        self.form_dialog.close()
+                        self.form_dialog.deleteLater()
+                    except:
+                        pass
+                    self.form_dialog = None
+                
+                # Check if form_frame exists
+                if not hasattr(self, 'form_frame') or not self.form_frame:
+                    QMessageBox.critical(self, "Error", "Form frame not available.")
+                    return
+                
+                # Hide form if already visible and reset
+                if self.form_frame.isVisible():
+                    self.form_frame.setVisible(False)
+                    self._clear_form_safely()
+                
+                # Create fresh form using the new system
+                self._create_complete_form()
+                
+                # Show the form
+                self.form_frame.setVisible(True)
+                
+                # Load the complete student data into form
+                self._load_student_data(student_id, full_student_data)
+                
             except Exception as e:
                 QMessageBox.critical(self, "Error", f"Failed to edit student: {str(e)}")
+                print(f"❌ Edit error details: {e}")  # Debug output
+                import traceback
+                traceback.print_exc()
         else:
             QMessageBox.information(self, "No Selection", "Please select a student to edit.")
     
@@ -1137,10 +1173,22 @@ class StudentPage(QWidget):
                         return
                         
                     student_id = id_item.text()
-                    # TODO: Delete from database
-                    self.students_table.removeRow(selected_row)
-                    self.student_deleted.emit(student_id)
-                    QMessageBox.information(self, "Success", f"Student '{student_name}' has been deleted.")
+                    
+                    # Delete from database
+                    try:
+                        # Get current user information
+                        user_id = self.current_user.id if self.current_user else None
+                        username = self.current_user.username if self.current_user else None
+                        user_phone = getattr(self.current_user, 'phone', None) if self.current_user else None
+                        
+                        if self.db.delete_student(student_id, user_id, username, user_phone):
+                            self.students_table.removeRow(selected_row)
+                            self.student_deleted.emit(student_id)
+                            QMessageBox.information(self, "Success", f"Student '{student_name}' has been deleted.")
+                        else:
+                            QMessageBox.warning(self, "Error", "Failed to delete student from database.")
+                    except Exception as db_error:
+                        QMessageBox.critical(self, "Database Error", f"Failed to delete student: {str(db_error)}")
             except Exception as e:
                 QMessageBox.critical(self, "Error", f"Failed to delete student: {str(e)}")
         else:
@@ -1255,7 +1303,7 @@ class StudentPage(QWidget):
         self.school_combo.setCurrentIndex(0)
         self.class_combo.setCurrentIndex(0)
         self.section_combo.setCurrentIndex(0)
-        QMessageBox.information(self, "Success", "🔄 Student data refreshed successfully!")
+        #QMessageBox.information(self, "Success", "🔄 Student data refreshed successfully!")
     
     def _load_schools_data(self):
         """Load schools from database and populate school combo."""
@@ -1490,15 +1538,15 @@ class StudentPage(QWidget):
             tab_widget.tabBar().setExpanding(True)
             
             # Personal Information Tab
-            personal_tab = QWidget()  
+            personal_tab = self._create_personal_info_tab()
             tab_widget.addTab(personal_tab, "👤 Personal Info")
 
             # Academic Information Tab
-            academic_tab = QWidget()  
+            academic_tab = self._create_academic_info_tab()  
             tab_widget.addTab(academic_tab, "🎓 Academic Info")
 
             # Contact Information Tab
-            contact_tab = QWidget()  
+            contact_tab = self._create_contact_info_tab()
             tab_widget.addTab(contact_tab, "📞 Contact Info")
             
             # Form buttons
@@ -1616,7 +1664,7 @@ class StudentPage(QWidget):
             
             # Student Basic Information
             ("Student Name*", "student_name", "text", True),
-            ("Gender*", "gender", "combo", True, [["Boy", "Girl", "Other"]]),
+            ("Gender*", "gender", "combo", True, [["Male", "Female", "Other"]]),
             ("Date of Birth*", "date_of_birth", "date", True),
             ("B-Form Number*", "students_bform_number", "text", True),
             ("Year of Admission*", "year_of_admission", "date", True),
@@ -1644,30 +1692,18 @@ class StudentPage(QWidget):
             
             # Create label with required field indicator
             label = QLabel(label_text + ":")
-            if is_required:
-                label.setStyleSheet("""
-                    QLabel {
-                        color: #DC2626; 
-                        font-family: 'Poppins Medium'; 
-                        font-weight: 700;
-                        font-size: 13px;
-                        min-height: 38px;
-                        max-height: 38px;
-                        padding: 8px 0px;
-                    }
-                """)
-            else:
-                label.setStyleSheet("""
-                    QLabel {
-                        color: #374151; 
-                        font-family: 'Poppins Medium'; 
-                        font-weight: 600;
-                        font-size: 13px;
-                        min-height: 38px;
-                        max-height: 38px;
-                        padding: 8px 0px;
-                    }
-                """)
+            # All labels use normal styling (no red color initially)
+            label.setStyleSheet("""
+                QLabel {
+                    color: #374151; 
+                    font-family: 'Poppins Medium'; 
+                    font-weight: 600;
+                    font-size: 13px;
+                    min-height: 38px;
+                    max-height: 38px;
+                    padding: 8px 0px;
+                }
+            """)
             label.setAlignment(Qt.AlignVCenter)
             
             # Add tooltips for specific fields
@@ -1685,7 +1721,7 @@ class StudentPage(QWidget):
                 widget = QLineEdit()
                 widget.setPlaceholderText(f"Enter {label_text.replace('*', '').lower()}")
                 if is_required:
-                    widget.setObjectName("required_field")
+                    widget.setProperty("is_required", True)  # Mark as required but don't style yet
                     
             elif field_type == "cnic":
                 widget = QLineEdit()
@@ -1695,7 +1731,7 @@ class StudentPage(QWidget):
                 widget.setPlaceholderText("12345-1234567-1 (13 digits)")
                 widget.setMaxLength(15)  # Allow for hyphens
                 if is_required:
-                    widget.setObjectName("required_field")
+                    widget.setProperty("is_required", True)  # Mark as required but don't style yet
                     
             elif field_type == "phone":
                 widget = QLineEdit()
@@ -1705,7 +1741,7 @@ class StudentPage(QWidget):
                 widget.setPlaceholderText("0300-1234567 (11 digits)")
                 widget.setMaxLength(12)  # Allow for hyphen
                 if is_required:
-                    widget.setObjectName("required_field")
+                    widget.setProperty("is_required", True)  # Mark as required but don't style yet
                     
             elif field_type == "number":
                 widget = QSpinBox()
@@ -1722,18 +1758,123 @@ class StudentPage(QWidget):
                     
             elif field_type == "date":
                 widget = QDateEdit()
-                if "birth" in field_name.lower() or "dob" in field_name.lower():
-                    widget.setDate(QDate.currentDate().addYears(-20))  # Default age 20
-                elif "doi" in field_name.lower():
-                    widget.setDate(QDate.currentDate().addYears(-5))   # CNIC issued 5 years ago
-                elif "exp" in field_name.lower():
-                    widget.setDate(QDate.currentDate().addYears(5))    # Expires in 5 years
-                else:
-                    widget.setDate(QDate.currentDate())
                 widget.setCalendarPopup(True)
                 widget.setDisplayFormat("dd-MMM-yyyy")
+                widget.setMinimumDate(QDate(1900, 1, 1))
+                
+                # Show current date by default but mark as "not manually selected"
+                widget.setDate(QDate.currentDate())
+                widget._user_selected = False  # Track if user manually selected date
+                widget._original_date = QDate.currentDate()  # Store original date for comparison
+                
+                # Connect date changed signal to track user selection
+                def on_date_changed(date_widget=widget):
+                    # Only mark as user selected if date is different from original
+                    if hasattr(date_widget, 'date') and hasattr(date_widget, '_original_date'):
+                        if date_widget.date() != date_widget._original_date:
+                            date_widget._user_selected = True
+                        else:
+                            date_widget._user_selected = False
+                
+                widget.dateChanged.connect(on_date_changed)
+                
+                # Enhanced calendar setup for large popup with current date
+                def setup_enhanced_calendar():
+                    calendar = widget.calendarWidget()
+                    if calendar:
+                        # Set current date as default selection in calendar
+                        calendar.setSelectedDate(QDate.currentDate())
+                        
+                        # Make calendar larger to show full month
+                        calendar.setMinimumSize(420, 350)
+                        calendar.setMaximumSize(450, 380)
+                        
+                        # Enhanced calendar styling - fixed headers and full month view with smaller row height
+                        calendar.setStyleSheet("""
+                            QCalendarWidget {
+                                background-color: white;
+                                border: 2px solid #3B82F6;
+                                border-radius: 8px;
+                                font-family: 'Poppins Medium';
+                                font-size: 12px;
+                            }
+                            QCalendarWidget QAbstractItemView {
+                                background-color: white;
+                                selection-background-color: #3B82F6;
+                                selection-color: white;
+                                gridline-color: #E5E7EB;
+                                show-decoration-selected: 1;
+                            }
+                            QCalendarWidget QAbstractItemView:enabled {
+                                color: #1F2937;
+                                font-size: 12px;
+                            }
+                            QCalendarWidget QTableView {
+                                alternate-background-color: #F9FAFB;
+                            }
+                            QCalendarWidget QTableView::item {
+                                height: 22px;
+                                min-height: 22px;
+                                max-height: 22px;
+                                padding: 2px;
+                                text-align: center;
+                            }
+                            QCalendarWidget QToolButton {
+                                background-color: transparent;
+                                color: #1F2937;
+                                border: none;
+                                border-radius: 4px;
+                                padding: 4px;
+                                font-weight: bold;
+                                min-width: 50px;
+                                height: 24px;
+                            }
+                            QCalendarWidget QToolButton:hover {
+                                background-color: #F3F4F6;
+                                color: #1F2937;
+                            }
+                            QCalendarWidget QMenu {
+                                background-color: white;
+                                border: 1px solid #D1D5DB;
+                                border-radius: 4px;
+                            }
+                            QCalendarWidget QSpinBox {
+                                background-color: white;
+                                border: 1px solid #D1D5DB;
+                                border-radius: 4px;
+                                padding: 4px;
+                                font-size: 12px;
+                                color: #1F2937;
+                            }
+                            QCalendarWidget QHeaderView::section {
+                                background-color: transparent;
+                                color: #1F2937;
+                                border: none;
+                                font-weight: bold;
+                                padding: 4px;
+                                height: 20px;
+                            }
+                            QCalendarWidget QWidget#qt_calendar_navigationbar {
+                                background-color: white;
+                            }
+                            QCalendarWidget QWidget#qt_calendar_navigationbar QToolButton {
+                                background-color: transparent;
+                                color: #1F2937;
+                            }
+                        """)
+                        
+                        # Force calendar to show complete month view
+                        if hasattr(calendar, 'setGridVisible'):
+                            calendar.setGridVisible(True)
+                        if hasattr(calendar, 'setVerticalHeaderFormat'):
+                            calendar.setVerticalHeaderFormat(calendar.NoVerticalHeader)
+                
+                # Setup calendar immediately since it's available
+                setup_enhanced_calendar()
+                
+                # Remove automatic required field styling - will be applied on validation
                 if is_required:
-                    widget.setObjectName("required_field")
+                    widget.setProperty("is_required", True)  # Mark as required but don't style yet
                     
             elif field_type == "combo":
                 widget = QComboBox()
@@ -1746,7 +1887,7 @@ class StudentPage(QWidget):
                     
                     if is_required:
                         widget.addItems(["Select..."] + combo_options)
-                        widget.setObjectName("required_field")
+                        widget.setProperty("is_required", True)  # Mark as required but don't style yet
                     else:
                         widget.addItems(["Not Specified"] + combo_options)
                     
@@ -1764,7 +1905,7 @@ class StudentPage(QWidget):
                 schools = self._get_schools_from_database()
                 if is_required:
                     widget.addItems(["Select School..."] + schools)
-                    widget.setObjectName("required_field")
+                    widget.setProperty("is_required", True)  # Mark as required but don't style yet
                 else:
                     widget.addItems(["Not Specified"] + schools)
                 
@@ -1776,7 +1917,7 @@ class StudentPage(QWidget):
                 organizations = self._get_organizations_from_database()
                 if is_required:
                     widget.addItems(["Select Organization..."] + organizations)
-                    widget.setObjectName("required_field")
+                    widget.setProperty("is_required", True)  # Mark as required but don`t style yet
                 else:
                     widget.addItems(["Not Specified"] + organizations)
                 
@@ -1788,7 +1929,7 @@ class StudentPage(QWidget):
                 provinces = self._get_provinces_from_database()
                 if is_required:
                     widget.addItems(["Select Province..."] + provinces)
-                    widget.setObjectName("required_field")
+                    widget.setProperty("is_required", True)  # Mark as required but don`t style yet
                 else:
                     widget.addItems(["Not Specified"] + provinces)
                 
@@ -1800,7 +1941,7 @@ class StudentPage(QWidget):
                 districts = self._get_districts_from_database()
                 if is_required:
                     widget.addItems(["Select District..."] + districts)
-                    widget.setObjectName("required_field")
+                    widget.setProperty("is_required", True)  # Mark as required but don`t style yet
                 else:
                     widget.addItems(["Not Specified"] + districts)
                 
@@ -1812,7 +1953,7 @@ class StudentPage(QWidget):
                 union_councils = self._get_union_councils_from_database()
                 if is_required:
                     widget.addItems(["Select Union Council..."] + union_councils)
-                    widget.setObjectName("required_field")
+                    widget.setProperty("is_required", True)  # Mark as required but don`t style yet
                 else:
                     widget.addItems(["Not Specified"] + union_councils)
                 
@@ -1824,18 +1965,15 @@ class StudentPage(QWidget):
                 nationalities = self._get_nationalities_from_database()
                 if is_required:
                     widget.addItems(["Select Nationality..."] + nationalities)
-                    widget.setObjectName("required_field")
+                    widget.setProperty("is_required", True)  # Mark as required but don't style yet
                 else:
                     widget.addItems(["Not Specified"] + nationalities)
                 
                 # Apply universal dropdown fix
                 self._apply_combo_box_dropdown_fix(widget, "nationality_combo")
             
-            # Apply styling based on required status
-            if is_required:
-                widget.setStyleSheet(self._get_required_input_style())
-            else:
-                widget.setStyleSheet(self._get_input_style())
+            # Apply normal styling to all fields (no red styling initially)
+            widget.setStyleSheet(self._get_input_style())
                 
             self.student_fields[field_name] = widget
             
@@ -1924,30 +2062,18 @@ class StudentPage(QWidget):
             
             # Create label with required field indicator
             label = QLabel(label_text + ":")
-            if is_required:
-                label.setStyleSheet("""
-                    QLabel {
-                        color: #DC2626; 
-                        font-family: 'Poppins Medium'; 
-                        font-weight: 700;
-                        font-size: 13px;
-                        min-height: 38px;
-                        max-height: 38px;
-                        padding: 8px 0px;
-                    }
-                """)
-            else:
-                label.setStyleSheet("""
-                    QLabel {
-                        color: #374151; 
-                        font-family: 'Poppins Medium'; 
-                        font-weight: 600;
-                        font-size: 13px;
-                        min-height: 38px;
-                        max-height: 38px;
-                        padding: 8px 0px;
-                    }
-                """)
+            # All labels use normal styling (no red color initially)
+            label.setStyleSheet("""
+                QLabel {
+                    color: #374151; 
+                    font-family: 'Poppins Medium'; 
+                    font-weight: 600;
+                    font-size: 13px;
+                    min-height: 38px;
+                    max-height: 38px;
+                    padding: 8px 0px;
+                }
+            """)
             label.setAlignment(Qt.AlignVCenter)
             
             # Create widget based on type
@@ -1992,7 +2118,7 @@ class StudentPage(QWidget):
                 organizations = self._get_organizations_from_database()
                 if is_required:
                     widget.addItems(["Select Organization..."] + organizations)
-                    widget.setObjectName("required_field")
+                    widget.setProperty("is_required", True)  # Mark as required but don`t style yet
                 else:
                     widget.addItems(["Not Specified"] + organizations)
                 
@@ -2004,7 +2130,7 @@ class StudentPage(QWidget):
                 provinces = self._get_provinces_from_database()
                 if is_required:
                     widget.addItems(["Select Province..."] + provinces)
-                    widget.setObjectName("required_field")
+                    widget.setProperty("is_required", True)  # Mark as required but don`t style yet
                 else:
                     widget.addItems(["Not Specified"] + provinces)
                 
@@ -2016,7 +2142,7 @@ class StudentPage(QWidget):
                 districts = self._get_districts_from_database()
                 if is_required:
                     widget.addItems(["Select District..."] + districts)
-                    widget.setObjectName("required_field")
+                    widget.setProperty("is_required", True)  # Mark as required but don`t style yet
                 else:
                     widget.addItems(["Not Specified"] + districts)
                 
@@ -2028,7 +2154,7 @@ class StudentPage(QWidget):
                 union_councils = self._get_union_councils_from_database()
                 if is_required:
                     widget.addItems(["Select Union Council..."] + union_councils)
-                    widget.setObjectName("required_field")
+                    widget.setProperty("is_required", True)  # Mark as required but don`t style yet
                 else:
                     widget.addItems(["Not Specified"] + union_councils)
                 
@@ -2040,7 +2166,7 @@ class StudentPage(QWidget):
                 nationalities = self._get_nationalities_from_database()
                 if is_required:
                     widget.addItems(["Select Nationality..."] + nationalities)
-                    widget.setObjectName("required_field")
+                    widget.setProperty("is_required", True)  # Mark as required but don`t style yet
                 else:
                     widget.addItems(["Not Specified"] + nationalities)
                 
@@ -2079,7 +2205,7 @@ class StudentPage(QWidget):
                     if is_required:
                         widget.addItem("Select Class...")
                         widget.addItems(class_names)
-                        widget.setObjectName("required_field")
+                        widget.setProperty("is_required", True)  # Mark as required but don`t style yet
                     else:
                         widget.addItem("Not Specified")
                         widget.addItems(class_names)
@@ -2102,7 +2228,7 @@ class StudentPage(QWidget):
                     if is_required:
                         widget.addItem("Select Section...")
                         widget.addItems(section_names)
-                        widget.setObjectName("required_field")
+                        widget.setProperty("is_required", True)  # Mark as required but don`t style yet
                     else:
                         widget.addItem("Not Specified")
                         widget.addItems(section_names)
@@ -2127,12 +2253,10 @@ class StudentPage(QWidget):
                 widget.setValue(current_year)
                 widget.setSuffix(" year")
             
-            # Apply styling based on required status
+            # Apply normal styling to all fields (no red styling initially)
+            widget.setStyleSheet(self._get_input_style())
             if is_required:
-                widget.setStyleSheet(self._get_required_input_style())
-                widget.setObjectName("required_field")
-            else:
-                widget.setStyleSheet(self._get_input_style())
+                widget.setProperty("is_required", True)  # Mark as required but don't style yet
                 
             self.student_fields[field_name] = widget
             
@@ -2187,26 +2311,28 @@ class StudentPage(QWidget):
         layout.setSpacing(15)
         layout.setContentsMargins(25, 25, 25, 25)
         
-        # Contact fields - matching database schema exactly (non-audit fields only)
+        # Contact fields - Recipient Type at top, then conditional fields
         contact_fields = [
-            # Mother Information (all required)
-            ("Mother Name*", "mother_name", "text", True),
-            ("Mother Date of Birth*", "mother_date_of_birth", "date", True),
-            ("Mother Marital Status*", "mother_marital_status", "combo", True, [["Single", "Married", "Divorced", "Widowed", "Free union", "Separated", "Engaged"]]),
-            ("Mother ID Type*", "mother_id_type", "text", True),
-            ("Mother CNIC*", "mother_cnic", "cnic", True),
-            ("Mother CNIC DOI*", "mother_cnic_doi", "date", True),
-            ("Mother CNIC Exp*", "mother_cnic_exp", "date", True),
-            ("Mother MWA*", "mother_mwa", "phone", True),
-            
-            # Household Head Information (all required)
-            ("Household Role*", "household_role", "combo", True, [["Head", "Son", "Daughter", "Wife", "Husband", "Brother", "Sister", "Mother", "Father", "Aunt", "Uncle", "Grand Mother", "Grand Father", "Mother-in-Law", "Father-in-Law", "Daughter-in-Law", "Son-in-Law", "Sister-in-Law", "Brother-in-Law", "Grand Daughter", "Grand Son", "Nephew", "Niece", "Cousin", "Other", "Not Member"]]),
-            ("Household Name*", "household_name", "text", True),
-            ("HH Gender*", "hh_gender", "combo", True, [["Male", "Female", "Other"]]),
-            ("HH Date of Birth*", "hh_date_of_birth", "date", True),
+            # Recipient Type - MUST BE FIRST for conditional logic
             ("Recipient Type*", "recipient_type", "combo", True, [["Principal", "Alternate"]]),
             
-            # Alternate/Guardian Information (Optional fields)
+            # Mother Information (conditional based on recipient type)
+            ("Mother Name", "mother_name", "text", False),
+            ("Mother Date of Birth", "mother_date_of_birth", "date", False),
+            ("Mother Marital Status", "mother_marital_status", "combo", False, [["Single", "Married", "Divorced", "Widowed", "Free union", "Separated", "Engaged"]]),
+            ("Mother ID Type", "mother_id_type", "text", False),
+            ("Mother CNIC", "mother_cnic", "cnic", False),
+            ("Mother CNIC DOI", "mother_cnic_doi", "date", False),
+            ("Mother CNIC Exp", "mother_cnic_exp", "date", False),
+            ("Mother MWA", "mother_mwa", "phone", False),
+            
+            # Household Head Information (conditional based on recipient type)
+            ("Household Role", "household_role", "combo", False, [["Head", "Son", "Daughter", "Wife", "Husband", "Brother", "Sister", "Mother", "Father", "Aunt", "Uncle", "Grand Mother", "Grand Father", "Mother-in-Law", "Father-in-Law", "Daughter-in-Law", "Son-in-Law", "Sister-in-Law", "Brother-in-Law", "Grand Daughter", "Grand Son", "Nephew", "Niece", "Cousin", "Other", "Not Member"]]),
+            ("Household Name", "household_name", "text", False),
+            ("HH Gender", "hh_gender", "combo", False, [["Male", "Female", "Other"]]),
+            ("HH Date of Birth", "hh_date_of_birth", "date", False),
+            
+            # Alternate/Guardian Information (conditional based on recipient type)
             ("Alternate Name", "alternate_name", "text", False),
             ("Alternate Date of Birth", "alternate_date_of_birth", "date", False),
             ("Alternate Marital Status", "alternate_marital_status", "combo", False, [["Single", "Married", "Divorced", "Widowed", "Free union", "Separated", "Engaged"]]),
@@ -2217,6 +2343,14 @@ class StudentPage(QWidget):
             ("Alternate MWA", "alternate_mwa", "phone", False),
             ("Alternate Relationship with Mother", "alternate_relationship_with_mother", "combo", False, [["Head", "Son", "Daughter", "Wife", "Husband", "Brother", "Sister", "Mother", "Father", "Aunt", "Uncle", "Grand Mother", "Grand Father", "Mother-in-Law", "Father-in-Law", "Daughter-in-Law", "Son-in-Law", "Sister-in-Law", "Brother-in-Law", "Grand Daughter", "Grand Son", "Nephew", "Niece", "Cousin", "Other", "Not Member"]]),
         ]
+        
+        # Store field categories for conditional logic
+        self.mother_fields = ['mother_name', 'mother_date_of_birth', 'mother_marital_status', 
+                             'mother_id_type', 'mother_cnic', 'mother_cnic_doi', 'mother_cnic_exp', 'mother_mwa']
+        self.household_fields = ['household_role', 'household_name', 'hh_gender', 'hh_date_of_birth']
+        self.alternate_fields = ['alternate_name', 'alternate_date_of_birth', 'alternate_marital_status',
+                                'alternate_id_type', 'alternate_cnic', 'alternate_cnic_doi', 
+                                'alternate_cnic_exp', 'alternate_mwa', 'alternate_relationship_with_mother']
         
         row = 0
         for field_data in contact_fields:
@@ -2230,30 +2364,18 @@ class StudentPage(QWidget):
             
             # Create label with required field indicator
             label = QLabel(label_text + ":")
-            if is_required:
-                label.setStyleSheet("""
-                    QLabel {
-                        color: #DC2626; 
-                        font-family: 'Poppins Medium'; 
-                        font-weight: 700;
-                        font-size: 13px;
-                        min-height: 38px;
-                        max-height: 38px;
-                        padding: 8px 0px;
-                    }
-                """)
-            else:
-                label.setStyleSheet("""
-                    QLabel {
-                        color: #374151; 
-                        font-family: 'Poppins Medium'; 
-                        font-weight: 600;
-                        font-size: 13px;
-                        min-height: 38px;
-                        max-height: 38px;
-                        padding: 8px 0px;
-                    }
-                """)
+            # All labels use normal styling (no red color initially)
+            label.setStyleSheet("""
+                QLabel {
+                    color: #374151; 
+                    font-family: 'Poppins Medium'; 
+                    font-weight: 600;
+                    font-size: 13px;
+                    min-height: 38px;
+                    max-height: 38px;
+                    padding: 8px 0px;
+                }
+            """)
             label.setAlignment(Qt.AlignVCenter)
             
             # Create widget based on type
@@ -2273,7 +2395,7 @@ class StudentPage(QWidget):
                 widget.setPlaceholderText("0300-1234567 (MWA number)")
                 widget.setMaxLength(12)  # Allow for hyphen
                 if is_required:
-                    widget.setObjectName("required_field")
+                    widget.setProperty("is_required", True)  # Mark as required but don`t style yet
                 
             elif field_type == "cnic":
                 widget = QLineEdit()
@@ -2283,22 +2405,127 @@ class StudentPage(QWidget):
                 widget.setPlaceholderText("12345-1234567-1 (13 digits)")
                 widget.setMaxLength(15)  # Allow for hyphens
                 if is_required:
-                    widget.setObjectName("required_field")
+                    widget.setProperty("is_required", True)  # Mark as required but don't style yet
                     
             elif field_type == "date":
                 widget = QDateEdit()
-                if "birth" in field_name.lower() or "dob" in field_name.lower():
-                    widget.setDate(QDate.currentDate().addYears(-20))  # Default age 20
-                elif "doi" in field_name.lower():
-                    widget.setDate(QDate.currentDate().addYears(-5))   # CNIC issued 5 years ago
-                elif "exp" in field_name.lower():
-                    widget.setDate(QDate.currentDate().addYears(5))    # Expires in 5 years
-                else:
-                    widget.setDate(QDate.currentDate())
                 widget.setCalendarPopup(True)
                 widget.setDisplayFormat("dd-MMM-yyyy")
+                widget.setMinimumDate(QDate(1900, 1, 1))
+                
+                # Show current date by default but mark as "not manually selected"
+                widget.setDate(QDate.currentDate())
+                widget._user_selected = False  # Track if user manually selected date
+                widget._original_date = QDate.currentDate()  # Store original date for comparison
+                
+                # Connect date changed signal to track user selection
+                def on_date_changed(date_widget=widget):
+                    # Only mark as user selected if date is different from original
+                    if hasattr(date_widget, 'date') and hasattr(date_widget, '_original_date'):
+                        if date_widget.date() != date_widget._original_date:
+                            date_widget._user_selected = True
+                        else:
+                            date_widget._user_selected = False
+                
+                widget.dateChanged.connect(on_date_changed)
+                
+                # Enhanced calendar setup for large popup with current date
+                def setup_enhanced_calendar():
+                    calendar = widget.calendarWidget()
+                    if calendar:
+                        # Set current date as default selection in calendar
+                        calendar.setSelectedDate(QDate.currentDate())
+                        
+                        # Make calendar larger to show full month
+                        calendar.setMinimumSize(420, 350)
+                        calendar.setMaximumSize(450, 380)
+                        
+                        # Enhanced calendar styling - fixed headers and full month view with smaller row height
+                        calendar.setStyleSheet("""
+                            QCalendarWidget {
+                                background-color: white;
+                                border: 2px solid #3B82F6;
+                                border-radius: 8px;
+                                font-family: 'Poppins Medium';
+                                font-size: 12px;
+                            }
+                            QCalendarWidget QAbstractItemView {
+                                background-color: white;
+                                selection-background-color: #3B82F6;
+                                selection-color: white;
+                                gridline-color: #E5E7EB;
+                                show-decoration-selected: 1;
+                            }
+                            QCalendarWidget QAbstractItemView:enabled {
+                                color: #1F2937;
+                                font-size: 12px;
+                            }
+                            QCalendarWidget QTableView {
+                                alternate-background-color: #F9FAFB;
+                            }
+                            QCalendarWidget QTableView::item {
+                                height: 22px;
+                                min-height: 22px;
+                                max-height: 22px;
+                                padding: 2px;
+                                text-align: center;
+                            }
+                            QCalendarWidget QToolButton {
+                                background-color: transparent;
+                                color: #1F2937;
+                                border: none;
+                                border-radius: 4px;
+                                padding: 4px;
+                                font-weight: bold;
+                                min-width: 50px;
+                                height: 24px;
+                            }
+                            QCalendarWidget QToolButton:hover {
+                                background-color: #F3F4F6;
+                                color: #1F2937;
+                            }
+                            QCalendarWidget QMenu {
+                                background-color: white;
+                                border: 1px solid #D1D5DB;
+                                border-radius: 4px;
+                            }
+                            QCalendarWidget QSpinBox {
+                                background-color: white;
+                                border: 1px solid #D1D5DB;
+                                border-radius: 4px;
+                                padding: 4px;
+                                font-size: 12px;
+                                color: #1F2937;
+                            }
+                            QCalendarWidget QHeaderView::section {
+                                background-color: transparent;
+                                color: #1F2937;
+                                border: none;
+                                font-weight: bold;
+                                padding: 4px;
+                                height: 20px;
+                            }
+                            QCalendarWidget QWidget#qt_calendar_navigationbar {
+                                background-color: white;
+                            }
+                            QCalendarWidget QWidget#qt_calendar_navigationbar QToolButton {
+                                background-color: transparent;
+                                color: #1F2937;
+                            }
+                        """)
+                        
+                        # Force calendar to show complete month view
+                        if hasattr(calendar, 'setGridVisible'):
+                            calendar.setGridVisible(True)
+                        if hasattr(calendar, 'setVerticalHeaderFormat'):
+                            calendar.setVerticalHeaderFormat(calendar.NoVerticalHeader)
+                
+                # Setup calendar immediately since it's available
+                setup_enhanced_calendar()
+                
+                # Remove automatic required field styling - will be applied on validation
                 if is_required:
-                    widget.setObjectName("required_field")
+                    widget.setProperty("is_required", True)  # Mark as required but don't style yet
                 
             elif field_type == "combo":
                 widget = QComboBox()
@@ -2322,12 +2549,10 @@ class StudentPage(QWidget):
                 # Apply universal dropdown fix
                 self._apply_combo_box_dropdown_fix(widget, "combo")
             
-            # Apply styling based on required status
+            # Apply normal styling to all fields (no red styling initially)
+            widget.setStyleSheet(self._get_input_style())
             if is_required:
-                widget.setStyleSheet(self._get_required_input_style())
-                widget.setObjectName("required_field")
-            else:
-                widget.setStyleSheet(self._get_input_style())
+                widget.setProperty("is_required", True)  # Mark as required but don't style yet
                 
             self.student_fields[field_name] = widget
             
@@ -2345,112 +2570,222 @@ class StudentPage(QWidget):
         tab_layout.setContentsMargins(0, 0, 0, 0)
         tab_layout.addWidget(scroll_area)
         
+        # Setup conditional logic for recipient type after all widgets are created
+        self._setup_recipient_type_conditional_logic()
+        
         return tab
     
+    def _setup_recipient_type_conditional_logic(self):
+        """Setup conditional logic for recipient type selection."""
+        if 'recipient_type' not in self.student_fields:
+            return
+            
+        recipient_combo = self.student_fields['recipient_type']
+        
+        # Set default to "Principal"
+        principal_index = recipient_combo.findText("Principal")
+        if principal_index >= 0:
+            recipient_combo.setCurrentIndex(principal_index)
+        
+        # Connect signal for recipient type change
+        recipient_combo.currentTextChanged.connect(self._on_recipient_type_changed)
+        
+        # Initialize with Principal as default
+        self._on_recipient_type_changed("Principal")
+    
+    def _on_recipient_type_changed(self, selected_type):
+        """Handle recipient type selection changes."""
+        print(f"🎯 Recipient type changed to: {selected_type}")
+        
+        # Disable all conditional fields first
+        self._disable_conditional_fields()
+        
+        if selected_type == "Principal":
+            # Enable and make mother + household fields mandatory
+            self._enable_mother_fields(mandatory=True)
+            self._enable_household_fields(mandatory=True)
+            self._disable_alternate_fields()
+            print("✅ Principal selected - Mother and Household fields enabled and mandatory")
+            
+        elif selected_type == "Alternate":
+            # Enable and make alternate fields mandatory
+            self._enable_alternate_fields(mandatory=True)
+            self._disable_mother_fields()
+            self._disable_household_fields()
+            print("✅ Alternate selected - Alternate fields enabled and mandatory")
+            
+        else:
+            # "Select..." or other - disable all
+            self._disable_all_conditional_fields()
+            print("⚠️ No recipient type selected - all conditional fields disabled")
+    
+    def _enable_mother_fields(self, mandatory=False):
+        """Enable mother-related fields and optionally make them mandatory."""
+        for field_name in self.mother_fields:
+            if field_name in self.student_fields:
+                widget = self.student_fields[field_name]
+                widget.setEnabled(True)
+                
+                if mandatory:
+                    widget.setProperty("is_required", True)  # Mark as required but don't style yet
+                    widget.setStyleSheet(self._get_input_style())  # Use normal styling
+                    # Update label to show required indicator
+                    self._update_field_label(field_name, required=True)
+                else:
+                    widget.setProperty("is_required", False)
+                    widget.setStyleSheet(self._get_input_style())
+                    self._update_field_label(field_name, required=False)
+    
+    def _enable_household_fields(self, mandatory=False):
+        """Enable household-related fields and optionally make them mandatory."""
+        for field_name in self.household_fields:
+            if field_name in self.student_fields:
+                widget = self.student_fields[field_name]
+                widget.setEnabled(True)
+                
+                if mandatory:
+                    widget.setProperty("is_required", True)  # Mark as required but don't style yet
+                    widget.setStyleSheet(self._get_input_style())  # Use normal styling
+                    self._update_field_label(field_name, required=True)
+                else:
+                    widget.setProperty("is_required", False)
+                    widget.setStyleSheet(self._get_input_style())
+                    self._update_field_label(field_name, required=False)
+    
+    def _enable_alternate_fields(self, mandatory=False):
+        """Enable alternate-related fields and optionally make them mandatory."""
+        for field_name in self.alternate_fields:
+            if field_name in self.student_fields:
+                widget = self.student_fields[field_name]
+                widget.setEnabled(True)
+                
+                if mandatory:
+                    widget.setProperty("is_required", True)  # Mark as required but don't style yet
+                    widget.setStyleSheet(self._get_input_style())  # Use normal styling
+                    self._update_field_label(field_name, required=True)
+                else:
+                    widget.setProperty("is_required", False)
+                    widget.setStyleSheet(self._get_input_style())
+                    self._update_field_label(field_name, required=False)
+    
+    def _disable_mother_fields(self):
+        """Disable mother-related fields."""
+        for field_name in self.mother_fields:
+            if field_name in self.student_fields:
+                widget = self.student_fields[field_name]
+                widget.setEnabled(False)
+                widget.setStyleSheet(self._get_disabled_input_style())
+                self._update_field_label(field_name, required=False)
+    
+    def _disable_household_fields(self):
+        """Disable household-related fields."""
+        for field_name in self.household_fields:
+            if field_name in self.student_fields:
+                widget = self.student_fields[field_name]
+                widget.setEnabled(False)
+                widget.setStyleSheet(self._get_disabled_input_style())
+                self._update_field_label(field_name, required=False)
+    
+    def _disable_alternate_fields(self):
+        """Disable alternate-related fields."""
+        for field_name in self.alternate_fields:
+            if field_name in self.student_fields:
+                widget = self.student_fields[field_name]
+                widget.setEnabled(False)
+                widget.setStyleSheet(self._get_disabled_input_style())
+                self._update_field_label(field_name, required=False)
+    
+    def _disable_conditional_fields(self):
+        """Disable all conditional fields."""
+        self._disable_mother_fields()
+        self._disable_household_fields()
+        self._disable_alternate_fields()
+    
+    def _disable_all_conditional_fields(self):
+        """Disable all conditional fields (alias for consistency)."""
+        self._disable_conditional_fields()
+    
+    def _update_field_label(self, field_name, required=False):
+        """Update field label to show/hide required indicator."""
+        # Find the label widget associated with this field
+        # This would need access to the layout or we could store label references
+        # For now, we'll update the styling which is more reliable
+        pass
+    
+    def _get_disabled_input_style(self):
+        """Return styling for disabled input fields."""
+        return """
+            QLineEdit, QComboBox, QDateEdit, QSpinBox {
+                background-color: #F1F5F9;
+                border: 1px solid #CBD5E1;
+                border-radius: 4px;
+                padding: 6px 8px;
+                font-family: 'Poppins Medium';
+                font-size: 12px;
+                color: #94A3B8;
+                min-height: 24px;
+                max-height: 32px;
+            }
+        """
+
     def _apply_combo_box_dropdown_fix(self, widget, combo_type="combo"):
-        """Apply dropdown functionality fix to any combo box widget."""
+        """Apply dropdown functionality fix with simple keyboard highlight (no filtering)."""
         
-        # Set maximum visible items for dropdown to control height
-        widget.setMaxVisibleItems(2)  # Limit dropdown to only 2 visible items for ultra-compact height
+        # Make combo box NOT editable for simple keyboard navigation
+        widget.setEditable(False)
         
-        # Force a fixed size policy for the dropdown
-        widget.setSizePolicy(widget.sizePolicy().horizontalPolicy(), widget.sizePolicy().Fixed)
+        # Set maximum visible items for dropdown
+        widget.setMaxVisibleItems(6)
         
-        # Store original items when combo is created to restore if needed
+        # Store original items when combo is created
         if not hasattr(widget, '_original_items'):
             widget._original_items = []
             for i in range(widget.count()):
                 widget._original_items.append(widget.itemText(i))
         
-        # Override the showPopup method to control dropdown size
-        original_show_popup = widget.showPopup
-        
-        def custom_show_popup():
-            original_show_popup()
-            # Get the popup view and force exact size matching
-            popup = widget.view()
-            if popup:
-                # Match popup width exactly to combo box width
-                popup.setFixedWidth(widget.width())
+        # Simple keyboard navigation - highlight matching items
+        original_key_press = widget.keyPressEvent
+        def simple_key_press(event):
+            try:
+                from PyQt5.QtCore import Qt
                 
-                # Ultra-compact height for 2 items only
-                popup.setFixedHeight(44)  # Just enough for 2 items (20px each + 4px padding)
+                # Get the pressed key as text
+                key_text = event.text().lower()
                 
-                # Position popup directly below combo box
-                global_pos = widget.mapToGlobal(widget.rect().bottomLeft())
-                popup.move(global_pos.x(), global_pos.y())
+                # Only handle letter/number keys for navigation
+                if key_text and key_text.isalnum():
+                    # Find first item that starts with this key
+                    for i in range(widget.count()):
+                        item_text = widget.itemText(i).lower()
+                        if item_text.startswith(key_text):
+                            widget.setCurrentIndex(i)
+                            # If dropdown is open, ensure item is visible
+                            if widget.view().isVisible():
+                                widget.view().scrollTo(widget.view().model().index(i, 0))
+                            break
+                    event.accept()
+                    return
                 
-                # Remove any margins or borders that cause dual frame effect
-                popup.setContentsMargins(0, 0, 0, 0)
-                popup.setStyleSheet("""
-                    QAbstractItemView {
-                        border: 1px solid #D1D5DB;
-                        border-radius: 4px;
-                        background-color: #FFFFFF;
-                        margin: 0px;
-                        padding: 0px;
-                    }
-                """)
+                # Handle other keys normally
+                if original_key_press:
+                    original_key_press(event)
+                    
+            except Exception as e:
+                print(f"Warning: Combo key navigation error: {e}")
+                # Fallback to original behavior
+                if original_key_press:
+                    try:
+                        original_key_press(event)
+                    except:
+                        pass
         
-        widget.showPopup = custom_show_popup
+        widget.keyPressEvent = simple_key_press
         
-        # Improve the mouse press event handling
-        original_mouse_press = widget.mousePressEvent
-        
-        def enhanced_mouse_press(event):
-            print(f"🎯 {combo_type} combo clicked - enhanced handling")
-            
-            # Check if items were cleared - repopulate if needed
-            if widget.count() == 0:
-                print(f"🎯 {combo_type} combo box is empty! Repopulating...")
-                try:
-                    # Repopulate based on combo type
-                    if combo_type == "school_combo":
-                        schools = self.db.get_schools()
-                        widget.addItem("Select School...")
-                        for school in schools:
-                            school_name = school.get('school_name', f"School {school.get('id', '')}")
-                            widget.addItem(school_name, school.get('id'))
-                    elif combo_type == "class_combo":
-                        classes = self.db.get_classes()
-                        widget.addItem("Select Class...")
-                        widget.addItems(classes)
-                    elif combo_type == "section_combo":
-                        sections = self.db.get_sections()
-                        widget.addItem("Select Section...")
-                        widget.addItems(sections)
-                    else:
-                        # For other combo types (gender, etc.), restore original items
-                        if hasattr(widget, '_original_items') and widget._original_items:
-                            widget.addItems(widget._original_items)
-                        else:
-                            widget.addItem("Select...")
-                    print(f"🎯 Repopulated {combo_type} with {widget.count()} items")
-                except Exception as e:
-                    print(f"🎯 Error repopulating {combo_type}: {e}")
-            
-            # Call the original mouse press event to maintain proper behavior
-            original_mouse_press(event)
-        
-        widget.mousePressEvent = enhanced_mouse_press
-        
-        # Apply improved combo box styling
+        # Apply improved combo box styling  
         self._apply_improved_combo_styling(widget, combo_type)
-        
-        # Also add keyboard support
-        def key_press_override(event):
-            from PyQt5.QtCore import Qt
-            if event.key() in [Qt.Key_Enter, Qt.Key_Return, Qt.Key_Space, Qt.Key_Down]:
-                print(f"🎯 {combo_type} combo opened via keyboard")
-                widget.showPopup()
-                event.accept()
-            else:
-                super(QComboBox, widget).keyPressEvent(event)
-        
-        widget.keyPressEvent = key_press_override
     
     def _apply_improved_combo_styling(self, widget, combo_type):
-        """Apply single-frame combo box styling to eliminate dual background."""
+        """Apply single-frame combo box styling with editable support."""
         improved_style = """
             QComboBox {
                 background-color: #FFFFFF;
@@ -2470,6 +2805,21 @@ class StudentPage(QWidget):
             QComboBox:hover {
                 border: 1px solid #6B7280;
                 background-color: #F9FAFB;
+            }
+            QComboBox:editable {
+                background-color: #FFFFFF;
+            }
+            QComboBox QLineEdit {
+                background-color: transparent;
+                border: none;
+                padding: 0px;
+                font-family: 'Poppins Medium';
+                font-size: 12px;
+                color: #1E293B;
+            }
+            QComboBox QLineEdit:focus {
+                background-color: transparent;
+                border: none;
             }
             QComboBox::drop-down {
                 subcontrol-origin: padding;
@@ -2520,13 +2870,7 @@ class StudentPage(QWidget):
             }
         """
         
-        # Apply style based on field requirements
-        if hasattr(widget, 'objectName') and widget.objectName() == "required_field":
-            # Red styling for required fields
-            required_style = improved_style.replace("#E2E8F0", "#FCA5A5").replace("#3B82F6", "#DC2626")
-            widget.setStyleSheet(required_style)
-        else:
-            widget.setStyleSheet(improved_style)
+        widget.setStyleSheet(improved_style)
 
     def _get_input_style(self):
         """Return standard input field styling."""
@@ -2605,6 +2949,123 @@ class StudentPage(QWidget):
                 background: #FEE2E2;
             }
         """
+    
+    def _clear_validation_errors(self):
+        """Clear all validation error styling from form fields."""
+        # Clear styling from all student fields
+        for field_name, widget in self.student_fields.items():
+            if hasattr(widget, 'property') and widget.property("is_required"):
+                # Apply normal styling to required fields
+                if isinstance(widget, (QLineEdit, QSpinBox, QDateEdit)):
+                    widget.setStyleSheet(self._get_input_style())
+                elif isinstance(widget, QComboBox):
+                    widget.setStyleSheet("")  # Use default combo styling
+            else:
+                # Apply normal styling to optional fields
+                if isinstance(widget, (QLineEdit, QSpinBox, QDateEdit)):
+                    widget.setStyleSheet(self._get_input_style())
+                elif isinstance(widget, QComboBox):
+                    widget.setStyleSheet("")
+    
+    def _highlight_validation_errors(self, error_fields):
+        """Highlight fields that have validation errors in red."""
+        for field_name in error_fields:
+            if field_name in self.student_fields:
+                widget = self.student_fields[field_name]
+                if isinstance(widget, (QLineEdit, QSpinBox, QDateEdit)):
+                    widget.setStyleSheet(self._get_required_input_style())
+                elif isinstance(widget, QComboBox):
+                    # Apply red styling to combo box
+                    widget.setStyleSheet("""
+                        QComboBox {
+                            background-color: #FEF2F2;
+                            border: 2px solid #FCA5A5;
+                            border-radius: 4px;
+                            padding: 6px 8px;
+                            font-family: 'Poppins Medium';
+                            font-size: 12px;
+                            color: #1E293B;
+                        }
+                        QComboBox:focus {
+                            border: 2px solid #DC2626;
+                        }
+                    """)
+    
+    def _is_date_empty(self, date_widget):
+        """Check if date widget has current date (not manually changed)."""
+        # Check if date is current date - if yes, consider it as not selected
+        if date_widget.date() == QDate.currentDate():
+            return True  # Current date means user didn't select anything
+        
+        # If it's any other date, consider it as selected
+        return False
+    
+    def _validate_form_with_fields(self):
+        """Validate all form fields and return both errors and error field names."""
+        errors = []
+        error_fields = []
+        
+        # Required fields validation
+        required_fields = {
+            'student_id': 'Student ID',
+            'student_name': 'Student Name', 
+            'date_of_birth': 'Date of Birth',
+            'gender': 'Gender',
+            'b_form_number': 'B-Form Number',
+            'father_name': "Father's Name",
+            'father_cnic': "Father's CNIC",
+            'father_phone': "Father's Phone"
+        }
+        
+        for field_name, display_name in required_fields.items():
+            if field_name in self.student_fields:
+                widget = self.student_fields[field_name]
+                
+                if isinstance(widget, QLineEdit):
+                    if not widget.text().strip():
+                        errors.append(f"{display_name} is required")
+                        error_fields.append(field_name)
+                elif isinstance(widget, QComboBox):
+                    if widget.currentIndex() <= 0:  # No selection or "Select..." option
+                        errors.append(f"{display_name} must be selected")
+                        error_fields.append(field_name)
+                elif isinstance(widget, QDateEdit):
+                    if self._is_date_empty(widget):
+                        # Custom error message based on field type
+                        if 'birth' in field_name.lower():
+                            errors.append("Please select Birth Date")
+                        elif 'admission' in field_name.lower():
+                            errors.append("Please select Admission Date")
+                        elif 'issue' in field_name.lower() or 'doi' in field_name.lower():
+                            errors.append("Please select Issue Date")
+                        elif 'exp' in field_name.lower():
+                            errors.append("Please select Expiry Date")
+                        else:
+                            errors.append(f"Please select {display_name}")
+                        error_fields.append(field_name)
+                    elif 'birth' in field_name and widget.date() > QDate.currentDate():
+                        errors.append(f"{display_name} cannot be in the future")
+                        error_fields.append(field_name)
+        
+        # Phone format validation
+        if 'father_phone' in self.student_fields:
+            phone_widget = self.student_fields['father_phone']
+            phone_text = phone_widget.text().replace('-', '')
+            if phone_text and (len(phone_text) != 11 or not phone_text.startswith('03')):
+                errors.append("Father's Phone must be 11 digits starting with 03")
+                error_fields.append('father_phone')
+        
+        # Student ID uniqueness check (skip for current student when editing)
+        if 'student_id' in self.student_fields:
+            student_id_widget = self.student_fields['student_id']
+            student_id = student_id_widget.text().strip()
+            if student_id and self._check_student_id_exists(student_id):
+                # Skip validation if this is the current student being edited
+                if not (hasattr(self, 'current_student_id') and self.current_student_id == student_id):
+                    errors.append(f"Student ID '{student_id}' already exists")
+                    error_fields.append('student_id')
+        
+        return errors, error_fields
     
     def _validate_form(self):
         """Validate all form fields and return errors."""
@@ -2708,7 +3169,28 @@ class StudentPage(QWidget):
         """Collect all form data into a dictionary."""
         data = {}
         
+        # Get recipient type to determine which fields to exclude
+        recipient_type = None
+        if 'recipient_type' in self.student_fields:
+            recipient_type = self.student_fields['recipient_type'].currentText()
+        
         for field_name, widget in self.student_fields.items():
+            # Skip disabled widgets (for conditional fields)
+            if not widget.isEnabled():
+                continue
+            
+            # Additional logic to exclude fields based on recipient type
+            if recipient_type == "Principal":
+                # Skip alternate fields when Principal is selected
+                if hasattr(self, 'alternate_fields') and field_name in self.alternate_fields:
+                    continue
+            elif recipient_type == "Alternate":
+                # Skip mother and household fields when Alternate is selected
+                if hasattr(self, 'mother_fields') and field_name in self.mother_fields:
+                    continue
+                if hasattr(self, 'household_fields') and field_name in self.household_fields:
+                    continue
+                
             if isinstance(widget, QLineEdit):
                 data[field_name] = widget.text().strip()
             elif isinstance(widget, QComboBox):
@@ -2724,11 +3206,93 @@ class StudentPage(QWidget):
             elif isinstance(widget, QSpinBox):
                 data[field_name] = widget.value()
             elif isinstance(widget, QDateEdit):
-                data[field_name] = widget.date().toString("yyyy-MM-dd")
+                # Define required date fields that must always be saved
+                required_date_fields = ['date_of_birth', 'year_of_admission', 'year_of_admission_alt']
+                
+                # Save date for required fields or if user manually selected it
+                if field_name in required_date_fields or (hasattr(widget, '_user_selected') and widget._user_selected):
+                    data[field_name] = widget.date().toString("yyyy-MM-dd")
+                else:
+                    # For optional date fields, only save if not default current date
+                    current_date = widget.date().toString("yyyy-MM-dd")
+                    today = QDate.currentDate().toString("yyyy-MM-dd")
+                    if current_date != today:
+                        data[field_name] = current_date
+                    else:
+                        data[field_name] = ""
             elif isinstance(widget, QTextEdit):
                 data[field_name] = widget.toPlainText().strip()
         
+        # Auto-populate missing required fields for database compatibility
+        self._auto_populate_required_fields(data)
+        
         return data
+        
+    def _auto_populate_required_fields(self, data):
+        """Auto-populate missing required database fields."""
+        try:
+            # If org_id is missing but we have a school selection, try to get org info
+            if 'org_id' not in data or not data['org_id']:
+                data['org_id'] = 1  # Default organization ID
+                
+            # If school_id is available, get related info from database
+            if 'school_id' in data and data['school_id']:
+                try:
+                    school_info = self.db.get_school_info(data['school_id'])
+                    if school_info:
+                        # Set related IDs from school info
+                        data['province_id'] = school_info.get('province_id', 1)
+                        data['district_id'] = school_info.get('district_id', 1) 
+                        data['union_council_id'] = school_info.get('union_council_id', 1)
+                except:
+                    # Fallback to defaults if school info fetch fails
+                    pass
+            
+            # Set default values for missing required fields
+            required_defaults = {
+                'org_id': 1,
+                'school_id': data.get('school_id', 1),
+                'province_id': 1,
+                'district_id': 1,
+                'union_council_id': 1,
+                'nationality_id': 1,
+                'final_unique_codes': data.get('student_id', 'STU2025001'),
+                'registration_number': data.get('student_id', 'REG2025001'),
+                'class_teacher_name': 'Default Teacher',
+                'students_bform_number': data.get('b_form_number', '12345-1234567-1'),
+                'year_of_admission': data.get('date_of_birth', '2023-01-01'),
+                'year_of_admission_alt': data.get('date_of_birth', '2023-01-01'),
+                'household_size': 4,
+                'mother_marital_status': 'Married',
+                'mother_id_type': 'CNIC',
+                'mother_cnic_doi': '2010-01-01',
+                'mother_cnic_exp': '2030-01-01',
+                'mother_mwa': 1,
+                'household_role': 'Head',
+                'hh_gender': data.get('gender', 'Male'),
+                'hh_date_of_birth': data.get('date_of_birth', '1980-01-01'),
+                'recipient_type': 'Principal'
+            }
+            
+            # Only set defaults for missing fields
+            for field, default_value in required_defaults.items():
+                if field not in data or not data[field]:
+                    data[field] = default_value
+                    
+            print(f"🔧 Auto-populated {len(required_defaults)} required fields")
+            
+        except Exception as e:
+            print(f"❌ Error auto-populating required fields: {e}")
+            # Set minimal defaults to prevent database errors
+            minimal_defaults = {
+                'org_id': 1, 'school_id': 1, 'province_id': 1, 'district_id': 1,
+                'union_council_id': 1, 'nationality_id': 1,
+                'final_unique_codes': 'STU2025001', 'registration_number': 'REG2025001',
+                'class_teacher_name': 'Default Teacher'
+            }
+            for field, default_value in minimal_defaults.items():
+                if field not in data or not data[field]:
+                    data[field] = default_value
     
     def _populate_form_data(self, student_data):
         """Populate form fields with student data."""
@@ -2742,12 +3306,28 @@ class StudentPage(QWidget):
                 if isinstance(widget, QLineEdit):
                     widget.setText(str(value) if value else "")
                 elif isinstance(widget, QComboBox):
-                    # Find and set the correct item
-                    index = widget.findText(str(value) if value else "")
-                    if index >= 0:
-                        widget.setCurrentIndex(index)
+                    # Special handling for school_id field
+                    if field_name == 'school_id' and value:
+                        # Try to find by data value first (for school_id)
+                        for i in range(widget.count()):
+                            if widget.itemData(i) == value:
+                                widget.setCurrentIndex(i)
+                                print(f"🏫 Set school combo to index {i} for school_id: {value}")
+                                break
+                        else:
+                            # Fallback to text search
+                            index = widget.findText(str(value))
+                            if index >= 0:
+                                widget.setCurrentIndex(index)
+                            else:
+                                widget.setCurrentIndex(0)  # Default selection
                     else:
-                        widget.setCurrentIndex(0)  # Default selection
+                        # Regular text-based combo box population
+                        index = widget.findText(str(value) if value else "")
+                        if index >= 0:
+                            widget.setCurrentIndex(index)
+                        else:
+                            widget.setCurrentIndex(0)  # Default selection
                 elif isinstance(widget, QSpinBox):
                     widget.setValue(int(value) if value else 0)
                 elif isinstance(widget, QDateEdit):
@@ -2760,9 +3340,24 @@ class StudentPage(QWidget):
     
     def _save_student_data(self):
         """Save or update student data."""
+        # Clear previous validation errors
+        self._clear_validation_errors()
+        
+        # Debug info for troubleshooting
+        print(f"🔍 DEBUG - Save operation starting:")
+        print(f"  - is_editing: {getattr(self, 'is_editing', 'NOT SET')}")
+        print(f"  - current_student_id: {getattr(self, 'current_student_id', 'NOT SET')}")
+        if 'student_id' in self.student_fields:
+            form_student_id = self.student_fields['student_id'].text().strip()
+            print(f"  - form student_id: {form_student_id}")
+            print(f"  - IDs match: {getattr(self, 'current_student_id', None) == form_student_id}")
+        
         # Validate form first
-        errors = self._validate_form()
+        errors, error_fields = self._validate_form_with_fields()
         if errors:
+            # Highlight error fields in red
+            self._highlight_validation_errors(error_fields)
+            
             error_message = "Please fix the following errors:\n\n" + "\n".join(f"• {error}" for error in errors)
             QMessageBox.warning(self, "Validation Error", error_message)
             return False
@@ -2772,15 +3367,23 @@ class StudentPage(QWidget):
         
         try:
             if hasattr(self, 'current_student_id') and self.current_student_id:
-                # Update existing student
-                success = self.db.update_student(self.current_student_id, data)
+                # Update existing student - add student_id to data and include user info
+                data['student_id'] = self.current_student_id
+                
+                # Get current user information
+                user_id = self.current_user.id if self.current_user else None
+                username = self.current_user.username if self.current_user else None
+                user_phone = getattr(self.current_user, 'phone', None) if self.current_user else None
+                
+                success = self.db.update_student(data, user_id, username, user_phone)
                 if success:
-                    QMessageBox.information(self, "Success", "Student updated successfully!")
-                    self.student_form_dialog.accept()
-                    self.load_students()  # Refresh the student list
+                    QMessageBox.information(self, "Success", "✅ Student updated successfully!")
+                    # Close form and refresh data
+                    self._close_form()
+                    self._load_data()  # Refresh the student list
                     return True
                 else:
-                    QMessageBox.critical(self, "Error", "Failed to update student.")
+                    QMessageBox.critical(self, "Error", "❌ Failed to update student.")
                     return False
             else:
                 # Add new student
@@ -2814,58 +3417,70 @@ class StudentPage(QWidget):
     def _save_student(self):
         """Save the student data to database using new add_student method."""
         try:
-            # Validate form data first
-            errors = self._validate_form()
-            if not self._show_validation_errors(errors):
-                return
+            # Clear previous validation errors
+            self._clear_validation_errors()
             
-            # Collect form data
-            student_data = {}
-            for field_name, widget in self.student_fields.items():
-                if isinstance(widget, QLineEdit):
-                    value = widget.text().strip()
-                    if value:  # Only include non-empty values
-                        student_data[field_name] = value
-                elif isinstance(widget, QComboBox):
-                    if field_name == "school_id":
-                        # For school, get the ID from combo data
-                        school_id = widget.currentData()
-                        if school_id:
-                            student_data[field_name] = school_id
-                            
-                            # Auto-populate organizational fields from school data
-                            org_data = self.db.get_school_organizational_data(school_id)
-                            if org_data:
-                                print(f"🏫 Auto-adding organizational data: {org_data}")
-                                # Add organizational IDs to student data
-                                student_data.update(org_data)
-                    else:
-                        value = widget.currentText()
-                        if value and value != "Select...":  # Only include valid selections
-                            student_data[field_name] = value
-                elif isinstance(widget, QDateEdit):
-                    student_data[field_name] = widget.date().toString("yyyy-MM-dd")
-                elif isinstance(widget, QTextEdit):
-                    value = widget.toPlainText().strip()
-                    if value:  # Only include non-empty values
-                        student_data[field_name] = value
-                elif isinstance(widget, QSpinBox):
-                    student_data[field_name] = widget.value()
+            # Validate form data first
+            errors, error_fields = self._validate_form_with_fields()
+            if errors:
+                # Highlight error fields in red
+                self._highlight_validation_errors(error_fields)
+                
+                if not self._show_validation_errors(errors):
+                    return
+            
+            # Collect form data using enhanced method with conditional logic
+            student_data = self._collect_form_data()
+            
+            # Handle school organizational data separately
+            school_widget = self.student_fields.get('school_id')
+            if school_widget and isinstance(school_widget, QComboBox):
+                school_id = school_widget.currentData()
+                if school_id:
+                    student_data['school_id'] = school_id
+                    
+                    # Auto-populate organizational fields from school data
+                    org_data = self.db.get_school_organizational_data(school_id)
+                    if org_data:
+                        print(f"🏫 Auto-adding organizational data: {org_data}")
+                        # Add organizational IDs to student data
+                        student_data.update(org_data)
             
             print(f"📊 Final student data with org fields: {student_data}")
             
-            # Add the student to database using our new method
-            success = self.db.add_student(student_data)
+            # Determine if we're editing or adding
+            if self.is_editing and self.current_student_id:
+                print(f"🔄 Updating existing student ID: {self.current_student_id}")
+                # Ensure student_id is in the data for update
+                student_data['student_id'] = self.current_student_id
+                # Update existing student with user information
+                success = self.db.update_student(
+                    student_data, 
+                    user_id=1,  # TODO: Get from current session
+                    username="admin",  # TODO: Get from current session
+                    user_phone="N/A"  # TODO: Get from current session
+                )
+                action_text = "updated"
+            else:
+                print(f"➕ Adding new student")
+                # Add new student with user information
+                success = self.db.add_student(
+                    student_data,
+                    user_id=1,  # TODO: Get from current session
+                    username="admin",  # TODO: Get from current session
+                    user_phone="N/A"  # TODO: Get from current session
+                )
+                action_text = "added"
             
             if success:
                 # Show success message
                 QMessageBox.information(
                     self, 
                     "Success", 
-                    f"✅ Student '{student_data.get('student_name', 'N/A')}' added successfully!\n\n"
+                    f"✅ Student '{student_data.get('student_name', 'N/A')}' {action_text} successfully!\n\n"
                     f"📋 Student ID: {student_data.get('student_id', 'N/A')}\n"
-                    f"🎓 Class: {student_data.get('class_id', 'N/A')}\n"
-                    f"📚 Section: {student_data.get('section_id', 'N/A')}"
+                    f"🎓 Class: {student_data.get('class', 'N/A')}\n"
+                    f"📚 Section: {student_data.get('section', 'N/A')}"
                 )
                 
                 # Reset form and close
@@ -2905,7 +3520,12 @@ class StudentPage(QWidget):
                 elif isinstance(widget, QComboBox):
                     widget.setCurrentIndex(0)
                 elif isinstance(widget, QDateEdit):
+                    # Reset to current date but mark as not user selected
                     widget.setDate(QDate.currentDate())
+                    if hasattr(widget, '_user_selected'):
+                        widget._user_selected = False
+                    if hasattr(widget, '_original_date'):
+                        widget._original_date = QDate.currentDate()
                 elif isinstance(widget, QTextEdit):
                     widget.clear()
         except Exception as e:
@@ -2927,54 +3547,52 @@ class StudentPage(QWidget):
         """Load student data for editing."""
         print(f"Loading student data for ID: {student_id}")
         
-        if student_data:
-            # Load basic data from table
-            if 'name' in student_data and 'name' in self.student_fields:
-                self.student_fields['name'].setText(student_data['name'])
+        try:
+            # Load complete student data from database
+            complete_student_data = self.db.get_student_by_id(student_id)
+            if not complete_student_data:
+                QMessageBox.warning(self, "Error", "Student data not found in database.")
+                return
             
-            if 'id' in student_data and 'student_id' in self.student_fields:
-                self.student_fields['student_id'].setText(student_data['id'])
+            print(f"📊 Found complete student data: {list(complete_student_data.keys())}")
             
-            # Set class dropdown
-            if 'class' in student_data and 'class' in self.student_fields:
-                class_combo = self.student_fields['class']
-                class_text = student_data['class']
-                index = class_combo.findText(class_text)
-                if index >= 0:
-                    class_combo.setCurrentIndex(index)
+            # Populate form fields with database data
+            self._populate_form_data(complete_student_data)
             
-            # Set section dropdown
-            if 'section' in student_data and 'section' in self.student_fields:
-                section_combo = self.student_fields['section']
-                section_text = student_data['section']
-                index = section_combo.findText(section_text)
-                if index >= 0:
-                    section_combo.setCurrentIndex(index)
+            print(f"✅ Student data loaded successfully for {complete_student_data.get('student_name', student_id)}")
             
-            # Set phone number
-            if 'phone' in student_data and 'student_phone' in self.student_fields:
-                self.student_fields['student_phone'].setText(student_data['phone'])
+        except Exception as e:
+            print(f"❌ Error loading student data: {e}")
+            QMessageBox.critical(self, "Error", f"Failed to load student data: {str(e)}")
             
-            # Set some default values for demo
-            if 'father_name' in student_data and 'father_name' in self.student_fields:
-                self.student_fields['father_name'].setText(student_data['father_name'])
-            elif 'father_name' in self.student_fields:
-                self.student_fields['father_name'].setText(f"Father of {student_data.get('name', '')}")
-            
-            if 'school' in self.student_fields:
-                school_combo = self.student_fields['school']
-                school_combo.setCurrentIndex(1)  # Set to first school
-            
-            if 'roll_number' in self.student_fields:
-                self.student_fields['roll_number'].setText(f"R{student_id}")
-            
-            if 'Alternate_phone' in self.student_fields:
-                self.student_fields['Alternate_phone'].setText(student_data.get('phone', ''))
-            
-            print(f"✅ Student data loaded successfully for {student_data.get('name', student_id)}")
-        else:
-            # TODO: Load actual student data from database
-            print(f"⚠️ No student data provided for ID: {student_id}")
+            # Fallback to basic table data if database fails
+            if student_data:
+                print("📝 Using fallback table data...")
+                # Load basic data from table as fallback
+                if 'name' in student_data and 'student_name' in self.student_fields:
+                    self.student_fields['student_name'].setText(student_data['name'])
+                
+                if 'id' in student_data and 'student_id' in self.student_fields:
+                    self.student_fields['student_id'].setText(student_data['id'])
+                
+                if 'father_name' in student_data and 'father_name' in self.student_fields:
+                    self.student_fields['father_name'].setText(student_data['father_name'])
+                
+                # Set class dropdown
+                if 'class' in student_data and 'class' in self.student_fields:
+                    class_combo = self.student_fields['class']
+                    class_text = student_data['class']
+                    index = class_combo.findText(class_text)
+                    if index >= 0:
+                        class_combo.setCurrentIndex(index)
+                
+                # Set section dropdown
+                if 'section' in student_data and 'section' in self.student_fields:
+                    section_combo = self.student_fields['section']
+                    section_text = student_data['section']
+                    index = section_combo.findText(section_text)
+                    if index >= 0:
+                        section_combo.setCurrentIndex(index)
     
     def _update_table_row(self, student_data):
         """Update the selected row in the table with new student data."""
@@ -3062,7 +3680,11 @@ class StudentPage(QWidget):
         dialog = QDialog(self)
         dialog.setWindowTitle(f"📊 Complete Details - {student_name}")
         dialog.setModal(True)
-        dialog.resize(900, 500)  # Reduced height from 700 to 500
+        
+        # Set dynamic sizing - no fixed size, let content determine size
+        dialog.setSizeGripEnabled(True)  # Allow user to resize
+        dialog.setMinimumSize(800, 400)  # Minimum size
+        dialog.setMaximumSize(1200, 800) # Maximum size to fit most screens
         
         # Main layout
         layout = QVBoxLayout(dialog)
@@ -3086,11 +3708,12 @@ class StudentPage(QWidget):
         """)
         layout.addWidget(header_label)
         
-        # Create scroll area for tab widget
+        # Create dynamic scroll area for tab widget
         scroll_area = QScrollArea()
         scroll_area.setWidgetResizable(True)
-        scroll_area.setVerticalScrollBarPolicy(Qt.ScrollBarAsNeeded)
-        scroll_area.setHorizontalScrollBarPolicy(Qt.ScrollBarAsNeeded)
+        scroll_area.setVerticalScrollBarPolicy(Qt.ScrollBarAsNeeded)  # Only when needed
+        scroll_area.setHorizontalScrollBarPolicy(Qt.ScrollBarAsNeeded)  # Only when needed
+        scroll_area.setSizeAdjustPolicy(QAbstractScrollArea.AdjustToContents)  # Adjust to content size
         scroll_area.setStyleSheet("""
             QScrollArea {
                 border: none;
@@ -3167,6 +3790,15 @@ class StudentPage(QWidget):
             scroll_area.setWidget(tab_widget)
             layout.addWidget(scroll_area)
             
+            # Auto-adjust dialog size based on content
+            dialog.adjustSize()  # Adjust to content size
+            
+            # Set dynamic size based on screen
+            screen_geometry = self.geometry()
+            max_width = min(1200, int(screen_geometry.width() * 0.9))
+            max_height = min(800, int(screen_geometry.height() * 0.8))
+            dialog.resize(max_width, max_height)
+            
             # Button box
             button_box = QDialogButtonBox(QDialogButtonBox.Close)
             button_box.setStyleSheet("""
@@ -3212,7 +3844,7 @@ class StudentPage(QWidget):
             ("Full Name:", student_data.get('student_name', 'N/A')),
             ("Date of Birth:", student_data.get('date_of_birth', 'N/A')),
             ("Gender:", student_data.get('gender', 'N/A')),
-            ("CNIC/B-Form:", student_data.get('b_form_number', 'N/A')),
+            ("CNIC/B-Form:", student_data.get('students_bform_number', 'N/A')),
             ("Address:", student_data.get('address', 'N/A')),
             ("Father's Name:", student_data.get('father_name', 'N/A')),
             ("Father's CNIC:", student_data.get('father_cnic', 'N/A')),
@@ -3220,7 +3852,7 @@ class StudentPage(QWidget):
             ("Household Size:", student_data.get('household_size', 'N/A')),
             # Mother's Information
             ("Mother's Name:", student_data.get('mother_name', 'N/A')),
-            ("Mother's Date of Birth:", student_data.get('mother_dob', 'N/A')),
+            ("Mother's Date of Birth:", student_data.get('mother_date_of_birth', 'N/A')),
             ("Mother's Marital Status:", student_data.get('mother_marital_status', 'N/A')),
             ("Mother's ID Type:", student_data.get('mother_id_type', 'N/A')),
             ("Mother's CNIC:", student_data.get('mother_cnic', 'N/A')),
@@ -3275,11 +3907,11 @@ class StudentPage(QWidget):
         
         academic_info = [
             ("School Name:", student_data.get('school_name', 'N/A')),
-            ("Organization ID:", student_data.get('org_id', 'N/A')),
-            ("School ID:", student_data.get('school_id', 'N/A')),
-            ("Province ID:", student_data.get('province_id', 'N/A')),
-            ("District ID:", student_data.get('district_id', 'N/A')),
-            ("Union Council ID:", student_data.get('union_council_id', 'N/A')),
+            ("Organization:", student_data.get('organization_name', 'N/A')),
+            ("Province:", student_data.get('province_name', 'N/A')),
+            ("District:", student_data.get('district_name', 'N/A')),
+            ("Union Council:", student_data.get('union_council_name', 'N/A')),
+            ("Nationality:", student_data.get('nationality_name', 'N/A')),
             ("Class:", student_data.get('class', 'N/A')),
             ("Section:", student_data.get('section', 'N/A')),
             ("Registration Number:", student_data.get('registration_number', 'N/A')),
@@ -3335,23 +3967,23 @@ class StudentPage(QWidget):
         contact_info = [
             ("Home Address:", student_data.get('address', 'N/A')),
             ("Father's Phone:", student_data.get('father_phone', 'N/A')),
-            ("Nationality ID:", student_data.get('nationality_id', 'N/A')),
+            ("Nationality:", student_data.get('nationality_name', 'N/A')),
             # Household Head Information
             ("Household Role:", student_data.get('household_role', 'N/A')),
             ("Household Name:", student_data.get('household_name', 'N/A')),
             ("HH Gender:", student_data.get('hh_gender', 'N/A')),
-            ("HH Date of Birth:", student_data.get('hh_dob', 'N/A')),
+            ("HH Date of Birth:", student_data.get('hh_date_of_birth', 'N/A')),
             ("Recipient Type:", student_data.get('recipient_type', 'N/A')),
             # Alternate/Guardian Information
             ("Alternate Name:", student_data.get('alternate_name', 'N/A')),
-            ("Alternate Date of Birth:", student_data.get('alternate_dob', 'N/A')),
+            ("Alternate Date of Birth:", student_data.get('alternate_date_of_birth', 'N/A')),
             ("Alternate Marital Status:", student_data.get('alternate_marital_status', 'N/A')),
             ("Alternate ID Type:", student_data.get('alternate_id_type', 'N/A')),
             ("Alternate CNIC:", student_data.get('alternate_cnic', 'N/A')),
             ("Alternate CNIC DOI:", student_data.get('alternate_cnic_doi', 'N/A')),
             ("Alternate CNIC Exp:", student_data.get('alternate_cnic_exp', 'N/A')),
             ("Alternate MWA:", student_data.get('alternate_mwa', 'N/A')),
-            ("Alternate Relationship:", student_data.get('alternate_relationship', 'N/A')),
+            ("Alternate Relationship:", student_data.get('alternate_relationship_with_mother', 'N/A')),
         ]
         
         row = 0
@@ -3388,23 +4020,27 @@ class StudentPage(QWidget):
         return tab
     
     def _create_details_history_tab(self, student_id):
-        """Create change history display tab."""
+        """Create change history display tab with dynamic sizing."""
         tab = QWidget()
         layout = QVBoxLayout(tab)
-        layout.setSpacing(15)
-        layout.setContentsMargins(20, 20, 20, 20)
+        layout.setSpacing(5)  # Reduced spacing between elements
+        layout.setContentsMargins(10, 10, 10, 10)  # Reduced margins
         
-        # Header
+        # Make tab size adjustable to content
+        tab.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
+        
+        # Header - Compact design
         header_label = QLabel("📋 Complete Change History")
         header_label.setStyleSheet("""
             QLabel {
                 font-family: 'Poppins Bold';
-                font-size: 18px;
+                font-size: 16px;
                 color: #374151;
-                padding: 10px;
+                padding: 6px 10px;
                 background: #F8FAFC;
-                border-radius: 8px;
+                border-radius: 6px;
                 border: 1px solid #E5E7EB;
+                max-height: 36px;
             }
         """)
         layout.addWidget(header_label)
@@ -3413,42 +4049,106 @@ class StudentPage(QWidget):
         history_table = QTableWidget()
         history_table.setColumnCount(6)
         history_table.setHorizontalHeaderLabels([
-            "📅 Date & Time", "🔄 Field Changed", "📋 Old Value", "✨ New Value", "🏷️ Change Type", "👤 Changed By"
+            "📅 Date & Time", "🔄 Field Changed", "📋 Old Value", "✨ New Value", "🏷️ Type", "👤 Changed By"
         ])
         
-        # Apply standard table styling
+        # Apply standard table styling with enhanced readability
         apply_standard_table_style(history_table)
         
-        # Sample history data (will be replaced with actual database data)
-        sample_history = [
-            ("2024-08-02 10:30:15", "RECORD_CREATED", "", "Student record created", "INSERT", "System"),
-            ("2024-08-02 14:25:30", "phone", "03001234567", "03001234999", "UPDATE", "Admin"),
-            ("2024-08-01 09:15:45", "class", "Class 9", "Class 10", "UPDATE", "Teacher"),
-            ("2024-07-30 16:45:20", "section", "B", "A", "UPDATE", "Admin"),
-            ("2024-07-28 11:20:10", "father_name", "Muhammad Ali", "Muhammad Ali Khan", "UPDATE", "Student"),
-        ]
+        # Additional styling for better content visibility and optimized text size
+        history_table.setAlternatingRowColors(True)
+        history_table.setSelectionBehavior(QAbstractItemView.SelectRows)
+        history_table.setStyleSheet(history_table.styleSheet() + """
+            QTableWidget {
+                gridline-color: #E5E7EB;
+                alternate-background-color: #F9FAFB;
+                font-size: 12px;
+                font-weight: 500;
+            }
+            QTableWidget::item {
+                padding: 10px 8px;
+                border-bottom: 1px solid #E5E7EB;
+                font-size: 12px;
+                line-height: 1.3;
+                word-wrap: break-word;
+            }
+            QHeaderView::section {
+                background-color: #F3F4F6;
+                color: #374151;
+                font-weight: 600;
+                font-size: 11px;
+                padding: 8px 6px;
+                border: 1px solid #E5E7EB;
+                text-align: center;
+            }
+        """)
         
-        history_table.setRowCount(len(sample_history))
+        # Load real history data from database
+        try:
+            history_records = self.db.get_student_history(student_id)
+            print(f"📋 Loaded {len(history_records)} history records for student {student_id}")
+            
+            if not history_records:
+                # Show message if no history found
+                history_records = [
+                    {
+                        'date_time': 'No data',
+                        'field_changed': 'NO_HISTORY',
+                        'old_value': '',
+                        'new_value': 'No change history available for this student',
+                        'change_type': 'INFO',
+                        'changed_by': 'System'
+                    }
+                ]
+        except Exception as e:
+            print(f"❌ Error loading history: {e}")
+            # Fallback to error message
+            history_records = [
+                {
+                    'date_time': 'Error',
+                    'field_changed': 'ERROR',
+                    'old_value': '',
+                    'new_value': f'Failed to load history: {str(e)}',
+                    'change_type': 'ERROR',
+                    'changed_by': 'System'
+                }
+            ]
         
-        for row, (date_time, field, old_val, new_val, change_type, changed_by) in enumerate(sample_history):
+        history_table.setRowCount(len(history_records))
+        
+        for row, record in enumerate(history_records):
             # Date & Time
-            date_item = QTableWidgetItem(date_time)
+            date_item = QTableWidgetItem(record.get('date_time', 'Unknown'))
+            date_item.setTextAlignment(Qt.AlignCenter)
             history_table.setItem(row, 0, date_item)
             
             # Field Changed
-            field_item = QTableWidgetItem(field)
+            field_item = QTableWidgetItem(record.get('field_changed', 'N/A'))
+            field_item.setTextAlignment(Qt.AlignLeft | Qt.AlignVCenter)
             history_table.setItem(row, 1, field_item)
             
             # Old Value
-            old_item = QTableWidgetItem(old_val)
+            old_value = record.get('old_value', '')
+            if len(old_value) > 100:  # Truncate very long values
+                old_value = old_value[:100] + "..."
+            old_item = QTableWidgetItem(old_value)
+            old_item.setTextAlignment(Qt.AlignLeft | Qt.AlignVCenter)
+            old_item.setToolTip(record.get('old_value', ''))  # Show full value in tooltip
             history_table.setItem(row, 2, old_item)
             
             # New Value
-            new_item = QTableWidgetItem(new_val)
+            new_value = record.get('new_value', '')
+            if len(new_value) > 100:  # Truncate very long values
+                new_value = new_value[:100] + "..."
+            new_item = QTableWidgetItem(new_value)
+            new_item.setTextAlignment(Qt.AlignLeft | Qt.AlignVCenter)
+            new_item.setToolTip(record.get('new_value', ''))  # Show full value in tooltip
             history_table.setItem(row, 3, new_item)
             
             # Change Type
+            change_type = record.get('change_type', 'UNKNOWN')
             type_item = QTableWidgetItem(change_type)
+            type_item.setTextAlignment(Qt.AlignCenter)
             if change_type == "INSERT":
                 type_item.setBackground(QColor("#D1FAE5"))
                 type_item.setForeground(QColor("#047857"))
@@ -3458,34 +4158,96 @@ class StudentPage(QWidget):
             elif change_type == "DELETE":
                 type_item.setBackground(QColor("#FEE2E2"))
                 type_item.setForeground(QColor("#DC2626"))
+            elif change_type == "ERROR":
+                type_item.setBackground(QColor("#FEE2E2"))
+                type_item.setForeground(QColor("#DC2626"))
+            else:
+                type_item.setBackground(QColor("#F3F4F6"))
+                type_item.setForeground(QColor("#6B7280"))
             history_table.setItem(row, 4, type_item)
             
-            # Changed By
-            by_item = QTableWidgetItem(changed_by)
-            history_table.setItem(row, 5, by_item)
+            # Changed By - Now showing proper usernames
+            changed_by = record.get('changed_by', 'Unknown')
+            changed_by_item = QTableWidgetItem(changed_by)
+            changed_by_item.setTextAlignment(Qt.AlignCenter)
+            # Highlight admin users with different color
+            if changed_by.lower() == 'admin':
+                changed_by_item.setBackground(QColor("#EBF8FF"))
+                changed_by_item.setForeground(QColor("#1E40AF"))
+            elif changed_by.lower() != 'unknown' and changed_by.lower() != 'system':
+                changed_by_item.setBackground(QColor("#F0FDF4"))
+                changed_by_item.setForeground(QColor("#166534"))
+            history_table.setItem(row, 5, changed_by_item)
         
-        # Auto resize columns
+        # Auto resize columns based on content for better visibility
         header = history_table.horizontalHeader()
-        header.setSectionResizeMode(0, QHeaderView.ResizeToContents)  # Date & Time
-        header.setSectionResizeMode(1, QHeaderView.ResizeToContents)  # Field Changed
-        header.setSectionResizeMode(2, QHeaderView.Stretch)          # Old Value
-        header.setSectionResizeMode(3, QHeaderView.Stretch)          # New Value
-        header.setSectionResizeMode(4, QHeaderView.ResizeToContents)  # Change Type
-        header.setSectionResizeMode(5, QHeaderView.ResizeToContents)  # Changed By
+        header.setSectionResizeMode(0, QHeaderView.ResizeToContents)  # Date & Time - fit content
+        header.setSectionResizeMode(1, QHeaderView.ResizeToContents)  # Field Changed - fit content
+        header.setSectionResizeMode(2, QHeaderView.ResizeToContents)  # Old Value - fit content
+        header.setSectionResizeMode(3, QHeaderView.ResizeToContents)  # New Value - fit content  
+        header.setSectionResizeMode(4, QHeaderView.ResizeToContents)  # Change Type - fit content
+        header.setSectionResizeMode(5, QHeaderView.ResizeToContents)  # Changed By - fit content
+        
+        # Set minimum widths to ensure readability but allow expansion (reduced for better fit)
+        history_table.setColumnWidth(0, 150)  # Date & Time minimum width
+        history_table.setColumnWidth(1, 180)  # Field Changed minimum width
+        history_table.setColumnWidth(2, 200)  # Old Value minimum width
+        history_table.setColumnWidth(3, 200)  # New Value minimum width
+        history_table.setColumnWidth(4, 100)  # Change Type minimum width
+        history_table.setColumnWidth(5, 120)  # Changed By minimum width
+        
+        # Enable word wrap for better text display
+        history_table.setWordWrap(True)
+        
+        # Allow horizontal stretching beyond table width for full content visibility
+        header.setStretchLastSection(False)
+        header.setCascadingSectionResizes(False)
+        
+        # Set row height for better content visibility (reduced from 50 to 40)
+        history_table.verticalHeader().setDefaultSectionSize(40)
+        
+        # Auto-adjust table height dynamically based on content
+        num_records = len(history_records)
+        header_height = 30  # Header row height
+        row_height = 40     # Data row height
+        border_spacing = 8  # Spacing for borders and margins
+        
+        # Calculate optimal table height: header + (rows * row_height) + spacing
+        optimal_height = header_height + (num_records * row_height) + border_spacing
+        
+        # Set minimum height (for at least 3 rows) but no maximum - let it grow
+        min_height = header_height + (3 * row_height) + border_spacing
+        
+        # Use optimal height but ensure minimum
+        table_height = max(min_height, optimal_height)
+        
+        # Instead of fixed height, set minimum height and let table expand naturally
+        history_table.setMinimumHeight(table_height)
+        
+        # Make table responsive to content
+        history_table.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
+        
+        # Enable table's own scrollbars for very large content
+        history_table.setHorizontalScrollBarPolicy(Qt.ScrollBarAsNeeded)
+        history_table.setVerticalScrollBarPolicy(Qt.ScrollBarAsNeeded)
+        
+        print(f"📏 History table dynamic height: {num_records} records, min height: {table_height}px")
         
         layout.addWidget(history_table)
         
-        # Summary info
-        summary_label = QLabel(f"📊 Total Changes: {len(sample_history)} | Last Updated: 2024-08-02 14:25:30")
+        # Summary info with real data - compact design
+        latest_change = history_records[0].get('date_time', 'Unknown') if history_records else 'No changes'
+        summary_label = QLabel(f"📊 Total Changes: {len(history_records)} | Last Updated: {latest_change}")
         summary_label.setStyleSheet("""
             QLabel {
                 font-family: 'Poppins Medium';
                 color: #6B7280;
-                font-size: 14px;
-                padding: 10px;
+                font-size: 12px;
+                padding: 4px 8px;
                 background: #F9FAFB;
-                border-radius: 6px;
+                border-radius: 4px;
                 border: 1px solid #E5E7EB;
+                max-height: 28px;
             }
         """)
         layout.addWidget(summary_label)

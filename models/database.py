@@ -278,6 +278,82 @@ class Database:
                     version INTEGER DEFAULT 1
                 )''')
                 
+                # Student audit table for storing original versions before updates
+                self.cursor.execute('''CREATE TABLE IF NOT EXISTS students_audit (
+                    -- Audit specific fields
+                    audit_id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    original_record_id INTEGER NOT NULL,
+                    audit_action TEXT NOT NULL CHECK(audit_action IN ('UPDATE', 'DELETE')) DEFAULT 'UPDATE',
+                    audit_timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    audit_user_id INTEGER,
+                    audit_username TEXT,
+                    audit_user_phone TEXT,
+                    audit_reason TEXT,
+                    
+                    -- Original student data (exact copy of students table structure)
+                    id INTEGER,
+                    status TEXT,
+                    student_id TEXT,
+                    final_unique_codes TEXT,
+                    org_id INTEGER,
+                    school_id INTEGER,
+                    province_id INTEGER,
+                    district_id INTEGER,
+                    union_council_id INTEGER,
+                    nationality_id INTEGER,
+                    registration_number TEXT,
+                    class_teacher_name TEXT,
+                    student_name TEXT,
+                    gender TEXT,
+                    date_of_birth DATE,
+                    students_bform_number TEXT,
+                    year_of_admission DATE,
+                    year_of_admission_alt DATE,
+                    class TEXT,
+                    section TEXT,
+                    address TEXT,
+                    father_name TEXT,
+                    father_cnic TEXT,
+                    father_phone TEXT,
+                    household_size INTEGER,
+                    mother_name TEXT,
+                    mother_date_of_birth DATE,
+                    mother_marital_status TEXT,
+                    mother_id_type TEXT,
+                    mother_cnic TEXT,
+                    mother_cnic_doi DATE,
+                    mother_cnic_exp DATE,
+                    mother_mwa INTEGER,
+                    household_role TEXT,
+                    household_name TEXT,
+                    hh_gender TEXT,
+                    hh_date_of_birth DATE,
+                    recipient_type TEXT,
+                    alternate_name TEXT,
+                    alternate_date_of_birth DATE,
+                    alternate_marital_status TEXT,
+                    alternate_id_type TEXT,
+                    alternate_cnic TEXT,
+                    alternate_cnic_doi DATE,
+                    alternate_cnic_exp DATE,
+                    alternate_mwa INTEGER,
+                    alternate_relationship_with_mother TEXT,
+                    created_at TIMESTAMP,
+                    updated_at TIMESTAMP,
+                    created_by INTEGER,
+                    updated_by INTEGER,
+                    created_by_username TEXT,
+                    updated_by_username TEXT,
+                    created_by_phone TEXT,
+                    updated_by_phone TEXT,
+                    is_deleted INTEGER,
+                    deleted_at TIMESTAMP,
+                    deleted_by INTEGER,
+                    deleted_by_username TEXT,
+                    deleted_by_phone TEXT,
+                    version INTEGER
+                )''')
+                
                 # Enhanced attendance table
                 self.cursor.execute('''CREATE TABLE IF NOT EXISTS attendance (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -738,16 +814,21 @@ class Database:
         try:
             student_id = data.get("student_id")
             if not student_id:
-                raise ValueError("student_id is required")
+                raise ValueError("student_id is required for updating")
             
-            # Check if student exists
-            if not self.student_exists(student_id):
-                raise ValueError("Student not found")
+            # Check if student exists and get original record
+            original_student = self.get_student_by_id(student_id)
+            if not original_student:
+                raise ValueError(f"Student not found: {student_id}")
+            
+            # Save original record to audit table before updating
+            self._save_student_to_audit(original_student, 'UPDATE', user_id, username, user_phone, 'Student record update')
             
             # Build update query dynamically based on provided data
             update_fields = []
             values = []
             
+            # Complete field mappings for all student fields
             field_mappings = {
                 'student_name': 'student_name',
                 'gender': 'gender',
@@ -760,7 +841,38 @@ class Database:
                 'father_phone': 'father_phone',
                 'mother_name': 'mother_name',
                 'mother_cnic': 'mother_cnic',
-                # Add other fields as needed
+                'mother_date_of_birth': 'mother_date_of_birth',
+                'mother_marital_status': 'mother_marital_status',
+                'mother_id_type': 'mother_id_type',
+                'mother_cnic_doi': 'mother_cnic_doi',
+                'mother_cnic_exp': 'mother_cnic_exp',
+                'mother_mwa': 'mother_mwa',
+                'household_role': 'household_role',
+                'household_name': 'household_name',
+                'hh_gender': 'hh_gender',
+                'hh_date_of_birth': 'hh_date_of_birth',
+                'recipient_type': 'recipient_type',
+                'alternate_name': 'alternate_name',
+                'alternate_date_of_birth': 'alternate_date_of_birth',
+                'alternate_marital_status': 'alternate_marital_status',
+                'alternate_id_type': 'alternate_id_type',
+                'alternate_cnic': 'alternate_cnic',
+                'alternate_cnic_doi': 'alternate_cnic_doi',
+                'alternate_cnic_exp': 'alternate_cnic_exp',
+                'alternate_mwa': 'alternate_mwa',
+                'alternate_relationship_with_mother': 'alternate_relationship_with_mother',
+                'students_bform_number': 'students_bform_number',
+                'year_of_admission': 'year_of_admission',
+                'year_of_admission_alt': 'year_of_admission_alt',
+                'registration_number': 'registration_number',
+                'class_teacher_name': 'class_teacher_name',
+                'household_size': 'household_size',
+                'org_id': 'org_id',
+                'school_id': 'school_id',
+                'province_id': 'province_id',
+                'district_id': 'district_id',
+                'union_council_id': 'union_council_id',
+                'nationality_id': 'nationality_id'
             }
             
             for key, db_field in field_mappings.items():
@@ -769,28 +881,116 @@ class Database:
                     values.append(data[key])
             
             if not update_fields:
+                logger.info(f"No fields to update for student: {student_id}")
                 return True  # Nothing to update
             
-            update_fields.append("updated_by = ?")
-            update_fields.append("updated_by_username = ?")
-            update_fields.append("updated_by_phone = ?")
-            update_fields.append("updated_at = CURRENT_TIMESTAMP")
-            values.extend([user_id, username, user_phone, student_id])
+            # Add audit fields
+            update_fields.extend([
+                "updated_by = ?",
+                "updated_by_username = ?", 
+                "updated_by_phone = ?",
+                "updated_at = CURRENT_TIMESTAMP",
+                "version = version + 1"
+            ])
+            values.extend([user_id, username, user_phone])
+            
+            # Add WHERE clause parameter
+            values.append(student_id)
             
             update_sql = f"""
                 UPDATE students SET {', '.join(update_fields)}
-                WHERE student_id = ? AND status = 'active'
+                WHERE student_id = ? AND status = 'active' AND is_deleted = 0
             """
             
+            print(f"🔄 Updating student {student_id} with {len(update_fields)} fields")
             self.cursor.execute(update_sql, values)
+            
+            # Check if any rows were affected
+            if self.cursor.rowcount == 0:
+                raise ValueError(f"No student record updated. Student {student_id} may not exist or is deleted.")
+            
             self.conn.commit()
             
+            # Log the successful update
             logger.info(f"Student updated successfully: {student_id} by {username}")
+            print(f"✅ Student {student_id} updated successfully by {username}")
+            
             return True
             
         except Exception as e:
             logger.error(f"Error updating student: {e}")
+            print(f"❌ Error updating student: {e}")
+            if self.conn:
+                self.conn.rollback()
             return False
+    
+    def _save_student_to_audit(self, original_data: Dict[str, Any], action: str, user_id: int = None, username: str = None, user_phone: str = None, reason: str = ""):
+        """Save the original student record to audit table before modification."""
+        try:
+            audit_sql = """
+                INSERT INTO students_audit (
+                    original_record_id, audit_action, audit_user_id, audit_username, 
+                    audit_user_phone, audit_reason,
+                    id, status, student_id, final_unique_codes, org_id, school_id,
+                    province_id, district_id, union_council_id, nationality_id,
+                    registration_number, class_teacher_name, student_name, gender,
+                    date_of_birth, students_bform_number, year_of_admission, year_of_admission_alt,
+                    class, section, address, father_name, father_cnic, father_phone,
+                    household_size, mother_name, mother_date_of_birth, mother_marital_status,
+                    mother_id_type, mother_cnic, mother_cnic_doi, mother_cnic_exp, mother_mwa,
+                    household_role, household_name, hh_gender, hh_date_of_birth, recipient_type,
+                    alternate_name, alternate_date_of_birth, alternate_marital_status,
+                    alternate_id_type, alternate_cnic, alternate_cnic_doi, alternate_cnic_exp,
+                    alternate_mwa, alternate_relationship_with_mother, created_at, updated_at,
+                    created_by, updated_by, created_by_username, updated_by_username,
+                    created_by_phone, updated_by_phone, version, is_deleted, deleted_at, 
+                    deleted_by, deleted_by_username, deleted_by_phone
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """
+            
+            audit_values = (
+                original_data.get('id'), action, user_id, username, user_phone, reason,
+                original_data.get('id'), original_data.get('status'), original_data.get('student_id'),
+                original_data.get('final_unique_codes'), original_data.get('org_id'), 
+                original_data.get('school_id'), original_data.get('province_id'),
+                original_data.get('district_id'), original_data.get('union_council_id'),
+                original_data.get('nationality_id'), original_data.get('registration_number'),
+                original_data.get('class_teacher_name'), original_data.get('student_name'),
+                original_data.get('gender'), original_data.get('date_of_birth'),
+                original_data.get('students_bform_number'), original_data.get('year_of_admission'),
+                original_data.get('year_of_admission_alt'), original_data.get('class'),
+                original_data.get('section'), original_data.get('address'),
+                original_data.get('father_name'), original_data.get('father_cnic'),
+                original_data.get('father_phone'), original_data.get('household_size'),
+                original_data.get('mother_name'), original_data.get('mother_date_of_birth'),
+                original_data.get('mother_marital_status'), original_data.get('mother_id_type'),
+                original_data.get('mother_cnic'), original_data.get('mother_cnic_doi'),
+                original_data.get('mother_cnic_exp'), original_data.get('mother_mwa'),
+                original_data.get('household_role'), original_data.get('household_name'),
+                original_data.get('hh_gender'), original_data.get('hh_date_of_birth'),
+                original_data.get('recipient_type'), original_data.get('alternate_name'),
+                original_data.get('alternate_date_of_birth'), original_data.get('alternate_marital_status'),
+                original_data.get('alternate_id_type'), original_data.get('alternate_cnic'),
+                original_data.get('alternate_cnic_doi'), original_data.get('alternate_cnic_exp'),
+                original_data.get('alternate_mwa'), original_data.get('alternate_relationship_with_mother'),
+                original_data.get('created_at'), original_data.get('updated_at'),
+                original_data.get('created_by'), original_data.get('updated_by'),
+                original_data.get('created_by_username'), original_data.get('updated_by_username'),
+                original_data.get('created_by_phone'), original_data.get('updated_by_phone'),
+                original_data.get('version'), original_data.get('is_deleted'), 
+                original_data.get('deleted_at'), original_data.get('deleted_by'),
+                original_data.get('deleted_by_username'), original_data.get('deleted_by_phone')
+            )
+            
+            self.cursor.execute(audit_sql, audit_values)
+            logger.info(f"Original student record saved to audit: {original_data.get('student_id')} by {username}")
+            print(f"💾 Original record saved to audit for student: {original_data.get('student_id')}")
+            
+        except Exception as e:
+            logger.error(f"Error saving student to audit: {e}")
+            print(f"❌ Error saving to audit: {e}")
+            # Don't fail the main operation if audit fails
+            pass
     
     def delete_student(self, student_id: str, user_id: int = None, username: str = None, user_phone: str = None) -> bool:
         """Soft delete a student record with auditing."""
@@ -798,6 +998,22 @@ class Database:
             # Check if student exists
             if not self.student_exists(student_id):
                 raise ValueError("Student not found")
+            
+            # Get original record for audit trail
+            original_query = "SELECT * FROM students WHERE student_id = ? AND is_deleted = 0"
+            self.cursor.execute(original_query, (student_id,))
+            original_record = self.cursor.fetchone()
+            
+            if original_record:
+                # Save original record to audit table before deletion
+                self._save_student_to_audit(
+                    original_record, 
+                    action='delete',
+                    user_id=user_id,
+                    username=username,
+                    user_phone=user_phone,
+                    reason=f'Student deleted by {username}'
+                )
             
             # Soft delete - mark as deleted instead of actual deletion
             delete_sql = """
@@ -834,19 +1050,47 @@ class Database:
             return False
     
     def get_student_by_id(self, student_id: str) -> Optional[Dict[str, Any]]:
-        """Get student by student ID with security validation."""
+        """Get student by student ID with all related names included."""
         try:
-            query = "SELECT * FROM students WHERE student_id = ? AND status = 'active' AND is_deleted = 0"
-            try:
-                result = self.execute_secure_query(query, (student_id,))
-                if result:
-                    return dict(result[0])
-            except:
-                # Fallback
-                self.cursor.execute(query, (student_id,))
-                result = self.cursor.fetchone()
-                if result:
-                    return dict(result)
+            # Query with multiple JOINs to include all related names
+            query = """
+                SELECT s.*, 
+                       sch.name as school_name,
+                       o.name as organization_name,
+                       p.name as province_name,
+                       d.name as district_name,
+                       uc.name as union_council_name,
+                       n.name as nationality_name
+                FROM students s 
+                LEFT JOIN schools sch ON s.school_id = sch.id 
+                LEFT JOIN organizations o ON s.org_id = o.id
+                LEFT JOIN provinces p ON s.province_id = p.id
+                LEFT JOIN districts d ON s.district_id = d.id
+                LEFT JOIN union_councils uc ON s.union_council_id = uc.id
+                LEFT JOIN nationalities n ON s.nationality_id = n.id
+                WHERE s.student_id = ? AND s.status = 'active' AND s.is_deleted = 0
+            """
+            
+            self.cursor.execute(query, (student_id,))
+            result = self.cursor.fetchone()
+            if result:
+                # Convert to dict manually since result might be Row object
+                columns = [desc[0] for desc in self.cursor.description]
+                student_data = dict(zip(columns, result))
+                
+                # Provide meaningful fallbacks for missing data
+                if not student_data.get('organization_name'):
+                    student_data['organization_name'] = f"Organization ID #{student_data.get('org_id', 'N/A')}"
+                if not student_data.get('province_name'):
+                    student_data['province_name'] = f"Province ID #{student_data.get('province_id', 'N/A')}"
+                if not student_data.get('district_name'):
+                    student_data['district_name'] = f"District ID #{student_data.get('district_id', 'N/A')}"
+                if not student_data.get('union_council_name'):
+                    student_data['union_council_name'] = f"UC ID #{student_data.get('union_council_id', 'N/A')}"
+                if not student_data.get('nationality_name'):
+                    student_data['nationality_name'] = f"Nationality ID #{student_data.get('nationality_id', 'N/A')}"
+                
+                return student_data
             
             return None
             
@@ -1627,6 +1871,38 @@ class Database:
             # Filter data to include only allowed fields
             filtered_data = {k: v for k, v in student_data.items() if k in allowed_fields}
             
+            # Add default values for required fields if not provided
+            defaults = {
+                'final_unique_codes': 'AUTO_GENERATED',
+                'org_id': 1,  # Default organization
+                'school_id': 1,  # Default school
+                'province_id': 1,  # Default province
+                'district_id': 1,  # Default district
+                'union_council_id': 1,  # Default union council
+                'nationality_id': 1,  # Default nationality (Pakistani)
+                'registration_number': f"REG_{student_data.get('student_id', 'AUTO')}",
+                'class_teacher_name': 'TBD',  # To Be Determined
+                'students_bform_number': student_data.get('b_form_number', ''),
+                'year_of_admission': student_data.get('date_of_birth', '2023-01-01'),
+                'year_of_admission_alt': student_data.get('date_of_birth', '2023-01-01'),
+                'household_size': 1,
+                'mother_marital_status': 'Married',
+                'mother_id_type': 'CNIC',
+                'mother_cnic_doi': '2000-01-01',
+                'mother_cnic_exp': '2030-01-01',
+                'mother_mwa': 0,
+                'household_role': 'Child',
+                'household_name': student_data.get('father_name', 'Guardian'),
+                'hh_gender': 'Male',
+                'hh_date_of_birth': '1980-01-01',
+                'recipient_type': 'Principal'
+            }
+            
+            # Apply defaults for missing required fields
+            for field, default_value in defaults.items():
+                if field not in filtered_data or not filtered_data[field]:
+                    filtered_data[field] = default_value
+            
             # Validate required fields
             required_fields = [
                 'student_id', 'final_unique_codes', 'org_id', 'school_id',
@@ -1737,3 +2013,162 @@ class Database:
         except Exception as e:
             logging.error(f"Error bulk updating mother info: {e}")
             raise
+
+    def get_school_info(self, school_id):
+        """Get school information including related IDs."""
+        try:
+            # For now, return default values since schools table structure is not defined
+            # This can be enhanced later when proper schools table is implemented
+            return {
+                'school_id': school_id,
+                'org_id': 1,
+                'province_id': 1,
+                'district_id': 1,
+                'union_council_id': 1,
+                'nationality_id': 1
+            }
+        except Exception as e:
+            logging.error(f"Error getting school info: {e}")
+            return None
+
+    def get_student_history(self, student_id):
+        """Get complete change history for a student from audit table with detailed field changes."""
+        try:
+            cursor = self.conn.cursor()
+            
+            # Get audit records for this student with proper field changes
+            audit_query = """
+                SELECT 
+                    audit_timestamp as action_date,
+                    audit_action,
+                    audit_username,
+                    audit_reason,
+                    student_name,
+                    class,
+                    section,
+                    father_name,
+                    father_phone,
+                    address,
+                    created_by_username,
+                    updated_by_username,
+                    audit_id
+                FROM students_audit 
+                WHERE student_id = ? 
+                ORDER BY audit_timestamp DESC
+            """
+            
+            cursor.execute(audit_query, (student_id,))
+            audit_records = cursor.fetchall()
+            
+            # Get current student data for comparison
+            current_query = """
+                SELECT 
+                    created_at,
+                    updated_at,
+                    created_by_username,
+                    updated_by_username,
+                    student_name,
+                    class,
+                    section,
+                    father_name,
+                    father_phone,
+                    address
+                FROM students 
+                WHERE student_id = ? AND is_deleted = 0
+            """
+            
+            cursor.execute(current_query, (student_id,))
+            current_data = cursor.fetchone()
+            
+            history_records = []
+            
+            # Process audit records to detect actual field changes
+            for i, record in enumerate(audit_records):
+                action_date = record[0] or 'Unknown'
+                action_type = record[1] or 'UPDATE'
+                username = record[2] or record[10] or record[11] or 'System'
+                reason = record[3] or 'Record update'
+                
+                # Compare with previous record to detect actual changes
+                changed_fields = []
+                old_values = []
+                new_values = []
+                
+                if i < len(audit_records) - 1:  # Not the last record
+                    prev_record = audit_records[i + 1]
+                    
+                    # Check each field for changes
+                    field_mapping = {
+                        4: 'Student Name',
+                        5: 'Class', 
+                        6: 'Section',
+                        7: "Father's Name",
+                        8: "Father's Phone",
+                        9: 'Address'
+                    }
+                    
+                    for field_idx, field_name in field_mapping.items():
+                        if record[field_idx] != prev_record[field_idx]:
+                            changed_fields.append(field_name)
+                            old_values.append(str(prev_record[field_idx] or ''))
+                            new_values.append(str(record[field_idx] or ''))
+                
+                else:  # First record (original creation)
+                    if action_type == 'INSERT' or len(audit_records) == 1:
+                        changed_fields = ['RECORD_CREATED']
+                        old_values = ['']
+                        new_values = [f"Student '{record[4]}' added to system"]
+                
+                # Create history entry for each changed field or group them
+                if changed_fields:
+                    if len(changed_fields) == 1:
+                        # Single field change
+                        history_records.append({
+                            'date_time': action_date,
+                            'field_changed': changed_fields[0],
+                            'old_value': old_values[0] if old_values else '',
+                            'new_value': new_values[0] if new_values else '',
+                            'change_type': action_type,
+                            'changed_by': username
+                        })
+                    else:
+                        # Multiple field changes - create one entry with summary
+                        field_summary = f"{len(changed_fields)} fields: " + ", ".join(changed_fields)
+                        value_summary = " | ".join([f"{field}: '{old}' → '{new}'" 
+                                                  for field, old, new in zip(changed_fields, old_values, new_values)])
+                        
+                        history_records.append({
+                            'date_time': action_date,
+                            'field_changed': field_summary,
+                            'old_value': 'Multiple changes',
+                            'new_value': value_summary,
+                            'change_type': action_type,
+                            'changed_by': username
+                        })
+                else:
+                    # No specific field changes detected, show generic update
+                    history_records.append({
+                        'date_time': action_date,
+                        'field_changed': 'Record updated',
+                        'old_value': 'Previous state',
+                        'new_value': reason,
+                        'change_type': action_type,
+                        'changed_by': username
+                    })
+            
+            # Add current record creation if no audit records exist
+            if not history_records and current_data:
+                history_records.append({
+                    'date_time': current_data[0] or 'Unknown',
+                    'field_changed': 'RECORD_CREATED',
+                    'old_value': '',
+                    'new_value': f"Student '{current_data[4]}' added to system",
+                    'change_type': 'INSERT',
+                    'changed_by': current_data[2] or 'System'
+                })
+            
+            return history_records
+            
+        except Exception as e:
+            logging.error(f"Error getting student history: {e}")
+            return []
