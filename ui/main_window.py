@@ -72,6 +72,13 @@ class MainWindow(QMainWindow):
         self.current_user = user
         self._update_ui_for_user()
         
+        # Pass current user to all pages that support it
+        if hasattr(self, 'student_page') and hasattr(self.student_page, 'set_current_user'):
+            self.student_page.set_current_user(user)
+        if hasattr(self, 'student_list_page') and hasattr(self.student_list_page, 'set_current_user'):
+            self.student_list_page.set_current_user(user)
+        # Add other pages as needed
+        
         # Log the session start
         log_audit_event("session_started", user.id, "application")
     

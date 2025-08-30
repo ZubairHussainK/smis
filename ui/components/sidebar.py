@@ -492,11 +492,11 @@ class ModernSidebar(QFrame):
             }
             QPushButton#floatingToggle:hover {
                 background: #2563eb;
-                transform: scale(1.05);
+                
             }
             QPushButton#floatingToggle:pressed {
                 background: #1d4ed8;
-                transform: scale(0.95);
+                
             }
         """)
         

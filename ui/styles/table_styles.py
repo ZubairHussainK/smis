@@ -12,7 +12,8 @@ def get_standard_table_style():
             background: white;
             gridline-color: #E5E7EB;
             font-family: 'Poppins';
-            font-size: 8px;
+            font-size: 13px;
+            font-weight: 500;
             selection-background-color: #3B82F6;
             selection-color: white;
             alternate-background-color: #F8FAFC;
@@ -38,12 +39,13 @@ def get_standard_table_style():
             border-right: none;
         }
         QTableWidget::item {
-            padding: 10px 8px;
+            padding: 15px 12px;
             border-bottom: 1px solid #E2E8F0;
             border-right: 1px solid #F1F5F9;
             background: white;
             color: #374151;
             font-weight: 500;
+            font-size: 13px;
             outline: none;
         }
         QTableWidget::item:selected {
@@ -119,7 +121,7 @@ def get_standard_table_properties():
         'show_grid': True,
         'focus_policy': 'StrongFocus',
         'edit_triggers': 'NoEditTriggers',
-        'vertical_section_size': 35,
+        'vertical_section_size': 45,
         'vertical_scroll_policy': 'ScrollBarAsNeeded',
         'horizontal_scroll_policy': 'ScrollBarAsNeeded',
         'vertical_scroll_mode': 'ScrollPerPixel'
@@ -147,7 +149,7 @@ def apply_standard_table_style(table_widget):
     table_widget.setShowGrid(True)
     table_widget.setFocusPolicy(Qt.StrongFocus)
     table_widget.setEditTriggers(QTableWidget.NoEditTriggers)
-    table_widget.verticalHeader().setDefaultSectionSize(35)
+    table_widget.verticalHeader().setDefaultSectionSize(45)
     table_widget.setVerticalScrollBarPolicy(Qt.ScrollBarAsNeeded)
     table_widget.setHorizontalScrollBarPolicy(Qt.ScrollBarAsNeeded)
     table_widget.setVerticalScrollMode(QTableWidget.ScrollPerPixel)

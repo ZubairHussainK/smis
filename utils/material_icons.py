@@ -188,10 +188,10 @@ class MaterialIconButton:
             }}
             QPushButton:hover {{
                 background: {hover_bg};
-                transform: scale(1.05);
+                
             }}
             QPushButton:pressed {{
-                transform: scale(0.95);
+                
             }}
         """
 

@@ -407,7 +407,7 @@ class ModernCalendarWidget(QWidget):
                     background: #1d4ed8;
                     color: white;
                     border: 3px solid #2563eb;
-                    transform: scale(1.05);
+                    
                 }
             """)
         elif state == "today":

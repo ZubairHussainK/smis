@@ -705,7 +705,7 @@ class MotherRegPage(QWidget):
             }}
             QPushButton:pressed {{
                 background: {hover_color};
-                transform: translateY(1px);
+                
             }}
             QPushButton:disabled {{
                 background: #D1D5DB;
