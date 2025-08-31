@@ -718,8 +718,17 @@ class MotherRegPage(QWidget):
             # Build SQL with filters and search
             where_clauses = []
             params = []
-            # Only show students missing mother/guardian info
-            where_clauses.append("(COALESCE(mother_name,'')='' AND COALESCE(mother_cnic,'')='' AND COALESCE(household_name,'')='' AND COALESCE(father_phone,'')='')")
+            
+            # Only show students missing BOTH mother AND alternate guardian information
+            # (both types of guardian information must be incomplete)
+            where_clauses.append("""
+                (
+                    (COALESCE(mother_name,'') = '' OR COALESCE(mother_cnic,'') = '') 
+                    AND 
+                    (COALESCE(alternate_name,'') = '' OR COALESCE(alternate_cnic,'') = '' OR COALESCE(alternate_relationship_with_mother,'') = '')
+                )
+            """)
+            
             # School filter
             school = self.school_combo.currentText() if self.school_combo else None
             if school and school != 'All Schools':
@@ -728,7 +737,7 @@ class MotherRegPage(QWidget):
             # Class filter
             class_name = self.class_combo.currentText() if self.class_combo else None
             if class_name and class_name != 'All Classes':
-                where_clauses.append("class_2025 = ?")
+                where_clauses.append("class = ?")
                 params.append(class_name)
             # Section filter
             section = self.section_combo.currentText() if self.section_combo else None
@@ -744,8 +753,9 @@ class MotherRegPage(QWidget):
             
             # Build the complete WHERE clause
             where_clauses.insert(0, "is_deleted = 0")  # Always exclude deleted records
+            where_clauses.insert(1, "status = 'Active'")  # Only show active students
             where_sql = f"WHERE {' AND '.join(where_clauses)}"
-            sql = f"SELECT student_id, student_name, father_name, class_name, section, father_phone FROM students {where_sql} ORDER BY student_name"
+            sql = f"SELECT student_id, student_name, father_name, class, section, father_phone FROM students {where_sql} ORDER BY student_name"
             rows = self.db.execute_secure_query(sql, tuple(params))
             students = []
             for r in rows:
@@ -753,7 +763,7 @@ class MotherRegPage(QWidget):
                     'Student ID': r['student_id'],
                     'Name': r['student_name'],
                     'Father': r['father_name'] if 'father_name' in r.keys() else '',
-                    'Class': r['class_name'],
+                    'Class': r['class'],
                     'Section': r['section'],
                     'Phone': r['father_phone'],
                 })

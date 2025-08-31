@@ -198,7 +198,7 @@ class Database:
                 self.cursor.execute('''CREATE TABLE IF NOT EXISTS students (
                     -- Primary and System Fields
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    status TEXT DEFAULT 'active' CHECK(status IN ('active', 'inactive', 'transferred', 'graduated')) NOT NULL,
+                    status TEXT DEFAULT 'Active' CHECK(status IN ('Active', 'Drop', 'Duplicate', 'Fail', 'Graduated')) NOT NULL,
                     student_id TEXT UNIQUE NOT NULL,
                     final_unique_codes TEXT NOT NULL,
                     
@@ -606,7 +606,7 @@ class Database:
         return True
 
     
-    def get_students(self, school_id=None, class_name=None, section=None, 
+    def get_students(self, school_id=None, class_name=None, section=None, status=None,
                     page: int = 1, per_page: int = None, user_id: int = None) -> Dict[str, Any]:
         """Get filtered and paginated list of students with enhanced security."""
         try:
@@ -652,14 +652,19 @@ class Database:
                 params.append(school_id)
             
             if class_name and class_name != "All Classes":
-                base_query += " AND s.class = ?"
-                count_query += " AND s.class = ?"
+                base_query += " AND LOWER(s.class) = LOWER(?)"
+                count_query += " AND LOWER(s.class) = LOWER(?)"
                 params.append(class_name)
             
             if section and section != "All Sections":
-                base_query += " AND s.section = ?"
-                count_query += " AND s.section = ?"
+                base_query += " AND LOWER(s.section) = LOWER(?)"
+                count_query += " AND LOWER(s.section) = LOWER(?)"
                 params.append(section)
+            
+            if status and status != "All Status":
+                base_query += " AND LOWER(s.status) = LOWER(?)"
+                count_query += " AND LOWER(s.status) = LOWER(?)"
+                params.append(status)
             
             # Add pagination
             base_query += " ORDER BY s.student_name LIMIT ? OFFSET ?"
@@ -714,7 +719,7 @@ class Database:
                 SELECT student_id, student_name, class, section, status
                 FROM students 
                 WHERE status = 'active' AND is_deleted = 0
-                AND (student_name LIKE ? OR student_id LIKE ?)
+                AND (LOWER(student_name) LIKE LOWER(?) OR LOWER(student_id) LIKE LOWER(?))
                 ORDER BY student_name 
                 LIMIT 20
             """
@@ -939,6 +944,94 @@ class Database:
                 self.conn.rollback()
             return False
     
+    def update_student_status(self, student_ids: list, new_status: str, user_id: int = None, username: str = None, user_phone: str = None) -> bool:
+        """Update status for multiple students with validation and auditing."""
+        try:
+            if not student_ids:
+                logger.warning("No student IDs provided for status update")
+                return False
+                
+            if not new_status:
+                logger.warning("No status provided for update")
+                return False
+                
+            # Use exact status values as specified by user (will work after schema update)
+            valid_statuses = ['Active', 'Drop', 'Duplicate', 'Fail', 'Graduated']
+            
+            if new_status not in valid_statuses:
+                raise ValueError(f"Invalid status: {new_status}. Must be one of: {', '.join(valid_statuses)}")
+            
+            # Use the exact status value
+            db_status = new_status
+            
+            updated_count = 0
+            failed_updates = []
+            
+            for student_id in student_ids:
+                try:
+                    # Get original record for audit
+                    original_student = self.get_student_by_id(student_id)
+                    if not original_student:
+                        failed_updates.append(f"Student {student_id} not found")
+                        continue
+                    
+                    # Save to audit before updating
+                    self._save_student_to_audit(
+                        original_student, 
+                        'UPDATE', 
+                        user_id, 
+                        username, 
+                        user_phone, 
+                        f'Status changed from {original_student.get("status", "Unknown")} to {new_status}'
+                    )
+                    
+                    # Update the student status
+                    update_sql = """
+                        UPDATE students SET 
+                            status = ?,
+                            updated_by = ?,
+                            updated_by_username = ?, 
+                            updated_by_phone = ?,
+                            updated_at = CURRENT_TIMESTAMP,
+                            version = version + 1
+                        WHERE student_id = ? AND is_deleted = 0
+                    """
+                    
+                    self.cursor.execute(update_sql, [
+                        db_status, user_id, username, user_phone, student_id
+                    ])
+                    
+                    if self.cursor.rowcount > 0:
+                        updated_count += 1
+                    else:
+                        failed_updates.append(f"Student {student_id} could not be updated")
+                        
+                except Exception as e:
+                    logger.error(f"Error updating student {student_id}: {e}")
+                    failed_updates.append(f"Student {student_id}: {str(e)}")
+                    continue
+            
+            # Commit all changes
+            self.conn.commit()
+            
+            # Log results
+            if updated_count > 0:
+                logger.info(f"Successfully updated {updated_count} students to status '{new_status}' by {username}")
+                print(f"✅ Successfully updated {updated_count} students to status '{new_status}'")
+            
+            if failed_updates:
+                logger.warning(f"Failed to update {len(failed_updates)} students: {failed_updates}")
+                print(f"⚠️ Failed to update {len(failed_updates)} students")
+            
+            return updated_count > 0
+            
+        except Exception as e:
+            logger.error(f"Error in bulk status update: {e}")
+            print(f"❌ Error in bulk status update: {e}")
+            if self.conn:
+                self.conn.rollback()
+            return False
+    
     def _save_student_to_audit(self, original_data: Dict[str, Any], action: str, user_id: int = None, username: str = None, user_phone: str = None, reason: str = ""):
         """Save the original student record to audit table before modification."""
         try:
@@ -1083,7 +1176,7 @@ class Database:
                 LEFT JOIN districts d ON s.district_id = d.id
                 LEFT JOIN union_councils uc ON s.union_council_id = uc.id
                 LEFT JOIN nationalities n ON s.nationality_id = n.id
-                WHERE s.student_id = ? AND s.status = 'active' AND s.is_deleted = 0
+                WHERE s.student_id = ? AND s.is_deleted = 0
             """
             
             self.cursor.execute(query, (student_id,))
@@ -1570,7 +1663,7 @@ class Database:
                     params.append(school_id)
                     
                 if class_name:
-                    query += " AND class = ?"
+                    query += " AND LOWER(class) = LOWER(?)"
                     params.append(class_name)
                     
                 query += " ORDER BY section"

@@ -522,8 +522,8 @@ class StudentPage(QWidget):
             
             print(f"📋 Loading students with filters: School ID={school_id}, Class={class_name}, Section={section}")
             
-            # Get students using Database class method
-            students_data = self.db.get_students(school_id=school_id, class_name=class_name, section=section)
+            # Get students using Database class method - only active students
+            students_data = self.db.get_students(school_id=school_id, class_name=class_name, section=section, status="Active")
             
             # Convert to format expected by table
             students = []

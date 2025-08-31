@@ -14,15 +14,16 @@ def get_standard_table_style():
             font-family: 'Poppins';
             font-size: 13px;
             font-weight: 500;
-            selection-background-color: #3B82F6;
-            selection-color: white;
+            selection-background-color: transparent;
+            selection-color: #374151;
             alternate-background-color: #F8FAFC;
+            show-decoration-selected: 0;
         }
         QHeaderView::section {
             background: qlineargradient(x1:0, y1:0, x2:0, y2:1, 
                 stop:0 #F1F5F9, stop:1 #E2E8F0);
             color: #1E293B;
-            font-family: 'Poppins Bold';
+            font-family: 'Arial', 'Segoe UI', 'Poppins Bold', sans-serif;
             font-weight: 700;
             font-size: 13px;
             padding: 12px 10px;
@@ -64,9 +65,8 @@ def get_standard_table_style():
             outline: none;
         }
         QTableWidget::item:focus {
-            background: qlineargradient(x1:0, y1:0, x2:0, y2:1, 
-                stop:0 #3B82F6, stop:1 #2563EB);
-            color: white;
+            background: white;
+            color: #374151;
             border: none;
             outline: none;
         }

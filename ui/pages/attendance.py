@@ -875,8 +875,8 @@ class AttendancePage(QWidget):
     def load_students_from_database(self, school_id=None, class_name=None, section_name=None):
         """Load students from database with optional filters."""
         try:
-            # Get students using the proper database method with pagination
-            result = self.db.get_students(page=1, per_page=500)
+            # Get students using the proper database method with pagination - only active students
+            result = self.db.get_students(page=1, per_page=500, status="Active")
             
             # Handle different return formats from database
             if isinstance(result, dict):
@@ -893,18 +893,18 @@ class AttendancePage(QWidget):
                 else:
                     student_dict = dict(student) if hasattr(student, 'keys') else {}
                 
-                # Convert database format to internal format
+                # Convert database format to internal format - using correct field names
                 student_data = {
-                    "id": str(student_dict.get("Student_ID", student_dict.get("ID", ""))),
-                    "roll": str(student_dict.get("Student_ID", student_dict.get("ID", ""))),
-                    "name": str(student_dict.get("Name", "")),
-                    "class": str(student_dict.get("Class", "")),
-                    "section": str(student_dict.get("Section", "")),
-                    "school": str(student_dict.get("School", "")),
-                    "school_id": str(student_dict.get("School_ID", "")),  # Fixed field name
-                    "gender": str(student_dict.get("Gender", "")),
-                    "phone": str(student_dict.get("Phone", student_dict.get("Contact", ""))),
-                    "father": str(student_dict.get("Father", student_dict.get("Father_Name", "")))
+                    "id": str(student_dict.get("student_id", "")),
+                    "roll": str(student_dict.get("student_id", "")),
+                    "name": str(student_dict.get("student_name", "")),
+                    "class": str(student_dict.get("class", "")),
+                    "section": str(student_dict.get("section", "")),
+                    "school": str(student_dict.get("school_name", "")),
+                    "school_id": str(student_dict.get("school_id", "")),
+                    "gender": str(student_dict.get("gender", "")),
+                    "phone": str(student_dict.get("father_phone", "")),
+                    "father": str(student_dict.get("father_name", ""))
                 }
                 
                 # Apply filters if provided
