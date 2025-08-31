@@ -315,18 +315,18 @@ class StudentListPage(QWidget):
             if not isinstance(student, dict):
                 continue
                 
-            # Map ALL non-audit database fields with proper name handling
+            # Map ALL non-audit database fields with proper name handling - using real names instead of IDs
             row_data = [
                 str(student.get("id", "")),
                 student.get("status", ""),
                 student.get("student_id", ""),
                 student.get("final_unique_codes", ""),
-                f"Org {student.get('org_id', '')}" if student.get('org_id') else "",  # Organization ID as text
-                student.get("school_name", ""),        # School name from JOIN
-                f"Province {student.get('province_id', '')}" if student.get('province_id') else "",  # Province ID as text
-                f"District {student.get('district_id', '')}" if student.get('district_id') else "",  # District ID as text  
-                f"UC {student.get('union_council_id', '')}" if student.get('union_council_id') else "",  # Union Council ID as text
-                f"Nationality {student.get('nationality_id', '')}" if student.get('nationality_id') else "",  # Nationality ID as text
+                student.get("organization_name", "N/A"),        # Real organization name from JOIN
+                student.get("school_name", ""),                 # School name from JOIN
+                student.get("province_name", "N/A"),            # Real province name from JOIN
+                student.get("district_name", "N/A"),            # Real district name from JOIN
+                student.get("union_council_name", "N/A"),       # Real union council name from JOIN
+                student.get("nationality_name", "N/A"),         # Real nationality name from JOIN
                 student.get("registration_number", ""),
                 student.get("class_teacher_name", ""),
                 student.get("student_name", ""),
@@ -389,19 +389,19 @@ class StudentListPage(QWidget):
                         student_data[header] = item.text() if item else ""
                     current_students.append(student_data)
             else:
-                # Use all loaded data - map to ALL non-audit database fields with proper names
+                # Use all loaded data - map to ALL non-audit database fields with proper real names
                 for student in self.students_data:
                     student_data = {
                         "ID": str(student.get("id", "")),
                         "Status": student.get("status", ""),
                         "Student ID": student.get("student_id", ""),
                         "Final Unique Codes": student.get("final_unique_codes", ""),
-                        "Organization": f"Org {student.get('org_id', '')}" if student.get('org_id') else "",
+                        "Organization": student.get("organization_name", "N/A"),        # Real organization name
                         "School Name": student.get("school_name", ""),
-                        "Province": f"Province {student.get('province_id', '')}" if student.get('province_id') else "",
-                        "District": f"District {student.get('district_id', '')}" if student.get('district_id') else "",
-                        "Union Council": f"UC {student.get('union_council_id', '')}" if student.get('union_council_id') else "",
-                        "Nationality": f"Nationality {student.get('nationality_id', '')}" if student.get('nationality_id') else "",
+                        "Province": student.get("province_name", "N/A"),               # Real province name
+                        "District": student.get("district_name", "N/A"),               # Real district name
+                        "Union Council": student.get("union_council_name", "N/A"),     # Real union council name
+                        "Nationality": student.get("nationality_name", "N/A"),         # Real nationality name
                         "Registration Number": student.get("registration_number", ""),
                         "Class Teacher Name": student.get("class_teacher_name", ""),
                         "Student Name": student.get("student_name", ""),

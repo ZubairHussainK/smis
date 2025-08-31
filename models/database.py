@@ -613,19 +613,34 @@ class Database:
             per_page = per_page or 50  # Default page size
             offset = (page - 1) * per_page
             
-            # Build secure query with JOIN to schools table for school names
+            # Build secure query with JOIN to all lookup tables for complete names
             base_query = """
                 SELECT s.*, 
                        sch.name as school_name,
+                       org.name as organization_name,
+                       prov.name as province_name,
+                       dist.name as district_name,
+                       uc.name as union_council_name,
+                       nat.name as nationality_name,
                        COUNT(*) OVER() as total_count
                 FROM students s 
                 LEFT JOIN schools sch ON s.school_id = sch.id
+                LEFT JOIN organizations org ON s.org_id = org.id
+                LEFT JOIN provinces prov ON s.province_id = prov.id
+                LEFT JOIN districts dist ON s.district_id = dist.id
+                LEFT JOIN union_councils uc ON s.union_council_id = uc.id
+                LEFT JOIN nationalities nat ON s.nationality_id = nat.id
                 WHERE s.is_deleted = 0
             """
             count_query = """
                 SELECT COUNT(*) 
                 FROM students s 
                 LEFT JOIN schools sch ON s.school_id = sch.id
+                LEFT JOIN organizations org ON s.org_id = org.id
+                LEFT JOIN provinces prov ON s.province_id = prov.id
+                LEFT JOIN districts dist ON s.district_id = dist.id
+                LEFT JOIN union_councils uc ON s.union_council_id = uc.id
+                LEFT JOIN nationalities nat ON s.nationality_id = nat.id
                 WHERE s.is_deleted = 0
             """
             params = []
