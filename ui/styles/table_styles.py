@@ -108,6 +108,17 @@ def get_standard_table_style():
         QScrollBar::handle:horizontal:hover {
             background: #94A3B8;
         }
+        QToolTip {
+            background: #1E293B;
+            color: #F8FAFC;
+            border: 2px solid #3B82F6;
+            border-radius: 8px;
+            padding: 12px 16px;
+            font-family: 'Poppins';
+            font-size: 13px;
+            font-weight: 500;
+            max-width: 400px;
+        }
     """
 
 def get_standard_table_properties():
@@ -130,12 +141,14 @@ def get_standard_table_properties():
 def apply_standard_table_style(table_widget):
     """
     Apply the standard SMIS table style and properties to a QTableWidget.
+    Includes persistent tooltip functionality for complete cell value display on click.
     
     Args:
         table_widget: QTableWidget instance to style
     """
-    from PyQt5.QtWidgets import QTableWidget, QHeaderView
-    from PyQt5.QtCore import Qt
+    from PyQt5.QtWidgets import QTableWidget, QHeaderView, QToolTip, QLabel
+    from PyQt5.QtCore import Qt, QTimer
+    from PyQt5.QtGui import QFont, QPalette
     
     # Apply stylesheet
     table_widget.setStyleSheet(get_standard_table_style())
@@ -158,3 +171,92 @@ def apply_standard_table_style(table_widget):
     header = table_widget.horizontalHeader()
     header.setStretchLastSection(True)
     header.setSectionResizeMode(QHeaderView.ResizeToContents)
+    
+    # Add persistent tooltip functionality
+    table_widget._tooltip_label = None
+    table_widget._current_tooltip_cell = None
+    
+    def show_persistent_tooltip(row, column):
+        """Show persistent tooltip that stays until mouse leaves cell or another cell is clicked."""
+        try:
+            # Hide previous tooltip if exists
+            if table_widget._tooltip_label:
+                table_widget._tooltip_label.hide()
+                table_widget._tooltip_label.deleteLater()
+                table_widget._tooltip_label = None
+            
+            item = table_widget.item(row, column)
+            if item is not None:
+                cell_value = item.text()
+                if cell_value:  # Only show tooltip if cell has content
+                    # Get column header name for better context
+                    header_item = table_widget.horizontalHeaderItem(column)
+                    column_name = header_item.text() if header_item else f"Column {column + 1}"
+                    
+                    # Create persistent tooltip label
+                    tooltip_label = QLabel(table_widget.parent())
+                    tooltip_label.setWindowFlags(Qt.ToolTip | Qt.FramelessWindowHint)
+                    tooltip_label.setAttribute(Qt.WA_ShowWithoutActivating)
+                    
+                    # Set tooltip content and styling
+                    tooltip_text = f"🏷️ {column_name}\n📄 {cell_value}"
+                    tooltip_label.setText(tooltip_text)
+                    tooltip_label.setStyleSheet("""
+                        QLabel {
+                            background: #1E293B;
+                            color: #F8FAFC;
+                            border: 2px solid #3B82F6;
+                            border-radius: 8px;
+                            padding: 12px 16px;
+                            font-family: 'Poppins';
+                            font-size: 13px;
+                            font-weight: 500;
+                            max-width: 400px;
+                        }
+                    """)
+                    tooltip_label.setWordWrap(True)
+                    tooltip_label.adjustSize()
+                    
+                    # Get cell position for tooltip placement
+                    cell_rect = table_widget.visualItemRect(item)
+                    global_pos = table_widget.mapToGlobal(cell_rect.bottomLeft())
+                    
+                    # Position tooltip below the cell
+                    tooltip_label.move(global_pos.x(), global_pos.y() + 5)
+                    tooltip_label.show()
+                    
+                    # Store references
+                    table_widget._tooltip_label = tooltip_label
+                    table_widget._current_tooltip_cell = (row, column)
+                    
+                    print(f"💡 Persistent tooltip shown for cell ({row + 1}, {column + 1}): {column_name} = '{cell_value[:50]}{'...' if len(cell_value) > 50 else ''}'")
+        except Exception as e:
+            print(f"❌ Error showing persistent tooltip: {e}")
+    
+    def hide_tooltip_on_leave():
+        """Hide tooltip when mouse leaves the current cell."""
+        try:
+            if table_widget._tooltip_label:
+                table_widget._tooltip_label.hide()
+                table_widget._tooltip_label.deleteLater()
+                table_widget._tooltip_label = None
+                table_widget._current_tooltip_cell = None
+                print("💡 Tooltip hidden on mouse leave")
+        except Exception as e:
+            print(f"❌ Error hiding tooltip: {e}")
+    
+    def on_cell_entered(row, column):
+        """Handle mouse entering a cell - hide tooltip if it's for a different cell."""
+        try:
+            if (table_widget._current_tooltip_cell and 
+                table_widget._current_tooltip_cell != (row, column)):
+                hide_tooltip_on_leave()
+        except Exception as e:
+            print(f"❌ Error in cell entered handler: {e}")
+    
+    # Connect signals
+    table_widget.cellClicked.connect(show_persistent_tooltip)
+    table_widget.cellEntered.connect(on_cell_entered)
+    
+    # Enable mouse tracking for hover events
+    table_widget.setMouseTracking(True)
