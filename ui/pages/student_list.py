@@ -54,7 +54,7 @@ class StudentListPage(QWidget):
         
         # Initial load
         self._load_students()
-
+        
     def _init_ui(self):
         """Initialize the modern student list page UI components."""
         main_layout = QVBoxLayout()

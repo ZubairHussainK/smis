@@ -4,7 +4,8 @@ from PyQt5.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel,
                            QLineEdit, QMessageBox, QTableWidget, QHeaderView,
                            QScrollArea, QTableWidgetItem, QSplitter, QTextEdit,
                            QGroupBox, QFormLayout, QCheckBox, QDateEdit,
-                           QSpinBox, QTabWidget, QDialog, QDialogButtonBox)
+                           QSpinBox, QTabWidget, QDialog, QDialogButtonBox,
+                           QSizePolicy)
 from PyQt5.QtCore import Qt, QDate, pyqtSignal, QRegExp
 from PyQt5.QtGui import QFont, QIcon, QColor, QRegExpValidator
 from models.database import Database
@@ -69,8 +70,43 @@ class MotherRegPage(QWidget):
         self.edit_btn.setEnabled(has_selection)
         self.delete_btn.setEnabled(has_selection)
         self.view_details_btn.setEnabled(has_selection)
+    def get_filters(self):
+        """Get the current filter values.
+        
+        Returns:
+            dict: Dictionary with filter values
+        """
+        return {
+            "school": self.school_combo.currentText(),
+            "class": self.class_combo.currentText(),
+            "section": self.section_combo.currentText(),
+            "status": self.status_filter_combo.currentText()
+        }
+        
     def _apply_filters(self):
         """Reload data from database when filters change."""
+        # Update filter info label
+        filters = self.get_filters()
+        filter_texts = []
+        
+        if filters["school"] and filters["school"] != "Please Select School" and filters["school"] != "All Schools":
+            filter_texts.append(f"School: {filters['school']}")
+            
+        if filters["class"] and filters["class"] != "Please Select Class" and filters["class"] != "All Classes":
+            filter_texts.append(f"Class: {filters['class']}")
+            
+        if filters["section"] and filters["section"] != "Please Select Section" and filters["section"] != "All Sections":
+            filter_texts.append(f"Section: {filters['section']}")
+            
+        if filters["status"] and filters["status"] != "All Status":
+            filter_texts.append(f"Status: {filters['status']}")
+        
+        if filter_texts:
+            self.filter_info_label.setText("Filters: " + " | ".join(filter_texts))
+        else:
+            self.filter_info_label.setText("No filters applied")
+            
+        # Reload data with new filters
         self._load_data()
     def _show_add_form(self):
         """Show the form for adding a new mother (fully styled like Add Student)."""
@@ -469,18 +505,11 @@ class MotherRegPage(QWidget):
                         QMessageBox.information(self, "Saved", f"Mother information saved to {updated_count} student(s).")
                         # Hide form and refresh list
                         self.form_frame.setVisible(False)
-                        # Clear selection and clear search
+                        # Clear selection
                         try:
                             self.selected_snos.clear()
                         except Exception:
                             pass
-                        if hasattr(self, 'search_input') and self.search_input:
-                            try:
-                                prev = self.search_input.blockSignals(True)
-                                self.search_input.clear()
-                                self.search_input.blockSignals(prev)
-                            except Exception:
-                                self.search_input.setText("")
                         # Reload data with no selection; all rows unchecked
                         self._load_data()
                         # After reload, the updated students will disappear from the list because they no longer match the NULL-info filter
@@ -508,81 +537,9 @@ class MotherRegPage(QWidget):
         panel_layout = QVBoxLayout(left_panel)
         panel_layout.setContentsMargins(20, 20, 20, 20)
         panel_layout.setSpacing(15)
-        filters_group = QGroupBox("🔍 Search & Filter Mothers")
-        filters_group.setStyleSheet("""
-            QGroupBox {
-                font-family: 'Poppins Medium';
-                font-size: 16px;
-                font-weight: 600;
-                color: #374151;
-                border: 2px solid #E5E7EB;
-                border-radius: 8px;
-                margin-top: 10px;
-                padding-top: 10px;
-            }
-            QGroupBox::title {
-                subcontrol-origin: margin;
-                left: 10px;
-                padding: 0 8px 0 8px;
-                background: white;
-            }
-        """)
-        filters_layout = QVBoxLayout(filters_group)
-        search_layout = QHBoxLayout()
-        search_label = QLabel("Search:")
-        search_label.setStyleSheet("color: #6B7280; font-family: 'Poppins'; font-size: 14px;")
-        self.search_input = QLineEdit()
-        self.search_input.setPlaceholderText("Search by name, phone, or CNIC...")
-        self.search_input.setStyleSheet("""
-            QLineEdit {
-                border: 2px solid #E5E7EB;
-                border-radius: 8px;
-                padding: 10px 12px;
-                font-family: 'Poppins';
-                font-size: 14px;
-                background: white;
-            }
-            QLineEdit:focus {
-                border-color: #3B82F6;
-                outline: none;
-            }
-        """)
-        search_layout.addWidget(search_label)
-        search_layout.addWidget(self.search_input, 1)
-        filters_layout.addLayout(search_layout)
-        dropdowns_layout = QHBoxLayout()
-        school_layout = QVBoxLayout()
-        school_label = QLabel("School:")
-        school_label.setStyleSheet("color: #6B7280; font-family: 'Poppins'; font-size: 14px;")
-        self.school_combo = QComboBox()
-        self.school_combo.addItem("All Schools")  # Default option
-        self._load_schools_data()  # Load from database
-        self.school_combo.setStyleSheet(self._get_combo_style())
-        school_layout.addWidget(school_label)
-        school_layout.addWidget(self.school_combo)
-        class_layout = QVBoxLayout()
-        class_label = QLabel("Class:")
-        class_label.setStyleSheet("color: #6B7280; font-family: 'Poppins'; font-size: 14px;")
-        self.class_combo = QComboBox()
-        self.class_combo.addItem("All Classes")  # Default option
-        self._load_classes_data()  # Load from database
-        self.class_combo.setStyleSheet(self._get_combo_style())
-        class_layout.addWidget(class_label)
-        class_layout.addWidget(self.class_combo)
-        section_layout = QVBoxLayout()
-        section_label = QLabel("Section:")
-        section_label.setStyleSheet("color: #6B7280; font-family: 'Poppins'; font-size: 14px;")
-        self.section_combo = QComboBox()
-        self.section_combo.addItem("All Sections")  # Default option
-        self._load_sections_data()  # Load from database
-        self.section_combo.setStyleSheet(self._get_combo_style())
-        section_layout.addWidget(section_label)
-        section_layout.addWidget(self.section_combo)
-        dropdowns_layout.addLayout(school_layout)
-        dropdowns_layout.addLayout(class_layout)
-        dropdowns_layout.addLayout(section_layout)
-        filters_layout.addLayout(dropdowns_layout)
         table_group = QGroupBox("📋 Student Records")
+        # Set size policy to expand and fill available space
+        table_group.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
         table_group.setStyleSheet("""
             QGroupBox {
                 font-family: 'Poppins Medium';
@@ -591,7 +548,7 @@ class MotherRegPage(QWidget):
                 color: #374151;
                 border: 2px solid #E5E7EB;
                 border-radius: 8px;
-                margin-top: 10px;
+                margin-top: 5px;
                 padding-top: 10px;
             }
             QGroupBox::title {
@@ -602,7 +559,13 @@ class MotherRegPage(QWidget):
             }
         """)
         table_layout = QVBoxLayout(table_group)
+        table_layout.setContentsMargins(10, 15, 10, 10)  # Reduced margins
+        table_layout.setSpacing(5)  # Reduced spacing
+        
         self.mothers_table = QTableWidget()
+        # Set size policy for the table to expand vertically
+        self.mothers_table.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+        self.mothers_table.setVerticalScrollBarPolicy(Qt.ScrollBarAsNeeded)
         # Add a checkbox column + 7 summary columns (including School)
         self.mothers_table.setColumnCount(8)
         self.mothers_table.setHorizontalHeaderLabels([
@@ -642,7 +605,6 @@ class MotherRegPage(QWidget):
         table_actions.addWidget(self.selected_info_label)
         table_actions.addWidget(self.view_selected_btn)
         table_layout.addLayout(table_actions)
-        panel_layout.addWidget(filters_group)
         panel_layout.addWidget(table_group, 1)
         return left_panel
 
@@ -729,27 +691,30 @@ class MotherRegPage(QWidget):
                 )
             """)
             
-            # School filter
-            school = self.school_combo.currentText() if self.school_combo else None
-            if school and school != 'All Schools':
-                where_clauses.append("school_name = ?")
-                params.append(school)
+            # Get filters using the new method
+            filters = self.get_filters()
+            
+            # School filter - skip for now as it requires JOIN with schools table
+            if filters["school"] and filters["school"] != "Please Select School" and filters["school"] != "All Schools":
+                # TODO: Implement school filter with proper JOIN
+                pass
+                
             # Class filter
-            class_name = self.class_combo.currentText() if self.class_combo else None
-            if class_name and class_name != 'All Classes':
+            if filters["class"] and filters["class"] != "Please Select Class" and filters["class"] != "All Classes":
                 where_clauses.append("class = ?")
-                params.append(class_name)
+                params.append(filters["class"])
+                
             # Section filter
-            section = self.section_combo.currentText() if self.section_combo else None
-            if section and section != 'All Sections':
+            if filters["section"] and filters["section"] != "Please Select Section" and filters["section"] != "All Sections":
                 where_clauses.append("section = ?")
-                params.append(section)
-            # Search text
-            search_text = self.search_input.text().strip() if self.search_input else ''
-            if search_text:
-                where_clauses.append("(LOWER(student_name) LIKE ? OR LOWER(father_phone) LIKE ?)")
-                like = f"%{search_text.lower()}%"
-                params.extend([like, like])
+                params.append(filters["section"])
+                
+            # Status filter
+            if filters["status"] and filters["status"] != "All Status":
+                where_clauses.append("status = ?")
+                params.append(filters["status"])
+            # Search functionality has been removed
+        # We can restore it in the future if needed
             
             # Build the complete WHERE clause
             where_clauses.insert(0, "is_deleted = 0")  # Always exclude deleted records
@@ -844,15 +809,14 @@ class MotherRegPage(QWidget):
     def _connect_signals(self):
         self.add_new_btn.clicked.connect(self._show_add_form)
         self.refresh_btn.clicked.connect(self._load_data)
-        self.search_input.textChanged.connect(self._apply_filters)
+        # Connect filter comboboxes
         self.school_combo.currentTextChanged.connect(self._apply_filters)
         self.class_combo.currentTextChanged.connect(self._apply_filters)
         self.section_combo.currentTextChanged.connect(self._apply_filters)
+        self.status_filter_combo.currentTextChanged.connect(self._apply_filters)
+        # Table signals
         self.mothers_table.itemSelectionChanged.connect(self._on_selection_changed)
         self.mothers_table.itemDoubleClicked.connect(self._on_double_click)
-        self.school_combo.currentTextChanged.connect(self._apply_filters)
-        self.class_combo.currentTextChanged.connect(self._apply_filters)
-        self.section_combo.currentTextChanged.connect(self._apply_filters)
         self.edit_btn.clicked.connect(self._edit_mother)
         self.delete_btn.clicked.connect(self._delete_mother)
         self.view_details_btn.clicked.connect(self._view_details)
@@ -928,10 +892,12 @@ class MotherRegPage(QWidget):
         self.school_combo = None
         self.class_combo = None
         self.section_combo = None
+        self.status_filter_combo = None  # Added status filter
+        self.filter_info_label = None    # Added filter info label
         self.save_btn = None
         self.cancel_btn = None
         self.mothers_table = None
-        self.search_input = None
+        # self.search_input = None  # Removed search input
         self.form_frame = None
         self.current_mother_id = None
         self.is_editing = False
@@ -941,27 +907,121 @@ class MotherRegPage(QWidget):
         self._is_populating = False
         self.selected_info_label = None
         self.view_selected_btn = None
+        self.edit_btn = None
+        self.delete_btn = None
+        self.view_details_btn = None
         self._init_ui()
+        self._load_initial_filter_data()
         self._load_data()
         self._connect_signals()
 
     def _init_ui(self):
         main_layout = QVBoxLayout(self)
         main_layout.setContentsMargins(20, 20, 20, 20)
-        main_layout.setSpacing(15)
+        main_layout.setSpacing(8)  # Reduced spacing
         header_frame = self._create_header()
         main_layout.addWidget(header_frame)
+        
+        # Create filter section
+        filter_frame = self._create_filter_section()
+        main_layout.addWidget(filter_frame)
+        
         splitter = QSplitter(Qt.Horizontal)
         left_panel = self._create_left_panel()
         splitter.addWidget(left_panel)
         right_panel = self._create_right_panel()
         splitter.addWidget(right_panel)
-        splitter.setSizes([550, 450])
+        # Give more space to the table panel by adjusting splitter sizes
+        splitter.setSizes([650, 350])
         splitter.setCollapsible(0, False)
         splitter.setCollapsible(1, False)
         main_layout.addWidget(splitter)
         self.form_frame.setVisible(False)
 
+    def _create_filter_section(self):
+        """Create enhanced filter section with 2x2 grid layout for mother registration."""
+        from resources.style import COLORS, get_attendance_styles
+        
+        filters_frame = QFrame()
+        filters_frame.setStyleSheet(f"""
+            QFrame {{
+                background: {COLORS['gray_50']};
+                border: 1px solid {COLORS['gray_200']};
+                border-radius: 8px;
+                padding: 8px;
+                max-height: 120px;
+            }}
+        """)
+        
+        filters_layout = QVBoxLayout(filters_frame)
+        filters_layout.setSpacing(4)
+        filters_layout.setContentsMargins(8, 4, 8, 4)
+        
+        # Create grid layout for filters
+        filter_grid = QGridLayout()
+        filter_grid.setSpacing(6)
+        filter_grid.setVerticalSpacing(4)
+        filter_grid.setColumnStretch(0, 1)  # Equal column widths
+        filter_grid.setColumnStretch(1, 1)
+        
+        styles = get_attendance_styles()
+        
+        # Create filter widgets - Basic 2x2 layout: School, Class, Section, Status
+        compact_combobox_style = styles['combobox_standard'] + """
+            QComboBox {
+                max-height: 26px;
+                min-height: 26px;
+                padding: 2px 8px;
+                font-size: 12px;
+            }
+        """
+        
+        self.school_combo = QComboBox()
+        self.school_combo.addItem("Please Select School")  # Placeholder
+        self.school_combo.setStyleSheet(compact_combobox_style)
+        
+        self.class_combo = QComboBox()
+        self.class_combo.addItem("Please Select Class")  # Placeholder
+        self.class_combo.setStyleSheet(compact_combobox_style)
+        
+        self.section_combo = QComboBox()
+        self.section_combo.addItem("Please Select Section")  # Placeholder
+        self.section_combo.setStyleSheet(compact_combobox_style)
+        
+        self.status_filter_combo = QComboBox()
+        self.status_filter_combo.addItems([
+            "All Status", "Active", "Inactive", "Duplicate"
+        ])
+        self.status_filter_combo.setStyleSheet(compact_combobox_style)
+        
+        # Add widgets to grid: 2x2 layout
+        filter_grid.addWidget(self.school_combo, 0, 0)          # Row 1, Col 1
+        filter_grid.addWidget(self.class_combo, 0, 1)           # Row 1, Col 2
+        filter_grid.addWidget(self.section_combo, 1, 0)         # Row 2, Col 1
+        filter_grid.addWidget(self.status_filter_combo, 1, 1)   # Row 2, Col 2
+        filters_layout.addLayout(filter_grid)
+        
+        # Add filter information label
+        self.filter_info_label = QLabel("No filters applied")
+        self.filter_info_label.setStyleSheet(f"""
+            QLabel {{
+                color: {COLORS['gray_600']};
+                font-size: 12px;
+                font-weight: 500;
+                padding: 4px 8px;
+                background: {COLORS['gray_100']};
+                border-radius: 4px;
+                border: 1px solid {COLORS['gray_200']};
+                margin-top: 2px;
+                max-height: 22px;
+            }}
+        """)
+        filters_layout.addWidget(self.filter_info_label)
+        
+        # Note: Signal connections are handled in _connect_signals method
+        
+        return filters_frame
+        
     def _create_header(self):
         header_frame = QFrame()
         header_frame.setStyleSheet("""
@@ -1041,6 +1101,44 @@ class MotherRegPage(QWidget):
         header_layout.addLayout(actions_layout)
         return header_frame
 
+    def _load_initial_filter_data(self):
+        """Load initial data for filter dropdowns."""
+        try:
+            # Clear existing items first
+            self.school_combo.clear()
+            self.class_combo.clear()
+            self.section_combo.clear()
+            
+            # Add default "All" options
+            self.school_combo.addItem("All Schools")
+            self.class_combo.addItem("All Classes")
+            self.section_combo.addItem("All Sections")
+            
+            # Load schools
+            schools = self.db.get_schools()
+            for school in schools:
+                school_name = school.get('name', 'Unknown School')
+                school_id = school.get('id', '')
+                self.school_combo.addItem(school_name, school_id)
+                
+            # Load classes
+            classes = self.db.get_classes()
+            for class_name in classes:
+                self.class_combo.addItem(class_name)
+                
+            # Load sections
+            sections = self.db.get_sections()
+            for section_name in sections:
+                self.section_combo.addItem(section_name)
+                
+            print(f"📚 Loaded filter data in mother registration page")
+        except Exception as e:
+            print(f"❌ Error loading filter data: {e}")
+            # Add some default options if database fails
+            self.school_combo.addItems(["Pine Valley School", "Green Park Academy", "Sunshine High"])
+            self.class_combo.addItems(["Class 1", "Class 2", "Class 3"])
+            self.section_combo.addItems(["A", "B", "C"])
+            
     def _load_schools_data(self):
         """Load schools from database and populate school combo."""
         try:

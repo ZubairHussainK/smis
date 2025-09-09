@@ -30,16 +30,19 @@ class SMISSecurityManager:
     """
     
     def __init__(self):
-        self.app_name = "SMIS_SCHOOL_MANAGEMENT"
-        self.validation_server = "https://api.github.com/repos/YOUR_USERNAME/smis-key-generator"
+        # Load from environment variables with fallbacks
+        self.app_name = os.getenv("APP_NAME", "SMIS_SCHOOL_MANAGEMENT")
+        self.validation_server = os.getenv("VALIDATION_SERVER", 
+                                          "https://api.github.com/repos/YOUR_USERNAME/smis-key-generator")
         self.local_key_file = self._get_secure_key_path()
         self.registration_db = self._get_registration_db_path()
         self.security_key = self._generate_security_key()
         
-        # Anti-crack measures
-        self._check_integrity()
-        self._check_debugger()
-        self._obfuscate_critical_data()
+        # Anti-crack measures - only run in production mode
+        if os.getenv("DEBUG_MODE", "False").lower() != "true":
+            self._check_integrity()
+            self._check_debugger()
+            self._obfuscate_critical_data()
     
     def _get_secure_key_path(self) -> str:
         """Get secure path for key storage."""
@@ -59,13 +62,24 @@ class SMISSecurityManager:
     
     def _generate_security_key(self) -> bytes:
         """Generate security key for encryption."""
+        # Use app name from environment with fallback
         password = f"{self.app_name}_SECURITY_2025".encode()
-        salt = b'smis_ultra_secure_salt_2025'
+        
+        # Get salt from environment with fallback
+        salt_str = os.getenv("SECURITY_SALT", "smis_ultra_secure_salt_2025")
+        salt = salt_str.encode()
+        
+        # Get iterations from environment with fallback
+        try:
+            iterations = int(os.getenv("SECURITY_ITERATIONS", "100000"))
+        except ValueError:
+            iterations = 100000
+            
         kdf = PBKDF2HMAC(
             algorithm=hashes.SHA256(),
             length=32,
             salt=salt,
-            iterations=100000,
+            iterations=iterations,
         )
         return base64.urlsafe_b64encode(kdf.derive(password))
     

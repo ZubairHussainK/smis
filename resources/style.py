@@ -4,6 +4,8 @@ from PyQt5.QtCore import Qt
 import os
 import sys
 
+
+
 # Define constants for colors and gradients - Primary styling constants
 PRIMARY_COLOR = "rgb(16, 137, 211)"
 BUTTON_GRADIENT = "qlineargradient(spread:pad, x1:0, y1:0, x2:1, y2:0, stop:0 rgb(16, 137, 211), stop:1 rgb(18, 177, 209))"
@@ -270,78 +272,99 @@ def get_global_styles():
         # ComboBox Styles with standardized spacing
         'combobox_standard': f"""
             QComboBox {{
-                border: 1px solid #E5E7EB;
-                border-radius: 8px;
-                padding: {SPACING_SM} {SPACING_LG};
-                margin: {MARGIN_COMPONENT};
-                background-color: white;
-                color: #2C3E50;
-                font-size: 14px;
-                font-family: {FONT_REGULAR};
-                min-height: {COMBOBOX_HEIGHT};
-                max-height: {COMBOBOX_HEIGHT};
+                background-color: #F5F5F5;
+                color: #444444; /* Lighter black for dropdown text */
+                border: 2px solid {LABEL_BORDER_COLOR};
+                border-radius: 5px;
+                padding: 5px;
+                font-size: 12px; /* Standard font size */
             }}
-            QComboBox:hover {{
-                border-color: #D1D5DB;
+            QComboBox:disabled {{
+                background-color: #E0E0E0;
+                border: 2px solid #B0B0B0;
+                color: #888888;
             }}
             QComboBox:focus {{
-                border-color: #3B82F6;
-                outline: none;
+                border: 2px solid {FOCUS_BORDER_COLOR};
             }}
             QComboBox::drop-down {{
-                subcontrol-origin: padding;
-                subcontrol-position: center right;
-                width: 25px;
-                border-left: none;
+                border-left: 1px solid {LABEL_BORDER_COLOR};
+                width: 30px;
             }}
             QComboBox::down-arrow {{
-                width: 14px;
-                height: 14px;
+                image: url({icon_path.replace("\\", "/")});
+                width: 15px;
+                height: 15px;
             }}
             QComboBox QAbstractItemView {{
-                border: 1px solid #E5E7EB;
-                selection-background-color: #3B82F6;
-                selection-color: white;
-                background-color: white;
-                padding: {SPACING_XS};
+                background-color: #FFFFFF;
+                border-radius: 0px;
+                selection-background-color: {PRIMARY_COLOR};
+                outline: none;
+            }}
+            QComboBox QAbstractItemView::item {{
+                padding: 5px;
+                color: #444444; /* Lighter black for dropdown items */
+                font-size: 14px; /* Standard font size */
+                font-weight: normal; /* Reduced boldness for dropdown items */
+                text-align: left;
+            }}
+            QComboBox QAbstractItemView::item:selected {{
+                background-color: {PRIMARY_COLOR};
+                color: #FFFFFF; /* White text for selected items */
+            }}
+            QComboBox QAbstractItemView::item:hover {{
+                background-color: #E0E0E0;
+                color: #444444;
             }}
         """,
         
         'combobox_with_icon': f"""
             QComboBox {{
-                border: 1px solid #E5E7EB;
-                border-radius: 8px;
-                padding: 8px 15px 8px 35px;
-                background-color: white;
-                color: #2C3E50;
-                font-size: 14px;
-                font-family: {FONT_REGULAR};
-                min-height: {COMBOBOX_HEIGHT};
-                max-height: {COMBOBOX_HEIGHT};
+                background-color: #F5F5F5;
+                color: #444444; /* Lighter black for dropdown text */
+                border: 2px solid {LABEL_BORDER_COLOR};
+                border-radius: 5px;
+                padding: 5px 5px 5px 35px;
+                font-size: 12px; /* Standard font size */
             }}
-            QComboBox:hover {{
-                border-color: #D1D5DB;
+            QComboBox:disabled {{
+                background-color: #E0E0E0;
+                border: 2px solid #B0B0B0;
+                color: #888888;
             }}
             QComboBox:focus {{
-                border-color: #3B82F6;
-                outline: none;
+                border: 2px solid {FOCUS_BORDER_COLOR};
             }}
             QComboBox::drop-down {{
-                subcontrol-origin: padding;
-                subcontrol-position: center right;
-                width: 25px;
-                border-left: none;
+                border-left: 1px solid {LABEL_BORDER_COLOR};
+                width: 30px;
             }}
             QComboBox::down-arrow {{
-                width: 14px;
-                height: 14px;
+                image: url({icon_path.replace("\\", "/")});
+                width: 15px;
+                height: 15px;
             }}
             QComboBox QAbstractItemView {{
-                border: 1px solid #E5E7EB;
-                selection-background-color: #3B82F6;
-                selection-color: white;
-                background-color: white;
+                background-color: #FFFFFF;
+                border-radius: 0px;
+                selection-background-color: {PRIMARY_COLOR};
+                outline: none;
+            }}
+            QComboBox QAbstractItemView::item {{
                 padding: 5px;
+                color: #444444; /* Lighter black for dropdown items */
+                font-size: 14px; /* Standard font size */
+                font-weight: normal; /* Reduced boldness for dropdown items */
+                text-align: left;
+            }}
+            QComboBox QAbstractItemView::item:selected {{
+                background-color: {PRIMARY_COLOR};
+                color: #FFFFFF; /* White text for selected items */
+            }}
+            QComboBox QAbstractItemView::item:hover {{
+                background-color: #E0E0E0;
+                color: #444444;
             }}
         """,
         
@@ -460,59 +483,7 @@ def get_global_styles():
                 border-bottom: 2px solid #E5E7EB;
             }}
         """,
-        
-        # Professional Frame/Container Styles with PyQt5 compatible design
-        'frame_standard': f"""
-            QFrame {{
-                background-color: {COLORS['white']};
-                border: 1px solid {COLORS['gray_200']};
-                border-radius: {RADIUS['lg']};
-                padding: {PADDING_SECTION};
-                margin: {MARGIN_COMPONENT};
-            }}
-        """,
-        
-        'frame_section': f"""
-            QFrame {{
-                background-color: {COLORS['white']};
-                border: 1px solid {COLORS['gray_200']};
-                border-radius: {RADIUS['xl']};
-                padding: {SPACING_XL};
-                margin: {MARGIN_SECTION};
-            }}
-        """,
-        
-        'frame_card': f"""
-            QFrame {{
-                background-color: {COLORS['white']};
-                border: 2px solid {COLORS['gray_100']};
-                border-radius: {RADIUS['xl']};
-                padding: {SPACING_XL};
-                margin: {SPACING_MD};
-            }}
-        """,
-        
-        'frame_header': f"""
-            QFrame {{
-                background: qlineargradient(x1:0, y1:0, x2:1, y2:0, 
-                    stop:0 {COLORS['primary']}, stop:1 {COLORS['primary_light']});
-                border: none;
-                border-radius: {RADIUS['xl']} {RADIUS['xl']} 0px 0px;
-                padding: {SPACING_LG} {SPACING_XL};
-                margin: 0px;
-                color: {COLORS['white']};
-            }}
-        """,
-        
-        'frame_page': f"""
-            QFrame {{
-                background-color: white;
-                border: 1px solid #E5E7EB;
-                border-radius: 8px;
-                padding: {PADDING_PAGE};
-                margin: {SPACING_SM};
-            }}
-        """,
+
         
         # Calendar Styles with Saturday as working day
         'calendar_standard': f"""
@@ -572,10 +543,7 @@ def get_attendance_styles():
         'button_warning': global_styles['button_warning'],
         'info_text': global_styles['label_info'].replace('QLabel', '').strip(),
         'table_modern': global_styles['table_standard'],
-        'calendar_modern': global_styles['calendar_standard'],
-        'section_frame': global_styles['frame_section'].replace('QFrame', '').strip(),
-        'frame_header': global_styles['frame_header'],
-        'frame_card': global_styles['frame_card']
+        'calendar_modern': global_styles['calendar_standard']
     }
 
 def resource_path(relative_path):
@@ -660,39 +628,50 @@ def setAppStyle(window):
         
         /* Global ComboBox Styles */
         QComboBox {{
-            border: 1px solid #E5E7EB;
-            border-radius: 8px;
-            padding: 8px 15px;
-            background-color: white;
-            color: #2C3E50;
-            font-size: 14px;
-            font-family: {FONT_REGULAR};
-            min-height: {COMBOBOX_HEIGHT};
-            max-height: {COMBOBOX_HEIGHT};
+            background-color: #F5F5F5;
+            color: #444444; /* Lighter black for dropdown text */
+            border: 2px solid {LABEL_BORDER_COLOR};
+            border-radius: 5px;
+            padding: 5px;
+            font-size: 12px; /* Standard font size */
         }}
-        QComboBox:hover {{
-            border-color: #D1D5DB;
+        QComboBox:disabled {{
+            background-color: #E0E0E0;
+            border: 2px solid #B0B0B0;
+            color: #888888;
         }}
         QComboBox:focus {{
-            border-color: #3B82F6;
-            outline: none;
+            border: 2px solid {FOCUS_BORDER_COLOR};
         }}
         QComboBox::drop-down {{
-            subcontrol-origin: padding;
-            subcontrol-position: center right;
-            width: 25px;
-            border-left: none;
+            border-left: 1px solid {LABEL_BORDER_COLOR};
+            width: 30px;
         }}
         QComboBox::down-arrow {{
-            width: 14px;
-            height: 14px;
+            image: url({icon_path.replace("\\", "/")});
+            width: 15px;
+            height: 15px;
         }}
         QComboBox QAbstractItemView {{
-            border: 1px solid #E5E7EB;
-            selection-background-color: #3B82F6;
-            selection-color: white;
-            background-color: white;
+            background-color: #FFFFFF;
+            border-radius: 0px;
+            selection-background-color: {PRIMARY_COLOR};
+            outline: none;
+        }}
+        QComboBox QAbstractItemView::item {{
             padding: 5px;
+            color: #444444; /* Lighter black for dropdown items */
+            font-size: 14px; /* Standard font size */
+            font-weight: normal; /* Reduced boldness for dropdown items */
+            text-align: left;
+        }}
+        QComboBox QAbstractItemView::item:selected {{
+            background-color: {PRIMARY_COLOR};
+            color: #FFFFFF; /* White text for selected items */
+        }}
+        QComboBox QAbstractItemView::item:hover {{
+            background-color: #E0E0E0;
+            color: #444444;
         }}
         
         /* Global SpinBox Styles */
@@ -803,22 +782,24 @@ def setAppStyle(window):
         /* Global Scrollbar Styles */
         QScrollBar:vertical {{
             border: none;
-            background: #F0F0F0;
+            background: #EFEFF1;
             width: 10px;
-            border-radius: 5px;
+            margin: 0px;
         }}
         QScrollBar::handle:vertical {{
-            background: #CCCCCC;
+            background: {PRIMARY_COLOR};
+            min-height: 20px;
             border-radius: 5px;
         }}
         QScrollBar:horizontal {{
             border: none;
-            background: #F0F0F0;
+            background: #EFEFF1;
             height: 10px;
-            border-radius: 5px;
+            margin: 0px;
         }}
         QScrollBar::handle:horizontal {{
-            background: #CCCCCC;
+            background: {PRIMARY_COLOR};
+            min-width: 20px;
             border-radius: 5px;
         }}
 
@@ -1222,23 +1203,6 @@ class LayoutUtils:
             value = int(SPACING_SM.replace('px', ''))
         
         return (value, value, value, value)
-
-# Quick access functions for common spacing operations
-def apply_standard_spacing(layout):
-    """Apply standard spacing to any layout."""
-    LayoutUtils.set_layout_spacing(layout, 'normal')
-
-def apply_section_spacing(layout):
-    """Apply section-level spacing to layout."""
-    LayoutUtils.set_layout_spacing(layout, 'section')
-
-def apply_page_spacing(layout):
-    """Apply page-level spacing to layout."""
-    LayoutUtils.set_layout_spacing(layout, 'page')
-
-def apply_tight_spacing(layout):
-    """Apply tight spacing for compact layouts."""
-    LayoutUtils.set_layout_spacing(layout, 'tight')
 
 # Utility Functions - Legacy compatibility and additional helpers
 def resource_path(relative_path):
@@ -1854,7 +1818,7 @@ __all__ = [
     # Calendar functions
     'configure_calendar_weekend_format',
     # Layout functions
-    'apply_standard_spacing', 'apply_section_spacing', 'apply_page_spacing', 'apply_tight_spacing',
+    'LayoutUtils',
     # Utility functions
     'applyShadow', 'set_widget_height', 'resource_path',
     # Message functions - Enhanced styling

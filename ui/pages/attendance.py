@@ -17,7 +17,7 @@ from PyQt5.QtCore import Qt, QDate
 from PyQt5.QtGui import QFont, QIcon
 
 # Import styling and calendar functions
-from resources.style import (get_attendance_styles, apply_section_spacing,
+from resources.style import (get_attendance_styles, LayoutUtils,
                            show_info_message, COLORS, SPACING_MD, SPACING_LG)
 from ui.styles.table_styles import apply_standard_table_style
 from models.database import Database
@@ -1095,13 +1095,13 @@ class AttendancePage(QWidget):
             
             # Show information about records found
             if len(current_month_records) > 0:
-                print(f"📋 Loaded {len(current_month_records)} saved attendance records for student {student_id} (Month: {current_month}/{current_year})")
+                print(f"Loaded {len(current_month_records)} saved attendance records for student {student_id} (Month: {current_month}/{current_year})")
             else:
                 if all_months_with_records:
                     months_list = sorted(list(all_months_with_records))
-                    print(f"📋 No records found for student {student_id} in {current_month}/{current_year}. Records exist in: {', '.join(months_list)}")
+                    print(f"No records found for student {student_id} in {current_month}/{current_year}. Records exist in: {', '.join(months_list)}")
                 else:
-                    print(f"📋 No attendance records found for student {student_id} in any month")
+                    print(f"No attendance records found for student {student_id} in any month")
                     
             return self.saved_attendance
             
@@ -1417,7 +1417,7 @@ class AttendancePage(QWidget):
         # Students table
         self.students_table = QTableWidget()
         self.students_table.setColumnCount(5)
-        self.students_table.setHorizontalHeaderLabels(["🆔 Student ID", "👤 Student Name", "👨‍👦 Father Name", "📚 Class", "📝 Section"])
+        self.students_table.setHorizontalHeaderLabels(["Student ID", "Student Name", "Father Name", "Class", "Section"])
 
         # Enable strong focus for table navigation with arrow keys
         self.students_table.setFocusPolicy(Qt.StrongFocus)
@@ -2029,7 +2029,7 @@ class AttendancePage(QWidget):
         class_filter = self.class_combo.currentText()
         section_filter = self.section_combo.currentText()
         
-        print(f"📋 Filters changed: School={school_filter}, Class={class_filter}, Section={section_filter}")
+        print(f"Filters changed: School={school_filter}, Class={class_filter}, Section={section_filter}")
         
         # Get filter parameters for database query
         school_id = None

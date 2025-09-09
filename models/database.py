@@ -200,7 +200,7 @@ class Database:
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     status TEXT DEFAULT 'Active' CHECK(status IN ('Active', 'Drop', 'Duplicate', 'Fail', 'Graduated')) NOT NULL,
                     student_id TEXT UNIQUE NOT NULL,
-                    final_unique_codes TEXT NOT NULL,
+                    final_unique_codes TEXT,
                     
                     -- Organization and Location IDs
                     org_id INTEGER NOT NULL,
@@ -211,55 +211,55 @@ class Database:
                     nationality_id INTEGER NOT NULL,
                     
                     -- School Information
-                    registration_number TEXT NOT NULL,
-                    class_teacher_name TEXT NOT NULL,
+                    registration_number TEXT ,
+                    class_teacher_name TEXT ,
                     
                     -- Student Basic Information
-                    student_name TEXT NOT NULL,
-                    gender TEXT CHECK(gender IN ('Male', 'Female', 'Other')) NOT NULL,
-                    date_of_birth DATE NOT NULL,
-                    students_bform_number TEXT NOT NULL,
-                    year_of_admission DATE NOT NULL,
-                    year_of_admission_alt DATE NOT NULL,
-                    class TEXT CHECK(class IN ('Kachi', 'Paki', '1', '2', '3', '4', '5')) NOT NULL,
-                    section TEXT CHECK(section IN ('A', 'B', 'C', 'D', 'E', 'F')) NOT NULL,
-                    address TEXT NOT NULL,
+                    student_name TEXT ,
+                    gender TEXT ,
+                    date_of_birth DATE ,
+                    students_bform_number TEXT,
+                    year_of_admission DATE,
+                    year_of_admission_alt DATE ,
+                    class TEXT,
+                    section TEXT,
+                    address TEXT,
                     
                     -- Father Information
-                    father_name TEXT NOT NULL,
-                    father_cnic TEXT NOT NULL,
-                    father_phone TEXT NOT NULL,
+                    father_name TEXT ,
+                    father_cnic TEXT ,
+                    father_phone TEXT ,
                     
                     -- Household Information
-                    household_size INTEGER NOT NULL,
+                    household_size INTEGER,
                     
                     -- Mother Information
-                    mother_name TEXT NOT NULL,
-                    mother_date_of_birth DATE NOT NULL,
-                    mother_marital_status TEXT CHECK(mother_marital_status IN ('Single', 'Married', 'Divorced', 'Widowed', 'Free union', 'Separated', 'Engaged')) NOT NULL,
-                    mother_id_type TEXT NOT NULL,
-                    mother_cnic TEXT NOT NULL,
-                    mother_cnic_doi DATE NOT NULL,
-                    mother_cnic_exp DATE NOT NULL,
-                    mother_mwa INTEGER NOT NULL,
+                    mother_name TEXT ,
+                    mother_date_of_birth DATE ,
+                    mother_marital_status TEXT,
+                    mother_id_type TEXT ,
+                    mother_cnic TEXT ,
+                    mother_cnic_doi DATE ,
+                    mother_cnic_exp DATE ,
+                    mother_mwa INTEGER ,
                     
                     -- Household Head Information
-                    household_role TEXT CHECK(household_role IN ('Head', 'Son', 'Daughter', 'Wife', 'Husband', 'Brother', 'Sister', 'Mother', 'Father', 'Aunt', 'Uncle', 'Grand Mother', 'Grand Father', 'Mother-in-Law', 'Father-in-Law', 'Daughter-in-Law', 'Son-in-Law', 'Sister-in-Law', 'Brother-in-Law', 'Grand Daughter', 'Grand Son', 'Nephew', 'Niece', 'Cousin', 'Other', 'Not Member')) NOT NULL,
-                    household_name TEXT NOT NULL,
-                    hh_gender TEXT CHECK(hh_gender IN ('Male', 'Female', 'Other')) NOT NULL,
-                    hh_date_of_birth DATE NOT NULL,
-                    recipient_type TEXT CHECK(recipient_type IN ('Principal', 'Alternate')) NOT NULL,
+                    household_role TEXT ,
+                    household_name TEXT ,
+                    hh_gender TEXT ,
+                    hh_date_of_birth DATE ,
+                    recipient_type TEXT ,
                     
                     -- Alternate/Guardian Information (Optional fields)
                     alternate_name TEXT,
                     alternate_date_of_birth DATE,
-                    alternate_marital_status TEXT CHECK(alternate_marital_status IN ('Single', 'Married', 'Divorced', 'Widowed', 'Free union', 'Separated', 'Engaged')),
+                    alternate_marital_status TEXT ,
                     alternate_id_type TEXT,
                     alternate_cnic TEXT,
                     alternate_cnic_doi DATE,
                     alternate_cnic_exp DATE,
                     alternate_mwa INTEGER,
-                    alternate_relationship_with_mother TEXT CHECK(alternate_relationship_with_mother IN ('Head', 'Son', 'Daughter', 'Wife', 'Husband', 'Brother', 'Sister', 'Mother', 'Father', 'Aunt', 'Uncle', 'Grand Mother', 'Grand Father', 'Mother-in-Law', 'Father-in-Law', 'Daughter-in-Law', 'Son-in-Law', 'Sister-in-Law', 'Brother-in-Law', 'Grand Daughter', 'Grand Son', 'Nephew', 'Niece', 'Cousin', 'Other', 'Not Member')),
+                    alternate_relationship_with_mother TEXT,
                     
                     -- Audit and System Fields
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -1610,11 +1610,11 @@ class Database:
         """Get classes from classes table."""
         try:
             self.cursor.execute("""
-                SELECT name 
+                SELECT class_name 
                 FROM classes 
-                ORDER BY name
+                ORDER BY class_name
             """)
-            return [row['name'] for row in self.cursor.fetchall()]
+            return [row['class_name'] for row in self.cursor.fetchall()]
         except Exception as e:
             logging.error(f"Error getting classes: {e}")
             # Fallback to distinct values from students table
@@ -1642,11 +1642,11 @@ class Database:
         """Get sections from sections table."""
         try:
             self.cursor.execute("""
-                SELECT name 
+                SELECT section_name 
                 FROM sections 
-                ORDER BY name
+                ORDER BY section_name
             """)
-            return [row['name'] for row in self.cursor.fetchall()]
+            return [row['section_name'] for row in self.cursor.fetchall()]
         except Exception as e:
             logging.error(f"Error getting sections: {e}")
             # Fallback to distinct values from students table
