@@ -116,8 +116,8 @@ def get_global_styles():
                 font-family: {FONT_SEMIBOLD};
                 font-weight: 600;
                 font-size: 14px;
-                min-height: 44px;
-                max-height: 44px;
+                min-height: 32px;
+                max-height: 32px;
             }}
             QPushButton:hover {{
                 background: qlineargradient(x1:0, y1:0, x2:0, y2:1, 
