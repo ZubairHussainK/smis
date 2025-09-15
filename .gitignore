@@ -51,9 +51,12 @@ Thumbs.db
 logs/
 
 # Database
+*.db
 *.db-shm
 *.db-wal
 school_backup*.db
+.smis_data/.registration.db
 
 # Backup Files
 backups/
+*.bak
