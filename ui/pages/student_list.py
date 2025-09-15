@@ -1,12 +1,13 @@
 """Student list page UI implementation with complete database integration and export functionality."""
 from PyQt5.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel,
-                           QPushButton, QComboBox, QTableWidget, QFrame,
+                           QPushButton, QTableWidget, QFrame,
                            QMessageBox, QTableWidgetItem, QHeaderView, QLineEdit,
                            QGridLayout, QFileDialog, QSizePolicy, QCheckBox)
+from ui.components.custom_combo_box import CustomComboBox
 from PyQt5.QtCore import Qt
 from models.database import Database
 from ui.styles.table_styles import apply_standard_table_style
-from resources.style import COLORS, SPACING_MD, get_attendance_styles
+from resources.styles import COLORS, SPACING_MD, get_attendance_styles
 import csv
 import os
 from datetime import datetime
@@ -103,23 +104,20 @@ class StudentListPage(QWidget):
         styles = get_attendance_styles()
         
         # Create filter widgets - Basic 2x2 layout: School, Class, Section, Status
-        self.school_combo = QComboBox()
+        self.school_combo = CustomComboBox()
         self.school_combo.addItem("Please Select School")  # Placeholder
-        self.school_combo.setStyleSheet(styles['combobox_standard'])
         
-        self.class_combo = QComboBox()
+        self.class_combo = CustomComboBox()
         self.class_combo.addItem("Please Select Class")  # Placeholder
-        self.class_combo.setStyleSheet(styles['combobox_standard'])
         
-        self.section_combo = QComboBox()
+        self.section_combo = CustomComboBox()
         self.section_combo.addItem("Please Select Section")  # Placeholder
-        self.section_combo.setStyleSheet(styles['combobox_standard'])
         
-        self.status_filter_combo = QComboBox()
+        self.status_filter_combo = CustomComboBox()
         self.status_filter_combo.addItems([
             "All Status", "Active", "Fail", "Drop", "Duplicate", "Graduated"
         ])
-        self.status_filter_combo.setStyleSheet(styles['combobox_standard'])
+        # CustomComboBox has its own styling
         
         # Add widgets to grid: 2x2 layout
         filter_grid.addWidget(self.school_combo, 0, 0)          # Row 1, Col 1
@@ -152,7 +150,7 @@ class StudentListPage(QWidget):
         self.table_info_label.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
         
         # Status update combo box
-        self.status_combo = QComboBox()
+        self.status_combo = CustomComboBox()
         self.status_combo.addItems([
             "Select Status", "Active", "Drop", "Duplicate", "Fail", "Graduated"
         ])
@@ -332,7 +330,7 @@ class StudentListPage(QWidget):
             }}
         """)
         
-        self.records_per_page_combo = QComboBox()
+        self.records_per_page_combo = CustomComboBox()
         self.records_per_page_combo.addItems(["10", "20", "30", "50", "100"])
         self.records_per_page_combo.setCurrentText("30")  # Default to 30
         self.records_per_page_combo.setStyleSheet(f"""

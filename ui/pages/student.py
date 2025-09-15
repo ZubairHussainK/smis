@@ -1,16 +1,17 @@
 """Student management page UI implementation."""
 from PyQt5.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel,
-                           QPushButton, QComboBox, QFrame, QGridLayout, 
+                           QPushButton, QFrame, QGridLayout, 
                            QLineEdit, QMessageBox, QTableWidget, QHeaderView,
                            QScrollArea, QTableWidgetItem, QSplitter, QTextEdit,
                            QGroupBox, QFormLayout, QCheckBox, QDateEdit,
                            QSpinBox, QTabWidget, QDialog, QDialogButtonBox,
                            QAbstractItemView, QAbstractScrollArea, QSizePolicy)
+from ui.components.custom_combo_box import CustomComboBox
 from PyQt5.QtCore import Qt, QDate, pyqtSignal, QRegExp
 from PyQt5.QtGui import QFont, QIcon, QColor, QRegExpValidator
 from models.database import Database
 from ui.styles.table_styles import apply_standard_table_style
-from resources.style import COLORS, get_attendance_styles
+from resources.styles import COLORS, get_attendance_styles
 
 class StudentPage(QWidget):
     """Modern Student management page with enhanced features."""
@@ -224,24 +225,24 @@ class StudentPage(QWidget):
         styles = get_attendance_styles()
         
         # Row 1, Column 1: School filter (with placeholder)
-        self.school_combo = QComboBox()
+        self.school_combo = CustomComboBox()
         self.school_combo.addItem("Please Select School")  # Placeholder
         self._load_schools_data()  # Load from database
-        self.school_combo.setStyleSheet(styles['combobox_standard'])
+        # CustomComboBox has its own styling
         self.school_combo.currentTextChanged.connect(self._on_school_changed)
         
         # Row 1, Column 2: Class filter (with placeholder)
-        self.class_combo = QComboBox()
+        self.class_combo = CustomComboBox()
         self.class_combo.addItem("Please Select Class")  # Placeholder
         self._load_classes_data()  # Load from database
-        self.class_combo.setStyleSheet(styles['combobox_standard'])
+        # CustomComboBox has its own styling
         self.class_combo.currentTextChanged.connect(self._on_class_changed)
         
         # Row 2, Column 1: Section filter (with placeholder)
-        self.section_combo = QComboBox()
+        self.section_combo = CustomComboBox()
         self.section_combo.addItem("Please Select Section")  # Placeholder
         self._load_sections_data()  # Load from database
-        self.section_combo.setStyleSheet(styles['combobox_standard'])
+        # CustomComboBox has its own styling
         self.section_combo.currentTextChanged.connect(self._apply_filters)
         
         # Row 2, Column 2: Search input
@@ -768,7 +769,7 @@ class StudentPage(QWidget):
                 if isinstance(widget, QLineEdit):
                     if not widget.text().strip():
                         errors.append(f"{display_name} is required")
-                elif isinstance(widget, QComboBox):
+                elif isinstance(widget, CustomComboBox):
                     if widget.currentText() in ["Select...", ""]:
                         errors.append(f"{display_name} must be selected")
                 elif isinstance(widget, QDateEdit):
@@ -1436,7 +1437,7 @@ class StudentPage(QWidget):
             for data_key, (field_name, options_list) in field_mappings.items():
                 if field_name in self.student_fields and data_key in org_data:
                     widget = self.student_fields[field_name]
-                    if isinstance(widget, QComboBox):
+                    if isinstance(widget, CustomComboBox):
                         # Get the ID value
                         id_value = org_data[data_key]
                         
@@ -1877,7 +1878,7 @@ class StudentPage(QWidget):
                     widget.setProperty("is_required", True)  # Mark as required but don't style yet
                     
             elif field_type == "combo":
-                widget = QComboBox()
+                widget = CustomComboBox()
                 if options and len(options) > 0:
                     # Handle both direct list and nested list structures
                     if isinstance(options[0], list):
@@ -1901,7 +1902,7 @@ class StudentPage(QWidget):
                         
             # Database-driven combo boxes
             elif field_type == "school_combo":
-                widget = QComboBox()
+                widget = CustomComboBox()
                 schools = self._get_schools_from_database()
                 if is_required:
                     widget.addItems(["Select School..."] + schools)
@@ -1913,7 +1914,7 @@ class StudentPage(QWidget):
                 self._apply_combo_box_dropdown_fix(widget, "school_combo")
                     
             elif field_type == "org_combo":
-                widget = QComboBox()
+                widget = CustomComboBox()
                 organizations = self._get_organizations_from_database()
                 if is_required:
                     widget.addItems(["Select Organization..."] + organizations)
@@ -1925,7 +1926,7 @@ class StudentPage(QWidget):
                 self._apply_combo_box_dropdown_fix(widget, "org_combo")
                     
             elif field_type == "province_combo":
-                widget = QComboBox()
+                widget = CustomComboBox()
                 provinces = self._get_provinces_from_database()
                 if is_required:
                     widget.addItems(["Select Province..."] + provinces)
@@ -1937,7 +1938,7 @@ class StudentPage(QWidget):
                 self._apply_combo_box_dropdown_fix(widget, "province_combo")
                     
             elif field_type == "district_combo":
-                widget = QComboBox()
+                widget = CustomComboBox()
                 districts = self._get_districts_from_database()
                 if is_required:
                     widget.addItems(["Select District..."] + districts)
@@ -1949,7 +1950,7 @@ class StudentPage(QWidget):
                 self._apply_combo_box_dropdown_fix(widget, "district_combo")
                     
             elif field_type == "union_council_combo":
-                widget = QComboBox()
+                widget = CustomComboBox()
                 union_councils = self._get_union_councils_from_database()
                 if is_required:
                     widget.addItems(["Select Union Council..."] + union_councils)
@@ -1961,7 +1962,7 @@ class StudentPage(QWidget):
                 self._apply_combo_box_dropdown_fix(widget, "union_council_combo")
                     
             elif field_type == "nationality_combo":
-                widget = QComboBox()
+                widget = CustomComboBox()
                 nationalities = self._get_nationalities_from_database()
                 if is_required:
                     widget.addItems(["Select Nationality..."] + nationalities)
@@ -2082,7 +2083,7 @@ class StudentPage(QWidget):
                 widget.setPlaceholderText(f"Enter {label_text.replace('*', '').lower()}")
                 
             elif field_type == "school_combo":
-                widget = QComboBox()
+                widget = CustomComboBox()
                 # Load schools from database
                 try:
                     print(f"🏫 Loading schools for academic info tab...")
@@ -2114,7 +2115,7 @@ class StudentPage(QWidget):
                 self._apply_combo_box_dropdown_fix(widget, "school_combo")
                     
             elif field_type == "org_combo":
-                widget = QComboBox()
+                widget = CustomComboBox()
                 organizations = self._get_organizations_from_database()
                 if is_required:
                     widget.addItems(["Select Organization..."] + organizations)
@@ -2126,7 +2127,7 @@ class StudentPage(QWidget):
                 self._apply_combo_box_dropdown_fix(widget, "org_combo")
                     
             elif field_type == "province_combo":
-                widget = QComboBox()
+                widget = CustomComboBox()
                 provinces = self._get_provinces_from_database()
                 if is_required:
                     widget.addItems(["Select Province..."] + provinces)
@@ -2138,7 +2139,7 @@ class StudentPage(QWidget):
                 self._apply_combo_box_dropdown_fix(widget, "province_combo")
                     
             elif field_type == "district_combo":
-                widget = QComboBox()
+                widget = CustomComboBox()
                 districts = self._get_districts_from_database()
                 if is_required:
                     widget.addItems(["Select District..."] + districts)
@@ -2150,7 +2151,7 @@ class StudentPage(QWidget):
                 self._apply_combo_box_dropdown_fix(widget, "district_combo")
                     
             elif field_type == "union_council_combo":
-                widget = QComboBox()
+                widget = CustomComboBox()
                 union_councils = self._get_union_councils_from_database()
                 if is_required:
                     widget.addItems(["Select Union Council..."] + union_councils)
@@ -2162,7 +2163,7 @@ class StudentPage(QWidget):
                 self._apply_combo_box_dropdown_fix(widget, "union_council_combo")
                     
             elif field_type == "nationality_combo":
-                widget = QComboBox()
+                widget = CustomComboBox()
                 nationalities = self._get_nationalities_from_database()
                 if is_required:
                     widget.addItems(["Select Nationality..."] + nationalities)
@@ -2174,7 +2175,7 @@ class StudentPage(QWidget):
                 self._apply_combo_box_dropdown_fix(widget, "nationality_combo")
                     
             elif field_type == "combo":
-                widget = QComboBox()
+                widget = CustomComboBox()
                 if options and len(options) > 0:
                     # Handle both direct list and nested list structures
                     if isinstance(options[0], list):
@@ -2196,7 +2197,7 @@ class StudentPage(QWidget):
                 self._apply_combo_box_dropdown_fix(widget, "combo")
                         
             elif field_type == "class_combo":
-                widget = QComboBox()
+                widget = CustomComboBox()
                 try:
                     classes = self.db.get_classes()
                     # Database method returns list of strings directly
@@ -2219,7 +2220,7 @@ class StudentPage(QWidget):
                 self._apply_combo_box_dropdown_fix(widget, "class_combo")
                     
             elif field_type == "section_combo":
-                widget = QComboBox()
+                widget = CustomComboBox()
                 try:
                     sections = self.db.get_sections()
                     # Database method returns list of strings directly
@@ -2528,7 +2529,7 @@ class StudentPage(QWidget):
                     widget.setProperty("is_required", True)  # Mark as required but don't style yet
                 
             elif field_type == "combo":
-                widget = QComboBox()
+                widget = CustomComboBox()
                 if options and len(options) > 0:
                     # Handle both direct list and nested list structures
                     if isinstance(options[0], list):
@@ -2958,13 +2959,13 @@ class StudentPage(QWidget):
                 # Apply normal styling to required fields
                 if isinstance(widget, (QLineEdit, QSpinBox, QDateEdit)):
                     widget.setStyleSheet(self._get_input_style())
-                elif isinstance(widget, QComboBox):
+                elif isinstance(widget, CustomComboBox):
                     widget.setStyleSheet("")  # Use default combo styling
             else:
                 # Apply normal styling to optional fields
                 if isinstance(widget, (QLineEdit, QSpinBox, QDateEdit)):
                     widget.setStyleSheet(self._get_input_style())
-                elif isinstance(widget, QComboBox):
+                elif isinstance(widget, CustomComboBox):
                     widget.setStyleSheet("")
     
     def _highlight_validation_errors(self, error_fields):
@@ -2974,7 +2975,7 @@ class StudentPage(QWidget):
                 widget = self.student_fields[field_name]
                 if isinstance(widget, (QLineEdit, QSpinBox, QDateEdit)):
                     widget.setStyleSheet(self._get_required_input_style())
-                elif isinstance(widget, QComboBox):
+                elif isinstance(widget, CustomComboBox):
                     # Apply red styling to combo box
                     widget.setStyleSheet("""
                         QComboBox {
@@ -3025,7 +3026,7 @@ class StudentPage(QWidget):
                     if not widget.text().strip():
                         errors.append(f"{display_name} is required")
                         error_fields.append(field_name)
-                elif isinstance(widget, QComboBox):
+                elif isinstance(widget, CustomComboBox):
                     if widget.currentIndex() <= 0:  # No selection or "Select..." option
                         errors.append(f"{display_name} must be selected")
                         error_fields.append(field_name)
@@ -3101,7 +3102,7 @@ class StudentPage(QWidget):
                 
                 if isinstance(widget, QLineEdit):
                     value = widget.text().strip()
-                elif isinstance(widget, QComboBox):
+                elif isinstance(widget, CustomComboBox):
                     value = widget.currentText()
                     if value in ["Select...", "Select School...", "Select Class...", "Select Section..."]:
                         value = ""
@@ -3193,7 +3194,7 @@ class StudentPage(QWidget):
                 
             if isinstance(widget, QLineEdit):
                 data[field_name] = widget.text().strip()
-            elif isinstance(widget, QComboBox):
+            elif isinstance(widget, CustomComboBox):
                 current_text = widget.currentText()
                 if current_text not in ["Select...", "Select School...", "Select Class...", "Select Section...", "Not Specified"]:
                     data[field_name] = current_text
@@ -3305,7 +3306,7 @@ class StudentPage(QWidget):
                 
                 if isinstance(widget, QLineEdit):
                     widget.setText(str(value) if value else "")
-                elif isinstance(widget, QComboBox):
+                elif isinstance(widget, CustomComboBox):
                     # Special handling for school_id field
                     if field_name == 'school_id' and value:
                         # Try to find by data value first (for school_id)
@@ -3434,7 +3435,7 @@ class StudentPage(QWidget):
             
             # Handle school organizational data separately
             school_widget = self.student_fields.get('school_id')
-            if school_widget and isinstance(school_widget, QComboBox):
+            if school_widget and isinstance(school_widget, CustomComboBox):
                 school_id = school_widget.currentData()
                 if school_id:
                     student_data['school_id'] = school_id
@@ -3517,7 +3518,7 @@ class StudentPage(QWidget):
                     
                 if isinstance(widget, QLineEdit):
                     widget.clear()
-                elif isinstance(widget, QComboBox):
+                elif isinstance(widget, CustomComboBox):
                     widget.setCurrentIndex(0)
                 elif isinstance(widget, QDateEdit):
                     # Reset to current date but mark as not user selected

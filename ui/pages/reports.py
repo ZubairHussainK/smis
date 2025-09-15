@@ -1,6 +1,7 @@
 """Reports page UI implementation."""
-from PyQt5.QtWidgets import (QWidget, QVBoxLayout, QFormLayout, QComboBox,
+from PyQt5.QtWidgets import (QWidget, QVBoxLayout, QFormLayout,
                            QPushButton, QTableWidget)
+from ui.components.custom_combo_box import CustomComboBox
 from datetime import datetime
 from ui.styles.table_styles import apply_standard_table_style
 from models.database import Database
@@ -20,13 +21,13 @@ class ReportsPage(QWidget):
         # Filters
         filter_layout = QFormLayout()
         
-        self.class_filter = QComboBox()
+        self.class_filter = CustomComboBox()
         self.class_filter.addItem("All Classes")  # Default option
-        self.school_filter = QComboBox()
+        self.school_filter = CustomComboBox()
         self.school_filter.addItem("All Schools")  # Default option
-        self.month_filter = QComboBox()
-        self.year_filter = QComboBox()
-        self.period_filter = QComboBox()
+        self.month_filter = CustomComboBox()
+        self.year_filter = CustomComboBox()
+        self.period_filter = CustomComboBox()
         
         # Load filter data from database
         self._load_schools_data()

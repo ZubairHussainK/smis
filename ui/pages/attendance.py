@@ -10,14 +10,15 @@ import logging
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
 from PyQt5.QtWidgets import (QApplication, QWidget, QVBoxLayout, QHBoxLayout, 
-                           QLabel, QPushButton, QFrame, QLineEdit, QComboBox,
+                           QLabel, QPushButton, QFrame, QLineEdit,
                            QTableWidget, QTableWidgetItem, QSplitter, QScrollArea,
                            QGridLayout, QSpacerItem, QSizePolicy, QCheckBox)
+from ui.components.custom_combo_box import CustomComboBox
 from PyQt5.QtCore import Qt, QDate
 from PyQt5.QtGui import QFont, QIcon
 
 # Import styling and calendar functions
-from resources.style import (get_attendance_styles, LayoutUtils,
+from resources.styles import (get_attendance_styles, 
                            show_info_message, COLORS, SPACING_MD, SPACING_LG)
 from ui.styles.table_styles import apply_standard_table_style
 from models.database import Database
@@ -121,7 +122,7 @@ class ModernCalendarWidget(QWidget):
         header_layout.setSpacing(12)  # Better spacing between dropdowns
         
         # Month selector with proper visibility
-        self.month_combo = QComboBox()
+        self.month_combo = CustomComboBox()
         months = ["January", "February", "March", "April", "May", "June", 
                  "July", "August", "September", "October", "November", "December"]
         self.month_combo.addItems(months)
@@ -602,7 +603,7 @@ class ModernCalendarWidget(QWidget):
         
         # Block Sunday selection - show warning message
         if clicked_date.dayOfWeek() == 7:  # Sunday
-            from resources.style import show_warning_message
+            from resources.styles import show_warning_message
             show_warning_message(
                 "Sunday Locked", 
                 "Sunday is a weekend day and cannot be selected for attendance.\n\nPlease select a working day (Monday-Saturday)."
@@ -1363,24 +1364,21 @@ class AttendancePage(QWidget):
         styles = get_attendance_styles()
         
         # Row 1, Column 1: School filter (with placeholder)
-        self.school_combo = QComboBox()
+        self.school_combo = CustomComboBox()
         self.school_combo.addItem("Please Select School")  # Placeholder
         self.load_schools_data()  # Load from database
-        self.school_combo.setStyleSheet(styles['combobox_standard'])
         self.school_combo.currentTextChanged.connect(self.on_school_changed)
         
         # Row 1, Column 2: Class filter (with placeholder)
-        self.class_combo = QComboBox()
+        self.class_combo = CustomComboBox()
         self.class_combo.addItem("Please Select Class")  # Placeholder
         self.load_classes_data()  # Load from database
-        self.class_combo.setStyleSheet(styles['combobox_standard'])
         self.class_combo.currentTextChanged.connect(self.on_class_changed)
         
         # Row 2, Column 1: Section filter (with placeholder)
-        self.section_combo = QComboBox()
+        self.section_combo = CustomComboBox()
         self.section_combo.addItem("Please Select Section")  # Placeholder
         self.load_sections_data()  # Load from database
-        self.section_combo.setStyleSheet(styles['combobox_standard'])
         self.section_combo.currentTextChanged.connect(self.on_filters_changed)
         
         # Row 2, Column 2: Search input
@@ -1572,12 +1570,11 @@ class AttendancePage(QWidget):
         # Status selection with equal sizing
         status_layout = QHBoxLayout()
         
-        self.status_combo = QComboBox()
+        self.status_combo = CustomComboBox()
         self.status_combo.addItems(["Select Status", "Present", "Absent", "Late", "Excused"])
         self.status_combo.setFocusPolicy(Qt.ClickFocus)  # Only accept focus on explicit click
         
         styles = get_attendance_styles()
-        self.status_combo.setStyleSheet(styles['combobox_status'])
         self.status_combo.setFixedHeight(35)
         
         # Apply status button with same height as dropdown
@@ -1599,14 +1596,14 @@ class AttendancePage(QWidget):
         buttons_grid.setContentsMargins(0, 0, 0, 0)
         
         current_week_btn = QPushButton("Active Week")
-        current_week_btn.setStyleSheet(styles['button_outline'])
+        current_week_btn.setStyleSheet(styles['button_secondary'])
         current_week_btn.setMinimumHeight(35)  # Increased from 40
         current_week_btn.setMaximumHeight(35)  # Increased from 40
         current_week_btn.setFocusPolicy(Qt.ClickFocus)  # Only accept focus on explicit click
         current_week_btn.clicked.connect(lambda: self.bulk_action("Active Week"))
         
         current_month_btn = QPushButton("Active Month")
-        current_month_btn.setStyleSheet(styles['button_outline'])
+        current_month_btn.setStyleSheet(styles['button_secondary'])
         current_month_btn.setMinimumHeight(35)  # Increased from 40
         current_month_btn.setMaximumHeight(35)  # Increased from 40
         current_month_btn.setFocusPolicy(Qt.ClickFocus)  # Only accept focus on explicit click

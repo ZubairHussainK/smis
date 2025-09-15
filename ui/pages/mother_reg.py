@@ -10,27 +10,29 @@ if __name__ == "__main__":
 
 # PyQt5 imports
 from PyQt5.QtWidgets import (
-    QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, QComboBox, 
-    QFrame, QGridLayout, QLineEdit, QMessageBox, QTableWidget, QHeaderView,
-    QScrollArea, QTableWidgetItem, QSplitter, QTextEdit, QGroupBox, 
+    QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, 
+    QFrame, QGridLayout, QLineEdit, QMessageBox, QHeaderView, QTableWidgetItem,
+    QScrollArea, QSplitter, QTextEdit, QGroupBox, 
     QFormLayout, QCheckBox, QDateEdit, QSpinBox, QTabWidget, QDialog, 
     QDialogButtonBox, QSizePolicy, QApplication
 )
+from ui.components.custom_combo_box import CustomComboBox
 from PyQt5.QtCore import Qt, QDate, pyqtSignal, QRegExp, QTimer, QEvent, QObject
 from PyQt5.QtGui import QFont, QIcon, QColor, QRegExpValidator
 
+# Import SMISTable for enhanced table functionality
+from ui.components.custom_table import SMISTable
+
 # Internal imports
 from models.database import Database
-from ui.styles.table_styles import apply_standard_table_style
 from config.settings import STUDENT_FIELDS
 from ui.components.custom_date_picker import CustomDateEdit
 from ui.components.custom_combo_box import CustomComboBox
 from ui.components.form_components import (
-    FormModel, InputField, FormLabel, create_form_field_with_label, 
-    validate_and_highlight, reset_form, apply_form_styles
+    FormModel, InputField, FormLabel
 )
-from resources.style import (
-    LayoutUtils, get_global_styles, COLORS, RADIUS, SPACING_LG, SPACING_MD, SPACING_SM,
+from resources.styles import (
+     get_global_styles, COLORS, RADIUS, SPACING_LG, SPACING_MD, SPACING_SM,
     FONT_MEDIUM, FONT_SEMIBOLD, FONT_REGULAR, PRIMARY_COLOR, FOCUS_BORDER_COLOR
 )
 
@@ -67,61 +69,115 @@ class FormStyleManager:
 class MotherRegPage(QWidget):
     def _view_details(self):
         """Show details of the selected student record (in MotherReg page)."""
-        selected = self.mothers_table.selectedItems()
-        if not selected:
+        selected_ids = self.mothers_table.get_selected_rows()
+        if not selected_ids:
             QMessageBox.warning(self, "No Selection", "Please select a record to view details.")
             return
-        row = selected[0].row()
-        def val(col_name):
-            try:
-                idx = STUDENT_FIELDS.index(col_name)
-                item = self.mothers_table.item(row, idx)
-                return item.text() if item else ""
-            except ValueError:
-                return ""
-        details = (
-            f"S#: {val('S#')}\n"
-            f"Name: {val('Name')}\n"
-            f"Father: {val('Father Name')}\n"
-            f"School: {val('School Name')}\n"
-            f"Class: {val('Class 2025')}\n"
-            f"Section: {val('Section')}\n"
-        )
-        QMessageBox.information(self, "Student Details", details)
+            
+        # Get the selected row from the table
+        student_id = selected_ids[0]
+        for row in range(self.mothers_table.table.rowCount()):
+            item = self.mothers_table.table.item(row, 1)
+            if item and item.text() == student_id:
+                # Get values from the row
+                name = self.mothers_table.table.item(row, 2).text() if self.mothers_table.table.item(row, 2) else ""
+                father = self.mothers_table.table.item(row, 3).text() if self.mothers_table.table.item(row, 3) else ""
+                class_name = self.mothers_table.table.item(row, 4).text() if self.mothers_table.table.item(row, 4) else ""
+                section = self.mothers_table.table.item(row, 5).text() if self.mothers_table.table.item(row, 5) else ""
+                school = self.mothers_table.table.item(row, 6).text() if self.mothers_table.table.item(row, 6) else ""
+                
+                details = (
+                    f"ID: {student_id}\n"
+                    f"Name: {name}\n"
+                    f"Father: {father}\n"
+                    f"Class: {class_name}\n"
+                    f"Section: {section}\n"
+                    f"School: {school}\n"
+                )
+                QMessageBox.information(self, "Student Details", details)
+                return
+                
+        QMessageBox.warning(self, "Error", "Could not find selected student data.")
+        
     def _delete_mother(self):
         """Delete the selected mother record."""
-        selected = self.mothers_table.selectedItems()
-        if not selected:
+        selected_ids = self.mothers_table.get_selected_rows()
+        if not selected_ids:
             QMessageBox.warning(self, "No Selection", "Please select a mother to delete.")
             return
-        row = selected[0].row()
-        mother_name = self.mothers_table.item(row, 1).text() if self.mothers_table.item(row, 1) else ""
-        reply = QMessageBox.question(self, "Delete Mother", f"Are you sure you want to delete mother: {mother_name}?", QMessageBox.Yes | QMessageBox.No)
+            
+        # Find student name from ID
+        student_id = selected_ids[0]
+        student_name = ""
+        
+        # Look up the name from the table
+        for row in range(self.mothers_table.table.rowCount()):
+            item = self.mothers_table.table.item(row, 1)
+            if item and item.text() == student_id:
+                name_item = self.mothers_table.table.item(row, 2)
+                if name_item:
+                    student_name = name_item.text()
+                break
+        
+        reply = QMessageBox.question(
+            self, 
+            "Delete Mother", 
+            f"Are you sure you want to delete mother for student: {student_name}?", 
+            QMessageBox.Yes | QMessageBox.No
+        )
+        
         if reply == QMessageBox.Yes:
-            self.mothers_table.removeRow(row)
-            QMessageBox.information(self, "Deleted", f"Mother '{mother_name}' deleted.")
+            # Implement actual deletion logic here
+            QMessageBox.information(self, "Deleted", f"Mother for '{student_name}' deleted.")
+            # Refresh the table
+            self._load_data()
+            
     def _edit_mother(self):
         """Edit the selected mother record."""
-        selected = self.mothers_table.selectedItems()
-        if not selected:
+        selected_ids = self.mothers_table.get_selected_rows()
+        if not selected_ids:
             QMessageBox.warning(self, "No Selection", "Please select a mother to edit.")
             return
-        row = selected[0].row()
-        mother_name = self.mothers_table.item(row, 1).text() if self.mothers_table.item(row, 1) else ""
-        QMessageBox.information(self, "Edit Mother", f"Editing mother: {mother_name}\n(Edit form not yet implemented)")
+            
+        # Find student name from ID
+        student_id = selected_ids[0]
+        student_name = ""
+        
+        # Look up the name from the table
+        for row in range(self.mothers_table.table.rowCount()):
+            item = self.mothers_table.table.item(row, 1)
+            if item and item.text() == student_id:
+                name_item = self.mothers_table.table.item(row, 2)
+                if name_item:
+                    student_name = name_item.text()
+                break
+                
+        QMessageBox.information(
+            self, 
+            "Edit Mother", 
+            f"Editing mother for student: {student_name}\n(Edit form not yet implemented)"
+        )
     def _on_double_click(self, item):
         """Handle double-click on a table row to view details or edit."""
-        row = item.row()
-        # For now, just show details (expand as needed)
-        mother_name = self.mothers_table.item(row, 1).text() if self.mothers_table.item(row, 1) else ""
-        QMessageBox.information(self, "Mother Details", f"Mother Name: {mother_name}")
+        # Just forward to view details
+        self._view_details()
+        
     def _on_selection_changed(self):
         """Enable/disable edit/delete/view buttons based on selection."""
-        selected = self.mothers_table.selectedItems()
-        has_selection = bool(selected)
+        selected_ids = self.mothers_table.get_selected_rows()
+        has_selection = bool(selected_ids)
         self.edit_btn.setEnabled(has_selection)
         self.delete_btn.setEnabled(has_selection)
         self.view_details_btn.setEnabled(has_selection)
+        
+    def _on_table_selection_changed(self, selected_ids):
+        """Handle selection changes from the SMISTable component."""
+        # Update the selected IDs list
+        self.selected_snos = set(selected_ids)
+        # Update button states
+        self._on_selection_changed()
+        # Update the summary display
+        self._update_selected_summary()
     def get_filters(self):
         """Get the current filter values.
         
@@ -305,9 +361,13 @@ class MotherRegPage(QWidget):
         save_btn = QPushButton("Save Information")
         apply_all_checkbox = QCheckBox("Apply to all filtered rows")
         
-        # Apply button styling
-        for btn in [reset_btn, cancel_btn, save_btn]:
-            btn.setStyleSheet(self.styles['button_primary'])
+        # Apply differentiated button styling
+        reset_btn.setStyleSheet(self.styles['button_secondary'])  # Secondary for reset
+
+        cancel_btn.setStyleSheet(self.styles['button_warning'])   # Warning for cancel
+
+        save_btn.setStyleSheet(self.styles['button_success'])     # Success for save
+
         
         # Connect signals
         reset_btn.clicked.connect(self._reset_form)
@@ -345,7 +405,7 @@ class MotherRegPage(QWidget):
                 # Then force its own styling
                 self.recipient_combo.enforceStyle()
                 # Ensure consistent height
-                self.recipient_combo.setFixedHeight(32)
+              
                 
         except Exception as e:
             print(f"Style enforcement error: {e}")
@@ -423,13 +483,13 @@ class MotherRegPage(QWidget):
         
         # Create label
         label = FormLabel(label_text)
-        label.setMinimumHeight(22)  # Minimum height instead of fixed
+        
         label.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
         layout.addWidget(label)
         
         # Create input widget based on type
         widget = self._create_input_widget(field_type, field_name, label_text, extra_params)
-        widget.setMinimumHeight(40)  # Minimum height instead of fixed
+        # widget.setMinimumHeight(40)  # Minimum height instead of fixed
         widget.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
         
         layout.addWidget(widget)
@@ -505,7 +565,7 @@ class MotherRegPage(QWidget):
                     widget.clear()
                 elif isinstance(widget, QSpinBox):
                     widget.setValue(1)
-                elif isinstance(widget, QComboBox) or isinstance(widget, CustomComboBox):
+                elif isinstance(widget, CustomComboBox):
                     widget.setCurrentIndex(0)
                 elif isinstance(widget, QDateEdit) or isinstance(widget, CustomDateEdit):
                     widget.setDate(QDate.currentDate())
@@ -547,7 +607,7 @@ class MotherRegPage(QWidget):
                             info[field_name] = widget.text().strip()
                         elif isinstance(widget, QSpinBox):
                             info[field_name] = widget.value()
-                        elif isinstance(widget, QComboBox) or isinstance(widget, CustomComboBox):
+                        elif isinstance(widget, CustomComboBox):
                             info[field_name] = widget.currentText()
                         elif isinstance(widget, QDateEdit) or isinstance(widget, CustomDateEdit):
                             info[field_name] = widget.date().toString("yyyy-MM-dd")
@@ -572,6 +632,7 @@ class MotherRegPage(QWidget):
         except Exception as e:
             QMessageBox.critical(self, "Save Error", f"Failed to save information:\n{str(e)}")
     def _create_left_panel(self):
+        # Main left panel container
         left_panel = QFrame()
         left_panel.setStyleSheet(f"""
             QFrame {{
@@ -580,78 +641,81 @@ class MotherRegPage(QWidget):
                 border: 1px solid {COLORS['gray_200']};
             }}
         """)
+        
+        # Main panel layout
         panel_layout = QVBoxLayout(left_panel)
         panel_layout.setContentsMargins(15, 15, 15, 15)
         panel_layout.setSpacing(15)
-        table_group = QGroupBox("Student Records")
-        # Set size policy to expand and fill available space
-        table_group.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
-        table_group.setStyleSheet(f"""
-            QGroupBox {{
-                font-family: {FONT_MEDIUM};
-                font-size: 16px;
-                font-weight: 600;
-                color: {COLORS['gray_700']};
-                border: none;
-                border-radius: {RADIUS['md']};
-                margin-top: 5px;
-                padding-top: 10px;
-            }}
-            QGroupBox::title {{
-                subcontrol-origin: margin;
-                left: 10px;
-                padding: 0 8px 0 8px;
+        
+        # Create and configure the SMISTable component
+        self.mothers_table = SMISTable()
+        self.mothers_table.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+        
+        # Set up table headers and checkbox column
+        headers = ["", "ID", "Student Name", "Father Name", "Class", "Section", "School"]
+        self.mothers_table.setup_with_headers(headers, checkbox_column=0)
+        
+        # Connect to selection changed signal
+        self.mothers_table.selectionChanged.connect(self._on_table_selection_changed)
+        
+        # Add table directly to the main panel layout
+        panel_layout.addWidget(self.mothers_table, 1)  # Give table stretch factor 1
+        
+        # Create action buttons container at the bottom
+        action_container = QFrame()
+        action_container.setObjectName("ActionContainer")
+        action_container.setStyleSheet(f"""
+            QFrame#ActionContainer {{
                 background: {COLORS['white']};
+                border-radius: {RADIUS['md']};
+                border: none;
+                padding: 8px;
             }}
         """)
-        table_layout = QVBoxLayout(table_group)
-        table_layout.setContentsMargins(10, 15, 10, 10)  # Reduced margins
-        table_layout.setSpacing(5)  # Reduced spacing
         
-        self.mothers_table = QTableWidget()
-        # Set size policy for the table to expand vertically
-        self.mothers_table.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
-        self.mothers_table.setVerticalScrollBarPolicy(Qt.ScrollBarAsNeeded)
-        # Add a checkbox column + 6 summary columns (including School)
-        self.mothers_table.setColumnCount(7)
-        self.mothers_table.setHorizontalHeaderLabels([
-            "✅", "ID", "Student Name", "Father Name", "Class", "Section", "School"
-        ])
+        # Action buttons layout
+        action_layout = QHBoxLayout(action_container)
+        action_layout.setContentsMargins(0, 0, 0, 0)
+        action_layout.setSpacing(10)
         
-        # Apply standard table styling
-        apply_standard_table_style(self.mothers_table)
-        
-        # Additional settings specific to mothers table (override defaults)
-        self.mothers_table.setSelectionMode(QTableWidget.ExtendedSelection)
-        
-        # Make first column (checkbox) a small fixed width
-        header = self.mothers_table.horizontalHeader()
-        header.resizeSection(0, 60)
-        table_layout.addWidget(self.mothers_table)
-        table_actions = QHBoxLayout()
+        # Create action buttons with distinct styling based on function
         self.edit_btn = QPushButton("Edit Selected")
         self.edit_btn.setEnabled(False)
-        self.edit_btn.setStyleSheet(self.styles['button_primary'])
+        self.edit_btn.setStyleSheet(self.styles['button_secondary'])  # Outline style for edit
+
+        
         self.delete_btn = QPushButton("Delete Selected")
         self.delete_btn.setEnabled(False)
-        self.delete_btn.setStyleSheet(self.styles['button_primary'])
+        self.delete_btn.setStyleSheet(self.styles['button_warning'])  # Warning style for delete
+    
+        
         self.view_details_btn = QPushButton("View Details")
         self.view_details_btn.setEnabled(False)
-        self.view_details_btn.setStyleSheet(self.styles['button_primary'])
-        table_actions.addWidget(self.edit_btn)
-        table_actions.addWidget(self.delete_btn)
-        table_actions.addWidget(self.view_details_btn)
-        table_actions.addStretch()
+        self.view_details_btn.setStyleSheet(self.styles['button_primary'])  # Primary style for view
+      
+        
+        # Add buttons to the left side of action layout
+        action_layout.addWidget(self.edit_btn)
+        action_layout.addWidget(self.delete_btn)
+        action_layout.addWidget(self.view_details_btn)
+        action_layout.addStretch()
+        
         # Selected summary on the right
         self.selected_info_label = QLabel("Selected: 0")
-        self.selected_info_label.setStyleSheet(self.styles['label_info'])
+        #self.selected_info_label.setStyleSheet(self.styles['label_info_style'])
+        
         self.view_selected_btn = QPushButton("View Selected")
         self.view_selected_btn.setEnabled(False)
-        self.view_selected_btn.setStyleSheet(self.styles['button_primary'])
-        table_actions.addWidget(self.selected_info_label)
-        table_actions.addWidget(self.view_selected_btn)
-        table_layout.addLayout(table_actions)
-        panel_layout.addWidget(table_group, 1)
+        self.view_selected_btn.setStyleSheet(self.styles['button_secondary'])  # Secondary style for supplementary view
+
+        
+        # Add summary and view selected button to right side
+        action_layout.addWidget(self.selected_info_label)
+        action_layout.addWidget(self.view_selected_btn)
+        
+        # Add action container to main panel layout
+        panel_layout.addWidget(action_container)
+        
         return left_panel
 
     def _create_right_panel(self):
@@ -660,7 +724,7 @@ class MotherRegPage(QWidget):
             QFrame {{
                 background: {COLORS['white']};
                 border-radius: {RADIUS['xl']};
-                border: 1px solid {COLORS['gray_200']};
+                border: none;
                 min-height: 500px;
                 max-height: 700px;
             }}
@@ -730,24 +794,25 @@ class MotherRegPage(QWidget):
     def _populate_table(self, students):
         """Populate table with student data."""
         self._is_populating = True
-        self._prepare_table_for_population(len(students))
         
-        for row, student in enumerate(students):
-            self._populate_table_row(row, student)
+        # Convert student data to the format expected by SMISTable
+        table_data = []
+        for student in students:
+            row_data = self._format_student_to_row_data(student)
+            table_data.append(row_data)
         
-        self._finalize_table_population()
-    
-    def _prepare_table_for_population(self, row_count):
-        """Prepare table for data population."""
-        prev_sort = self.mothers_table.isSortingEnabled()
-        self.mothers_table.setSortingEnabled(False)
-        self.mothers_table.blockSignals(True)
-        self.mothers_table.clearContents()
-        self.mothers_table.setRowCount(row_count)
-        self._prev_sort_state = prev_sort
-    
-    def _populate_table_row(self, row, student_data):
-        """Populate a single table row with student data."""
+        # Use SMISTable's populate_data method with ID column specified
+        self.mothers_table.populate_data(table_data, id_column=1)
+        
+        # If we have selected student IDs, set them in the table
+        if self.selected_snos:
+            self.mothers_table.set_selected_rows(list(self.selected_snos))
+        
+        self._is_populating = False
+        self._update_selected_summary()
+        
+    def _format_student_to_row_data(self, student_data):
+        """Format student data dictionary into a row for the table."""
         # Helper to safely get values from various data types
         def get_value(data, key, alt_keys=()):
             # Handle sqlite3.Row objects
@@ -780,41 +845,25 @@ class MotherRegPage(QWidget):
                         continue
                 return ""
         
-        # Get student ID for checkbox state
-        student_id = str(get_value(student_data, "Student ID"))
+        # Create row data array for SMISTable
+        row_data = [""]  # Empty first cell for checkbox
         
-        # Checkbox cell
-        checkbox_item = QTableWidgetItem()
-        checkbox_item.setFlags(Qt.ItemIsUserCheckable | Qt.ItemIsEnabled | Qt.ItemIsSelectable)
-        checkbox_item.setCheckState(Qt.Checked if student_id in self.selected_snos else Qt.Unchecked)
-        self.mothers_table.setItem(row, 0, checkbox_item)
-        
-        # Data cells
+        # Define the table columns and their mapping to data fields
         table_columns = [
-            (1, "Student ID", []),
-            (2, "Name", []),
-            (3, "Father", ["Father's Name"]),
-            (4, "Class", ["class_2025"]),
-            (5, "Section", []),
-            (6, "School", ["School Name", "school_name"])
+            ("Student ID", []),
+            ("Name", []),
+            ("Father", ["Father's Name"]),
+            ("Class", ["class_2025"]),
+            ("Section", []),
+            ("School", ["School Name", "school_name"])
         ]
         
-        for col_idx, key, alt_keys in table_columns:
+        # Extract values for each column
+        for key, alt_keys in table_columns:
             value = str(get_value(student_data, key, alt_keys))
-            self.mothers_table.setItem(row, col_idx, QTableWidgetItem(value))
-    
-    def _finalize_table_population(self):
-        """Finalize table population and restore settings."""
-        try:
-            import logging
-            logging.info(f"MotherReg loaded {self.mothers_table.rowCount()} students")
-        except Exception:
-            pass
-        finally:
-            self.mothers_table.blockSignals(False)
-            self.mothers_table.setSortingEnabled(getattr(self, '_prev_sort_state', True))
-            self._is_populating = False
-            self._update_selected_summary()
+            row_data.append(value)
+            
+        return row_data
 
     def _connect_signals(self):
         self.add_new_btn.clicked.connect(self._show_add_form)
@@ -825,33 +874,20 @@ class MotherRegPage(QWidget):
         self.section_combo.currentTextChanged.connect(self._apply_filters)
         self.status_filter_combo.currentTextChanged.connect(self._apply_filters)
         # Table signals
-        self.mothers_table.itemSelectionChanged.connect(self._on_selection_changed)
-        self.mothers_table.itemDoubleClicked.connect(self._on_double_click)
+        # selectionChanged is already connected in table setup
+        self.mothers_table.table.itemDoubleClicked.connect(self._on_double_click)
         self.edit_btn.clicked.connect(self._edit_mother)
         self.delete_btn.clicked.connect(self._delete_mother)
         self.view_details_btn.clicked.connect(self._view_details)
-        # Track checkbox changes to persist selections
-        self.mothers_table.itemChanged.connect(self._on_item_changed)
+        # Note: itemChanged signal is now handled by SMISTable internally
         self.view_selected_btn.clicked.connect(self._view_selected_list)
 
     def _on_item_changed(self, item):
-        """Persist checkbox selection changes into self.selected_snos."""
-        try:
-            if self._is_populating or item.column() != 0:
-                return
-            s_no_item = self.mothers_table.item(item.row(), 1)
-            if not s_no_item:
-                return
-            s_no = s_no_item.text().strip()
-            if not s_no:
-                return
-            if item.checkState() == Qt.Checked:
-                self.selected_snos.add(s_no)
-            else:
-                self.selected_snos.discard(s_no)
-            self._update_selected_summary()
-        except Exception:
-            pass
+        """
+        Legacy method for checkbox state changes.
+        Now handled directly by the TableCheckboxCell widget's signal connections.
+        """
+        pass
 
     def _update_selected_summary(self):
         count = len(self.selected_snos)
@@ -982,7 +1018,7 @@ class MotherRegPage(QWidget):
 
     def _create_filter_section(self):
         """Create enhanced filter section with 2x2 grid layout for mother registration."""
-        from resources.style import COLORS, get_attendance_styles
+        from resources.styles import COLORS, get_attendance_styles
         
         filters_frame = QFrame()
         filters_frame.setStyleSheet(f"""
@@ -1086,9 +1122,11 @@ class MotherRegPage(QWidget):
         actions_layout = QHBoxLayout()
         actions_layout.setSpacing(8)
         self.add_new_btn = QPushButton("➕ Add Mother")
-        self.add_new_btn.setStyleSheet(self.styles['button_primary'])
+        self.add_new_btn.setStyleSheet(self.styles['button_success'])  # Success style for add actions
+    
         self.refresh_btn = QPushButton("🔄 Refresh")
-        self.refresh_btn.setStyleSheet(self.styles['button_primary'])
+        self.refresh_btn.setStyleSheet(self.styles['button_secondary'])  # Secondary style for utility actions
+ 
         actions_layout.addWidget(self.add_new_btn)
         actions_layout.addWidget(self.refresh_btn)
         header_layout.addLayout(title_layout)
