@@ -49,6 +49,7 @@ def get_standard_table_style():
             font-size: 13px;
             outline: none;
         }
+
         QTableWidget::item:selected {
             background: qlineargradient(x1:0, y1:0, x2:0, y2:1, 
                 stop:0 #3B82F6, stop:1 #2563EB);
@@ -143,6 +144,9 @@ def apply_standard_table_style(table_widget):
     Apply the standard SMIS table style and properties to a QTableWidget.
     Includes persistent tooltip functionality for complete cell value display on click.
     
+    NOTE: This function is maintained for backward compatibility.
+    For new code, use the SMISTable class from ui.components.custom_table instead.
+    
     Args:
         table_widget: QTableWidget instance to style
     """
@@ -158,6 +162,9 @@ def apply_standard_table_style(table_widget):
     table_widget.setSelectionMode(QTableWidget.SingleSelection)
     table_widget.setAlternatingRowColors(True)
     table_widget.setSortingEnabled(True)
+    
+    # Add a comment about the new recommended approach
+    print("Note: Consider using SMISTable from ui.components.custom_table for new table implementations.")
     table_widget.verticalHeader().setVisible(False)
     table_widget.setShowGrid(True)
     table_widget.setFocusPolicy(Qt.StrongFocus)
@@ -199,12 +206,12 @@ def apply_standard_table_style(table_widget):
                     tooltip_label.setAttribute(Qt.WA_ShowWithoutActivating)
                     
                     # Set tooltip content and styling
-                    tooltip_text = f"🏷️ {column_name}\n📄 {cell_value}"
+                    tooltip_text = f"{cell_value}"
                     tooltip_label.setText(tooltip_text)
                     tooltip_label.setStyleSheet("""
                         QLabel {
-                            background: #1E293B;
-                            color: #F8FAFC;
+                            background: white;
+                            color: black;
                             border: 2px solid #3B82F6;
                             border-radius: 8px;
                             padding: 12px 16px;

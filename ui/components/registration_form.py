@@ -11,7 +11,7 @@ from PyQt5.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel,
                            QSpinBox, QTabWidget, QDialog, QDialogButtonBox)
 from PyQt5.QtCore import Qt, QDate, pyqtSignal, QRegExp
 from PyQt5.QtGui import QFont, QIcon, QColor, QRegExpValidator
-from resources.style import COLORS, SPACING_MD, SPACING_LG
+from resources.styles import COLORS, SPACING_MD, SPACING_LG
 
 class RegistrationFormBase(QFrame):
     """

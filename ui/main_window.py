@@ -477,7 +477,7 @@ class MainWindow(QMainWindow):
         """Apply the application stylesheet without interfering with sidebar."""
         try:
             # Apply normal global styles
-            from resources.style import setAppStyle
+            from resources.styles import setAppStyle
             setAppStyle(self)
             
             # Let sidebar handle its own styling completely

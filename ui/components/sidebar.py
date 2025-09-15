@@ -19,7 +19,7 @@ if project_root not in sys.path:
 from utils.material_icons import MaterialIcons, SMISIcons
 
 # Import centralized styles
-from resources.style import get_sidebar_modern_style
+from resources.styles import get_sidebar_modern_style
 
 class ModernSidebar(QFrame):
     """Modern collapsible sidebar with professional design."""

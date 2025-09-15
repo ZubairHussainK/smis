@@ -215,7 +215,7 @@ class SMISApplication:
                 return
                 
             # Import and apply styles
-            from resources.style import setAppStyle
+            from resources.styles import setAppStyle
             
             # Create main window
             self.main_window = MainWindow()

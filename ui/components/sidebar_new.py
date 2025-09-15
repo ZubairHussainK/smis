@@ -16,7 +16,7 @@ if project_root not in sys.path:
     sys.path.append(project_root)
 
 # Import centralized styles
-from resources.style import get_sidebar_modern_style
+from resources.styles import get_sidebar_modern_style
 
 class ModernSidebar(QFrame):
     """Modern collapsible sidebar with professional design."""

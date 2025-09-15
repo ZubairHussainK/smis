@@ -1,0 +1,918 @@
+from PyQt5.QtWidgets import (
+    QTableWidget, QHeaderView, QTableWidgetItem, QWidget, QCheckBox, 
+    QHBoxLayout, QVBoxLayout, QAbstractItemView, QToolTip, QLabel, QSizePolicy,
+    QStyledItemDelegate, QComboBox, QPushButton, QSpacerItem
+)
+from PyQt5.QtCore import Qt, QTimer, pyqtSignal, QSize
+from PyQt5.QtGui import QFont, QPalette, QColor, QCursor, QBrush, QIcon
+
+
+class CenterAlignDelegate(QStyledItemDelegate):
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+    
+    def initStyleOption(self, option, index):
+        super().initStyleOption(option, index)
+        option.displayAlignment = Qt.AlignCenter
+
+
+class TablePagination(QWidget):
+
+    # Signal emitted when page or page size changes
+    pageChanged = pyqtSignal(int, int)  # (page_number, page_size)
+    
+    def __init__(self, total_items=0, page_size=10, parent=None):
+        super().__init__(parent)
+        
+        self.current_page = 1
+        self.page_size = page_size
+        self.total_items = total_items
+        
+        self._setup_ui()
+    
+    def _setup_ui(self):
+        """Set up the pagination UI elements."""
+        layout = QHBoxLayout(self)
+        layout.setContentsMargins(0, 8, 0, 0)
+        
+        # Total records display on left side
+        self.records_label = QLabel(f"Total Records: {self.total_items}")
+        self.records_label.setStyleSheet("""
+            font-weight: bold; 
+            color: #1E40AF;
+            padding: 5px 10px;
+            border: none;
+            border-radius: 4px;
+            background-color: transparent;
+        """)
+        self.records_label.setMinimumWidth(150)
+        layout.addWidget(self.records_label)
+        
+        # Add left spacer to push controls to center
+        layout.addItem(QSpacerItem(20, 20, QSizePolicy.Expanding, QSizePolicy.Minimum))
+        
+        # First page button
+        self.first_btn = QPushButton()
+        self.first_btn.setIcon(QIcon("resources/icons/arrow_first.svg"))
+        self.first_btn.setToolTip("First Page")
+        self.first_btn.clicked.connect(self._go_to_first)
+        self.first_btn.setMaximumWidth(40)
+        layout.addWidget(self.first_btn)
+        
+        # Previous page button
+        self.prev_btn = QPushButton()
+        self.prev_btn.setIcon(QIcon("resources/icons/arrow_left.svg"))
+        self.prev_btn.setToolTip("Previous Page")
+        self.prev_btn.clicked.connect(self._go_to_prev)
+        self.prev_btn.setMaximumWidth(40)
+        layout.addWidget(self.prev_btn)
+        
+        # Current page info
+        self.page_info = QLabel("Page 1 of 1")
+        self.page_info.setAlignment(Qt.AlignCenter)
+        self.page_info.setMinimumWidth(120)
+        layout.addWidget(self.page_info)
+        
+        # Next page button
+        self.next_btn = QPushButton()
+        self.next_btn.setIcon(QIcon("resources/icons/arrow_right.svg"))
+        self.next_btn.setToolTip("Next Page")
+        self.next_btn.clicked.connect(self._go_to_next)
+        self.next_btn.setMaximumWidth(40)
+        layout.addWidget(self.next_btn)
+        
+        # Last page button
+        self.last_btn = QPushButton()
+        self.last_btn.setIcon(QIcon("resources/icons/arrow_last.svg"))
+        self.last_btn.setToolTip("Last Page")
+        self.last_btn.clicked.connect(self._go_to_last)
+        self.last_btn.setMaximumWidth(40)
+        layout.addWidget(self.last_btn)
+        
+        # Page size selector
+        layout.addSpacing(20)
+        layout.addWidget(QLabel("Rows per page:"))
+        
+        self.page_size_combo = QComboBox()
+        self.page_size_combo.addItems(["10", "25", "50", "100"])
+        self.page_size_combo.setCurrentText(str(self.page_size))
+        self.page_size_combo.currentTextChanged.connect(self._on_page_size_changed)
+        layout.addWidget(self.page_size_combo)
+        
+        # Total items info
+        self.total_label = QLabel(f"Total: {self.total_items}")
+        layout.addWidget(self.total_label)
+        
+        # Add right spacer to push controls to center
+        layout.addItem(QSpacerItem(40, 20, QSizePolicy.Expanding, QSizePolicy.Minimum))
+        
+        # Set initial button states
+        self._update_button_states()
+        
+        # Style the pagination controls
+        self._apply_styles()
+    
+    def _apply_styles(self):
+        """Apply styling to the pagination controls."""
+        button_style = """
+            QPushButton {
+                border: 1px solid #CBD5E1;
+                border-radius: 4px;
+                background: white;
+                color: #334155;
+                padding: 5px;
+                min-width: 30px;
+                min-height: 30px;
+                font-weight: bold;
+            }
+            QPushButton:hover {
+                background: #F1F5F9;
+                border-color: #94A3B8;
+            }
+            QPushButton:pressed {
+                background: #E2E8F0;
+            }
+            QPushButton:disabled {
+                background: #F8FAFC;
+                border-color: #E2E8F0;
+                color: #94A3B8;
+            }
+        """
+        
+        label_style = """
+            QLabel {
+                color: #334155;
+                font-size: 13px;
+            }
+        """
+        
+        records_label_style = """
+            QLabel {
+                font-weight: bold; 
+                color: #1E40AF;
+                padding: 5px 10px;
+                border: 1px solid #CBD5E1;
+                border-radius: 4px;
+                background-color: #F1F5F9;
+                font-size: 13px;
+            }
+        """
+        
+        combo_style = """
+            QComboBox {
+                border: 1px solid #CBD5E1;
+                border-radius: 4px;
+                padding: 5px;
+                min-height: 30px;
+                background: white;
+                color: #334155;
+            }
+            QComboBox:hover {
+                border-color: #94A3B8;
+            }
+            QComboBox::drop-down {
+                subcontrol-origin: padding;
+                subcontrol-position: right center;
+                width: 20px;
+                border-left: 1px solid #CBD5E1;
+                border-top-right-radius: 3px;
+                border-bottom-right-radius: 3px;
+            }
+            QComboBox::down-arrow {
+                image: url(resources/icons/arrow_down_small.svg);
+                width: 12px;
+                height: 12px;
+            }
+        """
+        
+        self.first_btn.setStyleSheet(button_style)
+        self.prev_btn.setStyleSheet(button_style)
+        self.next_btn.setStyleSheet(button_style)
+        self.last_btn.setStyleSheet(button_style)
+        self.page_info.setStyleSheet(label_style)
+        self.total_label.setStyleSheet(label_style)
+        self.records_label.setStyleSheet(records_label_style)
+        self.page_size_combo.setStyleSheet(combo_style)
+    
+    def _update_button_states(self):
+        """Update button enabled/disabled states based on current page."""
+        total_pages = self.get_total_pages()
+        
+        # Update buttons
+        self.first_btn.setEnabled(self.current_page > 1)
+        self.prev_btn.setEnabled(self.current_page > 1)
+        self.next_btn.setEnabled(self.current_page < total_pages)
+        self.last_btn.setEnabled(self.current_page < total_pages)
+        
+        # Update page info
+        self.page_info.setText(f"Page {self.current_page} of {total_pages}")
+        
+        # Update total counts
+        self.total_label.setText(f"Total: {self.total_items}")
+        self.records_label.setText(f"Total Records: {self.total_items}")
+    
+    def get_total_pages(self):
+        """Calculate total number of pages."""
+        if self.page_size <= 0:
+            return 1
+        
+        return max(1, (self.total_items + self.page_size - 1) // self.page_size)
+    
+    def _go_to_first(self):
+        """Go to first page."""
+        if self.current_page != 1:
+            self.set_page(1)
+    
+    def _go_to_prev(self):
+        """Go to previous page."""
+        if self.current_page > 1:
+            self.set_page(self.current_page - 1)
+    
+    def _go_to_next(self):
+        """Go to next page."""
+        if self.current_page < self.get_total_pages():
+            self.set_page(self.current_page + 1)
+    
+    def _go_to_last(self):
+        """Go to last page."""
+        last_page = self.get_total_pages()
+        if self.current_page != last_page:
+            self.set_page(last_page)
+    
+    def _on_page_size_changed(self, text):
+        """Handle page size change."""
+        try:
+            new_size = int(text)
+            if new_size != self.page_size:
+                old_page = self.current_page
+                self.page_size = new_size
+                
+                # Adjust current page if needed
+                total_pages = self.get_total_pages()
+                if self.current_page > total_pages:
+                    self.current_page = total_pages
+                
+                self._update_button_states()
+                
+                # Emit signal only if there's a change
+                if old_page != self.current_page or new_size != self.page_size:
+                    self.pageChanged.emit(self.current_page, self.page_size)
+        except ValueError:
+            pass  # Ignore invalid values
+    
+    def set_page(self, page):
+        """Set the current page."""
+        if page < 1 or page > self.get_total_pages():
+            return
+        
+        if page != self.current_page:
+            self.current_page = page
+            self._update_button_states()
+            self.pageChanged.emit(self.current_page, self.page_size)
+    
+    def set_total_items(self, total):
+        """Update total number of items."""
+        if total != self.total_items:
+            self.total_items = total
+            
+            # Adjust current page if needed
+            total_pages = self.get_total_pages()
+            if self.current_page > total_pages:
+                self.current_page = max(1, total_pages)
+            
+            self._update_button_states()
+    
+    def get_pagination_info(self):
+        """Get current pagination information."""
+        return {
+            'current_page': self.current_page,
+            'page_size': self.page_size,
+            'total_items': self.total_items,
+            'total_pages': self.get_total_pages()
+        }
+
+class CheckBoxDelegate(QWidget):
+    """
+    Custom checkbox widget for table cells.
+    Provides a centered, properly styled checkbox with consistent appearance.
+    """
+    stateChanged = pyqtSignal(bool)
+    
+    def __init__(self, is_checked=False, parent=None):
+        super().__init__(parent)
+        
+        # Set a larger fixed size for the cell to ensure the checkbox is fully visible with borders
+        self.setMinimumSize(26, 26)  # Increased size to accommodate borders and padding
+        
+        # Create layout with sufficient spacing for proper display of checkbox
+        layout = QHBoxLayout(self)
+        layout.setContentsMargins(2, 2, 2, 2)  # Small margins to prevent border clipping
+        layout.setSpacing(0)
+        layout.setAlignment(Qt.AlignCenter)
+        
+        # Create the checkbox - using a standard QCheckBox
+        self.checkbox = QCheckBox()
+        self.checkbox.setChecked(is_checked)
+        self.checkbox.stateChanged.connect(self._on_state_changed)
+        
+        # Set an explicit size policy for proper centering
+        self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+        
+        # Style the checkbox with bold, visible styling and consistent borders
+        self.checkbox.setStyleSheet("""
+            QCheckBox {
+                border: none;
+                background: transparent;
+                spacing: 0px;  /* No space between box and text */
+                margin: 2px;   /* Small margin to prevent border clipping */
+                padding: 2px;  /* Add padding to prevent border clipping */
+            }
+            QCheckBox::indicator {
+                width: 18px;
+                height: 18px;
+                border: 2px solid #3B82F6;
+                border-radius: 3px;
+                background-color: white;
+                margin: 1px;   /* Small margin inside indicator */
+            }
+            QCheckBox::indicator:checked {
+                background-color: #3B82F6;
+                image: url(resources/icons/check_24.svg);
+                border: 2px solid #3B82F6;  /* Consistent border width */
+            }
+            QCheckBox::indicator:unchecked {
+                background-color: white;
+                border: 2px solid #CBD5E1;  /* Consistent 2px border */
+            }
+            QCheckBox::indicator:hover {
+                border: 2px solid #1D4ED8;
+                background-color: #EFF6FF;
+            }
+            /* We've removed the transition property as it's not fully supported */
+        """)
+        
+        # Add checkbox to layout
+        layout.addWidget(self.checkbox)
+        
+        # Force transparent background for the widget and make it non-selectable
+        self.setStyleSheet("""
+            background-color: transparent !important;
+            border: none;
+            outline: none;
+        """)
+        
+        # Set attribute to ensure the widget background stays transparent
+        self.setAttribute(Qt.WA_TranslucentBackground, True)
+        self.setAttribute(Qt.WA_NoSystemBackground, True)
+        
+        # Create a timer to ensure the checkbox is visible after parent changes
+        QTimer.singleShot(100, self._ensure_visible)
+    
+    def _on_state_changed(self, state):
+        """Forward the state changed signal."""
+        self.stateChanged.emit(state == Qt.Checked)
+    
+    def isChecked(self):
+        """Return current checkbox state."""
+        return self.checkbox.isChecked()
+    
+    def setChecked(self, checked):
+        """Set checkbox state."""
+        self.checkbox.setChecked(checked)
+    
+    def _ensure_visible(self):
+        """Make sure the checkbox is visible by updating its state."""
+        is_checked = self.checkbox.isChecked()
+        # Toggle state to force a repaint
+        self.checkbox.setChecked(not is_checked)
+        self.checkbox.repaint()  # Force immediate repaint
+        self.checkbox.setChecked(is_checked)
+        self.repaint()  # Force repaint of the whole widget
+        
+        # Schedule another check to ensure visibility after all layout operations complete
+        QTimer.singleShot(300, self.repaint)
+
+
+class SMISTable(QWidget):
+ 
+    # Signal emitted when selection changes
+    selectionChanged = pyqtSignal(list)
+    
+    def __init__(self, parent=None, show_pagination=True):
+        super().__init__(parent)
+        self._selected_rows = set()
+        self._is_populating = False
+        self._full_data = []  # Store complete data set
+        self._filtered_data = []  # Store filtered data
+        self._current_page_data = []  # Current page data
+        self._show_pagination = show_pagination
+        
+        # Create layout
+        self._main_layout = QVBoxLayout(self)
+        self._main_layout.setContentsMargins(0, 0, 0, 0)
+        self._main_layout.setSpacing(0)
+        
+        # Create table widget
+        self.table = QTableWidget(self)
+        self._main_layout.addWidget(self.table)
+        
+        # Create pagination if needed
+        if show_pagination:
+            self.pagination = TablePagination(parent=self)
+            self.pagination.pageChanged.connect(self._on_page_changed)
+            self._main_layout.addWidget(self.pagination)
+        else:
+            self.pagination = None
+        
+        # Initialize table
+        self._initialize_table()
+        
+    def _initialize_table(self):
+        """Initialize table with standard properties and styling."""
+        # Standard table properties
+        self.table.setSelectionBehavior(QTableWidget.SelectRows)
+        self.table.setSelectionMode(QTableWidget.MultiSelection)  # Allow multiple rows to be selected
+        self.table.setAlternatingRowColors(True)
+        self.table.setSortingEnabled(True)
+        self.table.setEditTriggers(QAbstractItemView.NoEditTriggers)
+        self.table.setVerticalScrollMode(QAbstractItemView.ScrollPerPixel)
+        self.table.setHorizontalScrollMode(QAbstractItemView.ScrollPerPixel)
+        self.table.verticalHeader().setVisible(False)
+        self.table.setFocusPolicy(Qt.StrongFocus)
+        self.table.setShowGrid(True)
+        
+        # Set up persistent tooltips for cell content
+        self.table.setMouseTracking(True)
+        self.table.cellEntered.connect(self._show_cell_tooltip)
+        
+        # Connect selection change signal to sync checkboxes with row selection
+        self.table.itemSelectionChanged.connect(self._on_selection_changed)
+        
+        # Apply custom styling after setting other properties
+        self.table.setStyleSheet(self._get_table_style())
+        
+    def _show_cell_tooltip(self, row, col):
+        """Show tooltip with full cell content when hovering over a cell."""
+        item = self.table.item(row, col)
+        if item and item.text():
+            QToolTip.showText(QCursor.pos(), item.text())
+    
+    def setup_with_headers(self, headers, checkbox_column=None):
+        """
+        Setup table with given headers and optional checkbox column.
+        
+        Args:
+            headers: List of header texts
+            checkbox_column: Index of column that should contain checkboxes (None for no checkboxes)
+        """
+        self.table.setColumnCount(len(headers))
+        self.table.setHorizontalHeaderLabels(headers)
+        
+        # Store checkbox column index
+        self._checkbox_column = checkbox_column
+        
+        # If we have a checkbox column, customize its header
+        if checkbox_column is not None:
+            header = self.table.horizontalHeader()
+            # Make checkbox column narrower (adjust width for best appearance)
+            header.resizeSection(checkbox_column, 39)  # Adjusted width for better appearance
+            
+            # Create an icon for the checkbox header
+            from PyQt5.QtGui import QIcon
+            checkbox_item = self.table.horizontalHeaderItem(checkbox_column)
+            if checkbox_item:
+                # Set the icon and clear the text to show only the icon
+                checkbox_item.setIcon(QIcon("resources/icons/check_24_header.svg"))
+                checkbox_item.setText("")  # Clear text to show only the icon
+                # Center the icon in the header
+                checkbox_item.setTextAlignment(Qt.AlignCenter)
+                # Set tooltip to explain the checkbox column
+                checkbox_item.setToolTip("Select/Deselect All")
+                
+                # Apply special style to ensure centering
+                header.setSectionResizeMode(checkbox_column, QHeaderView.Fixed)
+                
+            # Apply center alignment to the entire column
+            self.table.setItemDelegateForColumn(checkbox_column, 
+                CenterAlignDelegate(self.table))
+            
+        # Make headers stretch to fill available width
+        header = self.table.horizontalHeader()
+        header.setSectionResizeMode(QHeaderView.Interactive)
+        header.setStretchLastSection(True)
+    
+    def populate_data(self, data, id_column=None):
+        """
+        Populate table with data.
+        
+        Args:
+            data: List of data rows to populate
+            id_column: Column containing unique IDs for selection tracking
+        """
+        self._is_populating = True
+        
+        # Store ID column index and full data set
+        self._id_column = id_column
+        self._full_data = data
+        self._filtered_data = data  # Initially, filtered data is the same as full data
+        
+        # Update pagination if enabled
+        if self._show_pagination and self.pagination:
+            self.pagination.set_total_items(len(data))
+            self._load_current_page()
+        else:
+            # If no pagination, show all data
+            self._populate_table_with_data(data)
+        
+        self._is_populating = False
+    
+    def _populate_table_with_data(self, data):
+        """
+        Populate the table widget with the given data.
+        
+        Args:
+            data: List of data rows to populate
+        """
+        # Clear existing content
+        self.table.clearContents()
+        self.table.setRowCount(len(data))
+        
+        # Populate data
+        for row_idx, row_data in enumerate(data):
+            self._populate_row(row_idx, row_data)
+    
+    def _load_current_page(self):
+        """Load the current page of data based on pagination settings."""
+        if not self._show_pagination or not self.pagination:
+            return
+            
+        # Calculate start and end indices for current page
+        page_info = self.pagination.get_pagination_info()
+        start_idx = (page_info['current_page'] - 1) * page_info['page_size']
+        end_idx = min(start_idx + page_info['page_size'], len(self._filtered_data))
+        
+        # Get current page data
+        self._current_page_data = self._filtered_data[start_idx:end_idx]
+        
+        # Populate table with current page data
+        self._populate_table_with_data(self._current_page_data)
+    
+    def _on_page_changed(self, page, page_size):
+        """Handle page change event from pagination control."""
+        self._load_current_page()
+    
+    def _populate_row(self, row_idx, row_data):
+        """
+        Populate a single row of data.
+        
+        Args:
+            row_idx: Row index to populate
+            row_data: Data for the row (list or dict)
+        """
+        # Convert row_data to list if it's a dict
+        data_list = row_data if isinstance(row_data, list) else list(row_data.values())
+        
+        for col_idx, value in enumerate(data_list):
+            # For checkbox column, add a checkbox widget
+            if col_idx == self._checkbox_column:
+                # Get ID for selection state if available
+                row_id = None
+                if self._id_column is not None:
+                    row_id = str(data_list[self._id_column])
+                
+                # First create a transparent item for the cell background
+                transparent_item = QTableWidgetItem("")
+                transparent_item.setBackground(Qt.transparent)
+                transparent_item.setFlags(transparent_item.flags() & ~Qt.ItemIsSelectable)
+                self.table.setItem(row_idx, col_idx, transparent_item)
+                
+                # Create checkbox
+                is_checked = row_id in self._selected_rows if row_id else False
+                checkbox = CheckBoxDelegate(is_checked)
+                
+                # Connect state change
+                def on_state_changed(checked, r=row_idx, rid=row_id):
+                    self._on_checkbox_changed(r, rid, checked)
+                
+                checkbox.stateChanged.connect(on_state_changed)
+                
+                # Add checkbox on top of transparent item
+                self.table.setCellWidget(row_idx, col_idx, checkbox)
+            else:
+                # Regular cell with text
+                self.table.setItem(row_idx, col_idx, QTableWidgetItem(str(value)))
+    
+    def _on_checkbox_changed(self, row, row_id, is_checked):
+        """Handle checkbox state changes."""
+        if self._is_populating:
+            return
+            
+        # Update selection tracking
+        if row_id:
+            if is_checked:
+                self._selected_rows.add(row_id)
+                
+                # Select this row without clearing other selected rows
+                # First, save the current selection
+                currently_selected = []
+                for i in range(self.table.rowCount()):
+                    item = self.table.item(i, 0)
+                    if item and item.isSelected():
+                        currently_selected.append(i)
+                
+                # Add this row to the selection
+                self.table.selectRow(row)
+                
+                # Re-select all previously selected rows
+                for i in currently_selected:
+                    if i != row:  # Skip the current row as it's already selected
+                        for col in range(self.table.columnCount()):
+                            item = self.table.item(i, col)
+                            if item:
+                                item.setSelected(True)
+            else:
+                self._selected_rows.discard(row_id)
+                
+                # Deselect only this row, keeping others selected
+                for col in range(self.table.columnCount()):
+                    item = self.table.item(row, col)
+                    if item:
+                        item.setSelected(False)
+                        
+        # Emit our custom selectionChanged signal
+        self.selectionChanged.emit(list(self._selected_rows))
+    
+    def get_selected_rows(self):
+        """Get IDs of all selected rows."""
+        return list(self._selected_rows)
+    
+    def set_selected_rows(self, row_ids):
+        """Set selected rows by their IDs."""
+        self._is_populating = True  # Prevent recursive triggers
+        
+        # Clear current selection first
+        self.table.clearSelection()
+        
+        # Convert to a set of strings for consistent comparison
+        self._selected_rows = set(str(row_id) for row_id in row_ids)
+        
+        # Update checkboxes and row selection to match
+        for row in range(self.table.rowCount()):
+            row_id = None
+            if self._id_column is not None:
+                item = self.table.item(row, self._id_column)
+                if item:
+                    row_id = str(item.text())
+            
+            is_selected = row_id in self._selected_rows if row_id else False
+            
+            # Update checkbox if we have one
+            if self._checkbox_column is not None:
+                widget = self.table.cellWidget(row, self._checkbox_column)
+                if widget and hasattr(widget, 'setChecked'):
+                    widget.setChecked(is_selected)
+            
+            # Update row selection - select each row independently
+            if is_selected:
+                for col in range(self.table.columnCount()):
+                    item = self.table.item(row, col)
+                    if item:
+                        item.setSelected(True)
+        
+        self._is_populating = False
+        
+        # Emit our custom selectionChanged signal
+        self.selectionChanged.emit(list(self._selected_rows))
+    
+    def clear_selection(self):
+        """Clear all selections."""
+        self._selected_rows.clear()
+        self.table.clearSelection()
+        
+        # Clear all checkboxes
+        if self._checkbox_column is not None:
+            for row in range(self.table.rowCount()):
+                widget = self.table.cellWidget(row, self._checkbox_column)
+                if widget and hasattr(widget, 'setChecked'):
+                    widget.setChecked(False)
+        
+        # Emit our custom selectionChanged signal with empty list
+        self.selectionChanged.emit([])
+        
+    def refresh_checkboxes(self):
+        """Force refresh of all checkbox delegates to ensure visibility."""
+        for row in range(self.table.rowCount()):
+            col = self._checkbox_column
+            if col is not None:
+                widget = self.table.cellWidget(row, col)
+                if widget and isinstance(widget, CheckBoxDelegate):
+                    widget._ensure_visible()
+    
+    def _on_selection_changed(self):
+        """Update checkboxes when row selection changes by clicking on rows."""
+        # Skip if we're in the middle of populating data
+        if self._is_populating or self._checkbox_column is None:
+            return
+            
+        # Determine which rows are currently selected in the UI
+        currently_selected_rows = set()
+        for i in range(self.table.rowCount()):
+            # Check columns EXCEPT the checkbox column
+            columns_to_check = [col for col in range(self.table.columnCount()) if col != self._checkbox_column]
+            if any(self.table.item(i, col) and self.table.item(i, col).isSelected() for col in columns_to_check):
+                currently_selected_rows.add(i)
+                
+        # Make sure the checkbox column cells remain unselected
+        for row in range(self.table.rowCount()):
+            item = self.table.item(row, self._checkbox_column)
+            if item and item.isSelected():
+                item.setSelected(False)
+        
+        # Track which rows should have checked and unchecked checkboxes
+        rows_to_check = set()
+        rows_to_uncheck = set()
+        
+        # For each row in the table
+        for row in range(self.table.rowCount()):
+            # Get the row ID
+            row_id = None
+            if self._id_column is not None:
+                id_item = self.table.item(row, self._id_column)
+                if id_item:
+                    row_id = str(id_item.text())
+            
+            checkbox_widget = self.table.cellWidget(row, self._checkbox_column)
+            if checkbox_widget and isinstance(checkbox_widget, CheckBoxDelegate):
+                if row in currently_selected_rows:
+                    # Row is selected, checkbox should be checked
+                    rows_to_check.add(row)
+                    if row_id:
+                        self._selected_rows.add(row_id)
+                else:
+                    # Row is not selected, checkbox should be unchecked
+                    rows_to_uncheck.add(row)
+                    if row_id:
+                        self._selected_rows.discard(row_id)
+        
+        # Now update the checkboxes - we do this after collecting all changes
+        # to avoid triggering more selection changes during the process
+        self._is_populating = True
+        
+        # Check the boxes that should be checked
+        for row in rows_to_check:
+            checkbox_widget = self.table.cellWidget(row, self._checkbox_column)
+            if checkbox_widget and isinstance(checkbox_widget, CheckBoxDelegate) and not checkbox_widget.isChecked():
+                checkbox_widget.setChecked(True)
+        
+        # Uncheck the boxes that should be unchecked
+        for row in rows_to_uncheck:
+            checkbox_widget = self.table.cellWidget(row, self._checkbox_column)
+            if checkbox_widget and isinstance(checkbox_widget, CheckBoxDelegate) and checkbox_widget.isChecked():
+                checkbox_widget.setChecked(False)
+        
+        self._is_populating = False
+                    
+        # Emit our custom selectionChanged signal
+        self.selectionChanged.emit(list(self._selected_rows))
+    
+    def _get_table_style(self):
+        """Get the standard table styling."""
+        return """
+            QTableWidget {
+                border: none;
+                border-radius: 12px;
+                background: white;
+                gridline-color: #E5E7EB;
+                font-family: 'Poppins';
+                font-size: 13px;
+                font-weight: 400;
+                outline: none;
+                alternate-background-color: #F8FAFC;
+                show-decoration-selected: 0;
+            }
+            QTableWidget:focus {
+                outline: none;
+                border: none;
+            }
+            QHeaderView::section {
+                background: qlineargradient(x1:0, y1:0, x2:0, y2:1, 
+                    stop:0 #F1F5F9, stop:1 #E2E8F0);
+                color: #1E293B;
+                font-family: 'Arial', 'Segoe UI', 'Poppins Bold', sans-serif;
+                font-weight: 700;
+                font-size: 13px;
+                padding: 8px 5px;
+                border: none;
+                border-bottom: 3px solid #3B82F6;
+                border-right: 1px solid #CBD5E1;
+                text-align: center;
+            }
+            QHeaderView::section:first {
+                border-top-left-radius: 8px;
+            }
+            QHeaderView::section:last {
+                border-top-right-radius: 8px;
+                border-right: none;
+            }
+            QTableWidget::item {
+                padding: 0px;
+                margin: 0px;
+                border-bottom: 1px solid #E2E8F0;
+                border-right: 1px solid #F1F5F9;
+                background-color: transparent;
+                color: #374151;
+                font-weight: 500;
+                font-size: 13px;
+                outline: none;
+            }
+            QTableWidget::item:selected {
+                background-color: #3B82F6;
+                color: white;
+                border: none;
+                font-weight: 600;
+                outline: none;
+            }
+            QTableWidget::item:hover:!selected {
+                background-color: #DBEAFE;
+                color: #1E40AF;
+            }
+            QTableWidget::item:focus {
+                outline: none;
+                border: none;
+            }
+            QTableWidget::item:alternate {
+                background-color: #F8FAFC;
+            }
+            QTableWidget::item:alternate:selected {
+                background-color: #3B82F6;
+                color: white;
+            }
+            /* Force transparent background for checkbox column in all scenarios */
+            QTableWidget::item:first {
+                background-color: transparent !important;
+            }
+            QTableWidget::item:first:selected {
+                background-color: transparent !important;
+                color: #374151 !important;
+            }
+            QTableWidget::item:first:hover {
+                background-color: transparent !important;
+            }
+            QTableWidget::item:first:alternate {
+                background-color: transparent !important;
+            }
+            QTableWidget::item:first:alternate:selected {
+                background-color: transparent !important;
+                color: #374151 !important;
+            }
+            /* More specific selectors to ensure checkbox background stays transparent */
+            QTableWidget::item:first:focus {
+                background-color: transparent !important;
+            }
+            QTableWidget::item:first:active {
+                background-color: transparent !important;
+            }
+            QTableWidget::item:first:disabled {
+                background-color: transparent !important;
+            }
+            QScrollBar:vertical {
+                border: none;
+                background: #F1F5F9;
+                width: 12px;
+                border-radius: 6px;
+            }
+            QScrollBar::handle:vertical {
+                background: #CBD5E1;
+                border-radius: 6px;
+                min-height: 20px;
+            }
+            QScrollBar::handle:vertical:hover {
+                background: #94A3B8;
+            }
+            QScrollBar:horizontal {
+                border: none;
+                background: #F1F5F9;
+                height: 12px;
+                border-radius: 6px;
+            }
+            QScrollBar::handle:horizontal {
+                background: #CBD5E1;
+                border-radius: 6px;
+                min-width: 20px;
+            }
+            QScrollBar::handle:horizontal:hover {
+                background: #94A3B8;
+            }
+            QToolTip {
+                background: #1E293B;
+                color: #F8FAFC;
+                border: 2px solid #3B82F6;
+                border-radius: 8px;
+                padding: 12px 16px;
+                font-family: 'Poppins';
+                font-size: 13px;
+                font-weight: 500;
+                max-width: 400px;
+            }
+        """
