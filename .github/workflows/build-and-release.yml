@@ -1,0 +1,162 @@
+name: Build and Release Windows Application
+
+on:
+  push:
+    tags:
+      - 'v*'  # Triggers on version tags like v1.2.3
+  release:
+    types: [published]
+
+jobs:
+  build-and-release:
+    runs-on: windows-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Setup Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+        
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        pip install pyinstaller cryptography
+        
+    - name: Extract version from tag
+      id: get_version
+      run: |
+        $version = "${{ github.ref_name }}" -replace '^v', ''
+        echo "VERSION=$version" >> $env:GITHUB_OUTPUT
+        echo "Version: $version"
+      shell: powershell
+      
+    - name: Update version in application
+      run: |
+        $version = "${{ steps.get_version.outputs.VERSION }}"
+        $content = Get-Content version.py
+        $content = $content -replace '__version__ = ".*"', "__version__ = `"$version`""
+        $content | Set-Content version.py
+        echo "Updated version.py with version: $version"
+      shell: powershell
+      
+    - name: Build executable with PyInstaller
+      run: |
+        pyinstaller --onefile --windowed --name "SMIS-${{ steps.get_version.outputs.VERSION }}" main.py
+        
+    - name: Create installer with NSIS (optional - if you have NSIS script)
+      run: |
+        # If you have an NSIS script, use it here
+        # makensis /DVERSION="${{ steps.get_version.outputs.VERSION }}" installer.nsi
+        # For now, we'll just rename the exe as an installer
+        $version = "${{ steps.get_version.outputs.VERSION }}"
+        Move-Item "dist/SMIS-$version.exe" "SMIS-Setup-$version.exe"
+      shell: powershell
+      
+    - name: Encrypt installer
+      run: |
+        python -c "
+        import os
+        from cryptography.fernet import Fernet
+        import base64
+        
+        # Get encryption key from environment
+        key = os.environ['ENCRYPT_KEY'].encode()
+        # Ensure key is 32 bytes for Fernet (base64 encoded)
+        if len(key) != 44:  # 32 bytes base64 encoded = 44 chars
+            # If key is not base64, create a proper key
+            from cryptography.hazmat.primitives import hashes
+            from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
+            kdf = PBKDF2HMAC(
+                algorithm=hashes.SHA256(),
+                length=32,
+                salt=b'smis_salt_2024',
+                iterations=100000,
+            )
+            key = base64.urlsafe_b64encode(kdf.derive(key))
+        
+        f = Fernet(key)
+        
+        version = '${{ steps.get_version.outputs.VERSION }}'
+        installer_path = f'SMIS-Setup-{version}.exe'
+        encrypted_path = f'SMIS-Setup-{version}-encrypted.exe'
+        
+        with open(installer_path, 'rb') as file:
+            file_data = file.read()
+        
+        encrypted_data = f.encrypt(file_data)
+        
+        with open(encrypted_path, 'wb') as file:
+            file.write(encrypted_data)
+            
+        print(f'Encrypted {installer_path} -> {encrypted_path}')
+        print(f'Original size: {len(file_data)} bytes')
+        print(f'Encrypted size: {len(encrypted_data)} bytes')
+        
+        # Remove original unencrypted file
+        os.remove(installer_path)
+        "
+      env:
+        ENCRYPT_KEY: ${{ secrets.ENCRYPT_KEY }}
+        
+    - name: Calculate file hashes
+      id: hash
+      run: |
+        $version = "${{ steps.get_version.outputs.VERSION }}"
+        $filePath = "SMIS-Setup-$version-encrypted.exe"
+        $sha256 = (Get-FileHash -Path $filePath -Algorithm SHA256).Hash
+        echo "SHA256=$sha256" >> $env:GITHUB_OUTPUT
+        echo "File: $filePath"
+        echo "SHA256: $sha256"
+      shell: powershell
+      
+    - name: Create or update release
+      id: create_release
+      uses: softprops/action-gh-release@v1
+      with:
+        tag_name: ${{ github.ref_name }}
+        name: "SMIS v${{ steps.get_version.outputs.VERSION }}"
+        body: |
+          ## SMIS v${{ steps.get_version.outputs.VERSION }}
+          
+          ### What's New
+          - Auto-generated release from tag ${{ github.ref_name }}
+          - Encrypted installer for enhanced security
+          - Built on ${{ github.run_number }} workflow run
+          
+          ### Installation
+          1. Download the encrypted installer below
+          2. The application will automatically decrypt and install
+          
+          ### File Information
+          - **File**: SMIS-Setup-${{ steps.get_version.outputs.VERSION }}-encrypted.exe
+          - **SHA256**: ${{ steps.hash.outputs.SHA256 }}
+          - **Build Date**: ${{ github.event.head_commit.timestamp }}
+          
+          ### Security
+          This installer is encrypted with AES encryption for security.
+        draft: false
+        prerelease: false
+        files: |
+          SMIS-Setup-${{ steps.get_version.outputs.VERSION }}-encrypted.exe
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        
+    - name: Upload build artifacts
+      uses: actions/upload-artifact@v3
+      with:
+        name: smis-installer-v${{ steps.get_version.outputs.VERSION }}
+        path: |
+          SMIS-Setup-${{ steps.get_version.outputs.VERSION }}-encrypted.exe
+        retention-days: 30
+        
+    - name: Notify build completion
+      run: |
+        echo "✅ Build completed successfully!"
+        echo "📦 Release: ${{ steps.create_release.outputs.upload_url }}"
+        echo "🔐 Encrypted installer uploaded"
+        echo "🏷️ Version: ${{ steps.get_version.outputs.VERSION }}"
+      shell: powershell

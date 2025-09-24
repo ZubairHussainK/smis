@@ -367,13 +367,27 @@ class SMISApplication:
 
 def main():
     """
-    Main application entry point with security validation.
+    Main application entry point with security validation and update checking.
     
     Returns:
         int: Exit code (0 for success, 1 for failure)
     """
     try:
-        # STEP 1: CRITICAL SECURITY CHECK
+        # STEP 1: CHECK FOR UPDATES
+        print("🔄 Checking for updates...")
+        
+        try:
+            from services.update_service import check_for_updates_and_launch
+            
+            if not check_for_updates_and_launch():
+                print("Update is being installed. Application will exit.")
+                return 0  # Update installer will restart the app
+                
+        except Exception as e:
+            print(f"Update check failed: {e}")
+            print("Continuing with application startup...")
+        
+        # STEP 2: CRITICAL SECURITY CHECK
         print("🔐 SMIS Security Validation")
         print("=" * 40)
         
@@ -389,10 +403,10 @@ def main():
         print("✅ Security validation passed")
         print("Loading application modules...")
         
-        # STEP 2: Import modules only after security validation
+        # STEP 3: Import modules only after security validation
         import_app_modules()
         
-        # STEP 3: Initialize application normally
+        # STEP 4: Initialize application normally
         app = SMISApplication()
         return app.run()
         
