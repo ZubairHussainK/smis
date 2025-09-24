@@ -240,12 +240,14 @@ jobs:
         
     - name: Notify build completion
       run: |
+        # Ensure consistent encoding (avoid emoji/unicode parsing issues on some runners)
+        [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
         $version = "${{ steps.get_version.outputs.VERSION }}"
         $downloadUrl = "https://github.com/ZubairHussainK/smis/releases/tag/v" + $version
-        
-        Write-Output "✅ Build completed successfully!"
-        Write-Output "📦 Release created and updated"
-        Write-Output "🔐 Encrypted installer uploaded"
-        Write-Output ("🏷️ Version: " + $version)
-        Write-Output ("📥 Download: " + $downloadUrl)
+
+        Write-Output "Build completed successfully."
+        Write-Output "Release created and updated."
+        Write-Output "Encrypted installer uploaded."
+        Write-Output ("Version: " + $version)
+        Write-Output ("Download URL: " + $downloadUrl)
       shell: powershell
