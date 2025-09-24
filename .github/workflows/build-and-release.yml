@@ -116,74 +116,37 @@ jobs:
           exit 1
         }
         
-        echo "Building multiple SMIS variants for maximum compatibility..."
+        echo "Building optimized SMIS executable for maximum compatibility..."
         
-        # Build 1: Standard GUI version (most compatible)
-        echo "Building Standard GUI version..."
-        pyinstaller --onefile --windowed --name "SMIS-$version-GUI" main.py `
-          --distpath dist --workpath build-gui `
+        # Single optimized build with all necessary modules included
+        pyinstaller --onefile --windowed --name "SMIS-$version" main.py `
+          --distpath dist --workpath build `
           --add-data "resources;resources" `
           --add-data "config;config" `
           --hidden-import PyQt5 `
           --hidden-import PyQt5.QtCore `
           --hidden-import PyQt5.QtGui `
           --hidden-import PyQt5.QtWidgets `
+          --hidden-import PyQt5.QtSql `
           --hidden-import sqlite3 `
+          --hidden-import sys `
+          --hidden-import os `
+          --hidden-import json `
+          --hidden-import datetime `
+          --collect-all PyQt5 `
           --noupx `
           --clean
-          
-        # Build 2: Console version for debugging and compatibility
-        echo "Building Console version..."
-        pyinstaller --onefile --console --name "SMIS-$version-Console" main.py `
-          --distpath dist --workpath build-console `
-          --add-data "resources;resources" `
-          --add-data "config;config" `
-          --hidden-import PyQt5 `
-          --hidden-import sqlite3 `
-          --noupx `
-          --clean
-          
-        # Build 3: Minimal version (fallback)
-        echo "Building Minimal version..."
-        pyinstaller --onefile --console --name "SMIS-$version-Minimal" main.py `
-          --distpath dist --workpath build-minimal `
-          --noupx `
-          --clean `
-          --exclude-module matplotlib `
-          --exclude-module numpy `
-          --exclude-module tkinter
         
-        # Check if builds were successful
-        $builds = @(
-          "SMIS-$version-GUI.exe",
-          "SMIS-$version-Console.exe", 
-          "SMIS-$version-Minimal.exe"
-        )
-        
-        foreach ($build in $builds) {
-          if (-not (Test-Path "dist/$build")) {
-            echo "WARNING: $build build failed, continuing with other versions..."
-          } else {
-            echo "Successfully built: $build"
-          }
+        # Check if build was successful
+        if (-not (Test-Path "dist/SMIS-$version.exe")) {
+          echo "ERROR: PyInstaller build failed!"
+          Get-ChildItem dist -Name
+          exit 1
+        } else {
+          echo "✓ Successfully built: SMIS-$version.exe"
+          $fileSize = (Get-Item "dist/SMIS-$version.exe").Length / 1MB
+          echo "File size: $([math]::Round($fileSize, 2)) MB"
         }
-        
-        # Create comprehensive compatibility info
-        echo "Creating compatibility information..."
-        $compatFile = "dist/SMIS-$version-COMPATIBILITY.txt"
-        "SMIS Executable Variants Information" | Out-File -FilePath $compatFile -Encoding UTF8
-        "=====================================" | Out-File -FilePath $compatFile -Append -Encoding UTF8
-        "Version: $version" | Out-File -FilePath $compatFile -Append -Encoding UTF8
-        "Build Date: $(Get-Date)" | Out-File -FilePath $compatFile -Append -Encoding UTF8
-        "Python Version: 3.11" | Out-File -FilePath $compatFile -Append -Encoding UTF8
-        "" | Out-File -FilePath $compatFile -Append -Encoding UTF8
-        "Available Variants:" | Out-File -FilePath $compatFile -Append -Encoding UTF8
-        "1. SMIS-$version-GUI.exe - Standard windowed version (recommended)" | Out-File -FilePath $compatFile -Append -Encoding UTF8
-        "2. SMIS-$version-Console.exe - Console version for debugging" | Out-File -FilePath $compatFile -Append -Encoding UTF8
-        "3. SMIS-$version-Minimal.exe - Minimal dependencies (fallback)" | Out-File -FilePath $compatFile -Append -Encoding UTF8
-        "" | Out-File -FilePath $compatFile -Append -Encoding UTF8
-        "Installation Order:" | Out-File -FilePath $compatFile -Append -Encoding UTF8
-        "Try GUI version first, if fails try Console, then Minimal" | Out-File -FilePath $compatFile -Append -Encoding UTF8
         
         echo "Build phase completed successfully!"
         Get-ChildItem dist -Name | Sort-Object
@@ -196,24 +159,18 @@ jobs:
           echo "ERROR: installer.nsi not found"; exit 1
         }
         
-        # Check if at least one variant was built successfully
-        $builtVariants = @()
-        $variants = @("GUI", "Console", "Minimal")
-        foreach ($variant in $variants) {
-          $executablePath = "dist/SMIS-$version-$variant.exe"
-          if (Test-Path $executablePath) {
-            $builtVariants += $variant
-            echo "Found variant: $variant"
-          }
-        }
-        
-        if ($builtVariants.Count -eq 0) {
-          echo "ERROR: No executable variants found in dist folder!"
+        # Check if executable was built successfully
+        $executablePath = "dist/SMIS-$version.exe"
+        if (-not (Test-Path $executablePath)) {
+          echo "ERROR: PyInstaller output not found: $executablePath"
+          echo "Available files in dist folder:"
           Get-ChildItem dist -Name
           exit 1
         }
         
-        echo "Building installer with $($builtVariants.Count) variants: $($builtVariants -join ', ')"
+        echo "Building installer for: $executablePath"
+        $fileSize = (Get-Item $executablePath).Length / 1MB
+        echo "Executable size: $([math]::Round($fileSize, 2)) MB"
         echo "Listing icon path (resources/icons):"
         if (Test-Path "resources/icons") { Get-ChildItem -Recurse -Path resources/icons } else { echo "resources/icons directory missing" }
         if (Test-Path "resources/icons/app_icon.ico") { echo "Icon file found." } else { echo "WARNING: resources/icons/app_icon.ico not found; build will continue with default icon." }
@@ -326,10 +283,10 @@ jobs:
           - Encrypted installer for enhanced security
           - Built on ${{ github.run_number }} workflow run
           
-          ### Installation (3 Easy Options)
+          ### Installation (2 Easy Options)
           
           **Option 1 - Easy Installation (Recommended):**
-          1. Download the Helper: `SMIS-Install-Helper-${{ steps.get_version.outputs.VERSION }}.bat`
+          1. Download: `SMIS-Install-Helper-${{ steps.get_version.outputs.VERSION }}.bat`
           2. Run as Administrator
           3. Follow the installation wizard
           
@@ -338,14 +295,16 @@ jobs:
           2. Right-click → "Run as Administrator"
           3. If Windows warns, click "More info" → "Run anyway"
           
-          **Option 3 - Secure Installation:**
-          1. Download: `SMIS-Setup-${{ steps.get_version.outputs.VERSION }}-encrypted.exe`
-          2. Run as Administrator (requires encryption key)
+          ### What's Fixed in This Version
+          - ✅ Single executable (no multiple files)
+          - ✅ Single Start Menu entry (no folder)
+          - ✅ Enhanced PyQt5 module inclusion
+          - ✅ Optimized for maximum compatibility
+          - ✅ Clean installation experience
           
           ### File Information
-          - **Encrypted**: SMIS-Setup-${{ steps.get_version.outputs.VERSION }}-encrypted.exe (Secure)
-          - **Standard**: SMIS-Setup-${{ steps.get_version.outputs.VERSION }}-unencrypted.exe (Direct)
-          - **Helper**: SMIS-Install-Helper-${{ steps.get_version.outputs.VERSION }}.bat (Easy)
+          - **Installer**: SMIS-Setup-${{ steps.get_version.outputs.VERSION }}-unencrypted.exe
+          - **Helper**: SMIS-Install-Helper-${{ steps.get_version.outputs.VERSION }}.bat
           - **SHA256**: ${{ steps.hash.outputs.SHA256 }}
           - **Build Date**: ${{ github.event.head_commit.timestamp }}
           
@@ -353,7 +312,6 @@ jobs:
           This installer is encrypted with AES encryption for security.
           The helper script temporarily adds Windows Defender exclusions for smooth installation.
         files: |
-          SMIS-Setup-${{ steps.get_version.outputs.VERSION }}-encrypted.exe
           SMIS-Setup-${{ steps.get_version.outputs.VERSION }}-unencrypted.exe
           SMIS-Install-Helper-${{ steps.get_version.outputs.VERSION }}.bat
       env:
@@ -364,7 +322,6 @@ jobs:
       with:
         name: smis-installer-v${{ steps.get_version.outputs.VERSION }}
         path: |
-          SMIS-Setup-${{ steps.get_version.outputs.VERSION }}-encrypted.exe
           SMIS-Setup-${{ steps.get_version.outputs.VERSION }}-unencrypted.exe
           SMIS-Install-Helper-${{ steps.get_version.outputs.VERSION }}.bat
         retention-days: 30
