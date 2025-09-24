@@ -7,6 +7,7 @@ Checks for updates on application startup and handles automatic updates.
 import os
 import sys
 import json
+import shutil
 import urllib.request
 import urllib.error
 import tempfile
@@ -190,24 +191,55 @@ class UpdateChecker:
                     
                     self.download_file(asset['browser_download_url'], encrypted_path, progress_window)
                     
-                    # Update progress
-                    self.update_progress(progress_window, "Decrypting installer...", 80)
-                    
-                    # Decrypt the installer
-                    if self.decrypt_file(encrypted_path, decrypted_path):
+                    # Check if this is an encrypted installer or regular file
+                    if asset['name'].endswith('-encrypted.exe'):
+                        # Update progress
+                        self.update_progress(progress_window, "Decrypting installer...", 80)
+                        
+                        # Decrypt the installer
+                        if self.decrypt_file(encrypted_path, decrypted_path):
+                            self.update_progress(progress_window, "Starting installation...", 90)
+                            
+                            # Close progress window
+                            progress_window.destroy()
+                            
+                            # Run the installer
+                            subprocess.Popen([decrypted_path, '/S'])  # Silent install
+                            
+                            # Exit current application
+                            sys.exit(0)
+                        else:
+                            progress_window.destroy()
+                            messagebox.showerror("Update Error", "Failed to decrypt installer.")
+                    else:
+                        # Handle regular installer or executable
                         self.update_progress(progress_window, "Starting installation...", 90)
                         
                         # Close progress window
                         progress_window.destroy()
                         
-                        # Run the installer
-                        subprocess.Popen([decrypted_path, '/S'])  # Silent install
+                        if 'Setup' in asset['name']:
+                            # It's an installer
+                            subprocess.Popen([encrypted_path, '/S'])  # Silent install
+                        else:
+                            # It's a regular executable - replace current one
+                            current_exe = sys.executable
+                            backup_exe = current_exe + '.backup'
+                            
+                            try:
+                                # Backup current executable
+                                shutil.copy2(current_exe, backup_exe)
+                                
+                                # Replace with new version
+                                shutil.copy2(encrypted_path, current_exe)
+                                
+                                messagebox.showinfo("Update Complete", "Update installed successfully! Please restart the application.")
+                            except Exception as e:
+                                messagebox.showerror("Update Error", f"Failed to update executable: {str(e)}")
+                                return True
                         
                         # Exit current application
                         sys.exit(0)
-                    else:
-                        progress_window.destroy()
-                        messagebox.showerror("Update Error", "Failed to decrypt installer.")
                         
                 except Exception as e:
                     progress_window.destroy()
@@ -227,10 +259,22 @@ class UpdateChecker:
             return True
     
     def find_installer_asset(self, assets):
-        """Find the encrypted installer asset from release assets."""
+        """Find the installer asset from release assets."""
+        # First, try to find encrypted installer
         for asset in assets:
             if asset['name'].endswith('-encrypted.exe'):
                 return asset
+        
+        # If no encrypted installer, look for regular installer
+        for asset in assets:
+            if 'Setup' in asset['name'] and asset['name'].endswith('.exe'):
+                return asset
+                
+        # Finally, look for the main executable
+        for asset in assets:
+            if asset['name'].startswith('SMIS-') and asset['name'].endswith('.exe') and 'debug' not in asset['name'].lower():
+                return asset
+        
         return None
     
     def create_progress_window(self):
