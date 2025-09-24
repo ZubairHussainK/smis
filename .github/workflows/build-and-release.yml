@@ -127,6 +127,12 @@ jobs:
             --hidden-import PyQt5.sip `
             --hidden-import sip `
             --hidden-import sqlite3 `
+            --hidden-import dotenv `
+            --hidden-import python-dotenv `
+            --hidden-import cryptography `
+            --hidden-import requests `
+            --hidden-import urllib3 `
+            --hidden-import certifi `
             --icon "resources/icons/app_icon.ico" `
             --noupx --clean
           
@@ -172,6 +178,10 @@ jobs:
             --collect-all PyQt5 `
             --hidden-import PyQt5.sip `
             --hidden-import sip `
+            --hidden-import dotenv `
+            --hidden-import python-dotenv `
+            --hidden-import cryptography `
+            --hidden-import requests `
             --icon "resources/icons/app_icon.ico" `
             --noupx --clean
         }
