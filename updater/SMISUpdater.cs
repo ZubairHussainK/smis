@@ -14,7 +14,7 @@ namespace SMISUpdater
     {
         private const string GITHUB_API_URL = "https://api.github.com/repos/ZubairHussainK/smis/releases/latest";
         private const string CURRENT_VERSION = "2.0.0"; // This should match your version.py
-        private const string ENCRYPT_KEY = "YOUR_ENCRYPT_KEY_HERE"; // Same as GitHub Actions secret
+        private const string ENCRYPT_KEY = "vDgON7IDfXDJss6o6qNHVNEz3zIhwDT_AQq-TKxHr1U="; // Same as GitHub Actions secret
         
         private static readonly HttpClient httpClient = new HttpClient();
         

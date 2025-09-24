@@ -15,7 +15,7 @@ SILENT_UPDATES = False
 # Encryption Settings
 # This key should match the ENCRYPT_KEY secret in GitHub Actions
 # Change this to match your actual encryption key
-ENCRYPT_KEY = "smis_secure_update_key_2024"
+ENCRYPT_KEY = "vDgON7IDfXDJss6o6qNHVNEz3zIhwDT_AQq-TKxHr1U="
 
 # Update Channels
 # stable: Only stable releases
