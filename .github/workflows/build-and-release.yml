@@ -71,9 +71,28 @@ jobs:
     - name: Extract version from tag
       id: get_version
       run: |
-        $version = "${{ github.ref_name }}" -replace '^v', ''
+        $ref = "${{ github.ref_name }}"
+        
+        # If triggered by workflow_dispatch or from main branch, use version from version.py
+        if ($ref -eq "main" -or $ref -notmatch "^v\d+\.\d+\.\d+") {
+          if (Test-Path "version.py") {
+            $content = Get-Content version.py
+            $version = ($content | Select-String '__version__ = "(.+)"' | ForEach-Object { $_.Matches.Groups[1].Value })
+            if (-not $version) {
+              $version = "2.0.2"  # Default fallback version
+            }
+          } else {
+            $version = "2.0.2"  # Default fallback version
+          }
+          echo "Using version from version.py or default: $version"
+        } else {
+          # Extract version from tag (remove 'v' prefix)
+          $version = $ref -replace '^v', ''
+          echo "Using version from tag: $version"
+        }
+        
         echo "VERSION=$version" >> $env:GITHUB_OUTPUT
-        echo "Version: $version"
+        echo "Final version: $version"
       shell: powershell
       
     - name: Update version in application
@@ -218,9 +237,10 @@ jobs:
         
     - name: Notify build completion
       run: |
+        $version = "${{ steps.get_version.outputs.VERSION }}"
         echo "✅ Build completed successfully!"
         echo "📦 Release created and updated"
         echo "🔐 Encrypted installer uploaded"
-        echo "🏷️ Version: ${{ steps.get_version.outputs.VERSION }}"
-        echo "📥 Download: https://github.com/ZubairHussainK/smis/releases/tag/v${{ steps.get_version.outputs.VERSION }}"
+        echo "🏷️ Version: $version"
+        echo "📥 Download: https://github.com/ZubairHussainK/smis/releases/tag/v$version"
       shell: powershell
