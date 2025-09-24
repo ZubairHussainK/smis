@@ -1,64 +1,124 @@
-!include "MUI2.nsh"; ================================================; ================================================; ================================================
+!include "MUI2.nsh"!include "MUI2.nsh"; ================================================; ================================================; ================================================
 
 
 
-Name "SMIS School Management System"; SMIS Simple Installer Script (NSIS)
+Name "SMIS"
 
 OutFile "SMIS-Setup-${VERSION}.exe"
 
-InstallDir "$PROGRAMFILES\SMIS"; Single executable, clean installation; SMIS Simple Installer Script (NSIS); SMIS Installer Script (NSIS)
+InstallDir "$PROGRAMFILES\SMIS"Name "SMIS School Management System"; SMIS Simple Installer Script (NSIS)
 
 RequestExecutionLevel admin
 
-; ================================================
+OutFile "SMIS-Setup-${VERSION}.exe"
 
 SetCompressor /SOLID lzma
 
-SetCompressorDictSize 32; Single executable, clean installation; Generated and maintained via build workflow
+SetCompressorDictSize 32InstallDir "$PROGRAMFILES\SMIS"; Single executable, clean installation; SMIS Simple Installer Script (NSIS); SMIS Installer Script (NSIS)
 
-SetDatablockOptimize on
-
-CRCCheck on!include "MUI2.nsh"
-
-XPStyle on
-
-BrandingText "SMIS Development Team"; ================================================; ================================================
-
-ShowInstDetails show
-
-ShowUnInstDetails show; --------------------------------
-
-
-
-!ifndef VERSION; Metadata
-
-  !define VERSION "0.0.0"
-
-!endif; --------------------------------
-
-; Metadata
-
-VIProductVersion "${VERSION}.0"; --------------------------------
-
-VIAddVersionKey /LANG=1033 "ProductName" "SMIS School Management System"Name "SMIS School Management System"
-
-VIAddVersionKey /LANG=1033 "FileVersion" "${VERSION}"OutFile "SMIS-Setup-${VERSION}.exe"
-
-VIAddVersionKey /LANG=1033 "CompanyName" "SMIS Development Team"InstallDir "$PROGRAMFILES\SMIS"
-
-VIAddVersionKey /LANG=1033 "LegalCopyright" "© 2025 SMIS Development Team"RequestExecutionLevel admin
-
-VIAddVersionKey /LANG=1033 "FileDescription" "School Management Information System Installer"
+BrandingText "SMIS Team"
 
 RequestExecutionLevel admin
 
+!ifndef VERSION
+
+  !define VERSION "0.0.0"; ================================================
+
+!endif
+
+SetCompressor /SOLID lzma
+
+VIProductVersion "${VERSION}.0"
+
+VIAddVersionKey /LANG=1033 "ProductName" "SMIS"SetCompressorDictSize 32; Single executable, clean installation; Generated and maintained via build workflow
+
+VIAddVersionKey /LANG=1033 "FileVersion" "${VERSION}"
+
+SetDatablockOptimize on
+
 !define ICON_PATH "resources\icons\app_icon.ico"
 
-!if /FileExists "${ICON_PATH}"; --------------------------------; download and silently install NSIS automatically (see build-and-release.yml).
+!if /FileExists "${ICON_PATH}"CRCCheck on!include "MUI2.nsh"
 
   Icon "${ICON_PATH}"
 
-  UninstallIcon "${ICON_PATH}"; Installation attributes
+!endifXPStyle on
+
+
+
+!insertmacro MUI_PAGE_WELCOMEBrandingText "SMIS Development Team"; ================================================; ================================================
+
+!insertmacro MUI_PAGE_DIRECTORY
+
+!insertmacro MUI_PAGE_INSTFILESShowInstDetails show
+
+!insertmacro MUI_PAGE_FINISH
+
+ShowUnInstDetails show; --------------------------------
+
+!insertmacro MUI_UNPAGE_CONFIRM
+
+!insertmacro MUI_UNPAGE_INSTFILES
+
+
+
+!insertmacro MUI_LANGUAGE "English"!ifndef VERSION; Metadata
+
+
+
+Section "Install"  !define VERSION "0.0.0"
+
+  SetOutPath "$INSTDIR"
+
+  File "dist\SMIS-${VERSION}.exe"!endif; --------------------------------
+
+  
+
+  !if /FileExists "${ICON_PATH}"; Metadata
+
+    File "${ICON_PATH}"
+
+  !endifVIProductVersion "${VERSION}.0"; --------------------------------
+
+
+
+  CreateShortcut "$DESKTOP\SMIS.lnk" "$INSTDIR\SMIS-${VERSION}.exe"VIAddVersionKey /LANG=1033 "ProductName" "SMIS School Management System"Name "SMIS School Management System"
+
+  CreateShortcut "$SMPROGRAMS\SMIS.lnk" "$INSTDIR\SMIS-${VERSION}.exe"
+
+VIAddVersionKey /LANG=1033 "FileVersion" "${VERSION}"OutFile "SMIS-Setup-${VERSION}.exe"
+
+  WriteUninstaller "$INSTDIR\Uninstall.exe"
+
+VIAddVersionKey /LANG=1033 "CompanyName" "SMIS Development Team"InstallDir "$PROGRAMFILES\SMIS"
+
+  WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\SMIS" "DisplayName" "SMIS"
+
+  WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\SMIS" "UninstallString" "$INSTDIR\Uninstall.exe"VIAddVersionKey /LANG=1033 "LegalCopyright" "© 2025 SMIS Development Team"RequestExecutionLevel admin
+
+  WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\SMIS" "DisplayVersion" "${VERSION}"
+
+SectionEndVIAddVersionKey /LANG=1033 "FileDescription" "School Management Information System Installer"
+
+
+
+Section "Uninstall"RequestExecutionLevel admin
+
+  Delete "$INSTDIR\SMIS-${VERSION}.exe"
+
+  Delete "$INSTDIR\app_icon.ico"!define ICON_PATH "resources\icons\app_icon.ico"
+
+  Delete "$INSTDIR\Uninstall.exe"
+
+  Delete "$DESKTOP\SMIS.lnk"!if /FileExists "${ICON_PATH}"; --------------------------------; download and silently install NSIS automatically (see build-and-release.yml).
+
+  Delete "$SMPROGRAMS\SMIS.lnk"
+
+  DeleteRegKey HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\SMIS"  Icon "${ICON_PATH}"
+
+  RMDir "$INSTDIR"
+
+SectionEnd  UninstallIcon "${ICON_PATH}"; Installation attributes
 
 !endif
 
