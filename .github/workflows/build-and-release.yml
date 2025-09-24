@@ -146,8 +146,6 @@ jobs:
           
           ### Security
           This installer is encrypted with AES encryption for security.
-        draft: false
-        prerelease: false
         files: |
           SMIS-Setup-${{ steps.get_version.outputs.VERSION }}-encrypted.exe
       env:
