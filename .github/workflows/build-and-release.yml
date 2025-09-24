@@ -32,28 +32,28 @@ jobs:
         
         # Check if requirements.txt exists
         if (Test-Path "requirements.txt") {
-          echo "Installing from requirements.txt..."
+          Write-Output "Installing from requirements.txt..."
           pip install -r requirements.txt
         } else {
-          echo "requirements.txt not found, installing basic dependencies..."
+          Write-Output "requirements.txt not found, installing basic dependencies..."
           pip install PyQt5 sqlite3 cryptography requests
         }
         
         # Install additional build dependencies
         pip install pyinstaller cryptography
         
-        echo "Dependencies installed successfully"
+        Write-Output "Dependencies installed successfully"
       shell: powershell
       
     - name: Verify Python environment
       run: |
-        echo "Python version:"
+        Write-Output "Python version:"
         python --version
         
-        echo "Installed packages:"
+        Write-Output "Installed packages:"
         pip list
         
-        echo "Testing main.py imports..."
+        Write-Output "Testing main.py imports..."
         python -c "
         try:
             import sys
@@ -85,15 +85,15 @@ jobs:
           } else {
             $version = "2.0.2"  # Default fallback version
           }
-          echo "Using version from version.py or default: $version"
+          Write-Output "Using version from version.py or default: $version"
         } else {
           # Extract version from tag (remove 'v' prefix)
           $version = $ref -replace '^v', ''
-          echo "Using version from tag: $version"
+          Write-Output "Using version from tag: $version"
         }
         
         echo "VERSION=$version" >> $env:GITHUB_OUTPUT
-        echo "Final version: $version"
+        Write-Output "Final version: $version"
       shell: powershell
       
     - name: Update version in application
@@ -102,21 +102,21 @@ jobs:
         $content = Get-Content version.py
         $content = $content -replace '__version__ = ".*"', "__version__ = `"$version`""
         $content | Set-Content version.py
-        echo "Updated version.py with version: $version"
+        Write-Output "Updated version.py with version: $version"
       shell: powershell
       
     - name: Build executable with PyInstaller
       run: |
-        echo "Starting PyInstaller build..."
+        Write-Output "Starting PyInstaller build..."
         $version = "${{ steps.get_version.outputs.VERSION }}"
         
         # Check if main.py exists
         if (-not (Test-Path "main.py")) {
-          echo "ERROR: main.py not found!"
+          Write-Output "ERROR: main.py not found!"
           exit 1
         }
         
-        echo "Building optimized SMIS executable for maximum compatibility..."
+        Write-Output "Building optimized SMIS executable for maximum compatibility..."
         
         # Single optimized build with all necessary modules included
         pyinstaller --onefile --windowed --name "SMIS-$version" main.py `
@@ -139,16 +139,16 @@ jobs:
         
         # Check if build was successful
         if (-not (Test-Path "dist/SMIS-$version.exe")) {
-          echo "ERROR: PyInstaller build failed!"
+          Write-Output "ERROR: PyInstaller build failed!"
           Get-ChildItem dist -Name
           exit 1
         } else {
-          echo "✓ Successfully built: SMIS-$version.exe"
+          Write-Output "Successfully built: SMIS-$version.exe"
           $fileSize = (Get-Item "dist/SMIS-$version.exe").Length / 1MB
-          echo "File size: $([math]::Round($fileSize, 2)) MB"
+          Write-Output "File size: $([math]::Round($fileSize, 2)) MB"
         }
         
-        echo "Build phase completed successfully!"
+        Write-Output "Build phase completed successfully!"
         Get-ChildItem dist -Name | Sort-Object
       shell: powershell
         
@@ -156,23 +156,23 @@ jobs:
       run: |
         $version = "${{ steps.get_version.outputs.VERSION }}"
         if (-not (Test-Path "installer.nsi")) {
-          echo "ERROR: installer.nsi not found"; exit 1
+          Write-Output "ERROR: installer.nsi not found"; exit 1
         }
         
         # Check if executable was built successfully
         $executablePath = "dist/SMIS-$version.exe"
         if (-not (Test-Path $executablePath)) {
-          echo "ERROR: PyInstaller output not found: $executablePath"
-          echo "Available files in dist folder:"
+          Write-Output "ERROR: PyInstaller output not found: $executablePath"
+          Write-Output "Available files in dist folder:"
           Get-ChildItem dist -Name
           exit 1
         }
         
-        echo "Building installer for: $executablePath"
+        Write-Output "Building installer for: $executablePath"
         $fileSize = (Get-Item $executablePath).Length / 1MB
-        echo "Executable size: $([math]::Round($fileSize, 2)) MB"
-        echo "Listing icon path (resources/icons):"
-        if (Test-Path "resources/icons") { Get-ChildItem -Recurse -Path resources/icons } else { echo "resources/icons directory missing" }
+        Write-Output "Executable size: $([math]::Round($fileSize, 2)) MB"
+        Write-Output "Listing icon path (resources/icons):"
+        if (Test-Path "resources/icons") { Get-ChildItem -Recurse -Path resources/icons } else { Write-Output "resources/icons directory missing" }
         if (Test-Path "resources/icons/app_icon.ico") { echo "Icon file found." } else { echo "WARNING: resources/icons/app_icon.ico not found; build will continue with default icon." }
         # Path to makensis (usually in Program Files (x86))
         $nsis = "C:/Program Files (x86)/NSIS/makensis.exe"
