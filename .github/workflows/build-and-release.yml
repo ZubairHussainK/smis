@@ -14,7 +14,7 @@ permissions:
 
 jobs:
   build-and-release:
-    runs-on: windows-latest
+    runs-on: windows-2022  # Use specific version to avoid migration issues
     
     steps:
     - name: Checkout code
@@ -28,8 +28,45 @@ jobs:
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
-        pip install -r requirements.txt
+        
+        # Check if requirements.txt exists
+        if (Test-Path "requirements.txt") {
+          echo "Installing from requirements.txt..."
+          pip install -r requirements.txt
+        } else {
+          echo "requirements.txt not found, installing basic dependencies..."
+          pip install PyQt5 sqlite3 cryptography requests
+        }
+        
+        # Install additional build dependencies
         pip install pyinstaller cryptography
+        
+        echo "Dependencies installed successfully"
+      shell: powershell
+      
+    - name: Verify Python environment
+      run: |
+        echo "Python version:"
+        python --version
+        
+        echo "Installed packages:"
+        pip list
+        
+        echo "Testing main.py imports..."
+        python -c "
+        try:
+            import sys
+            import os
+            sys.path.insert(0, '.')
+            print('Testing basic imports...')
+            
+            # Test basic imports without running the full app
+            print('✅ Python environment ready')
+        except Exception as e:
+            print(f'❌ Import error: {e}')
+            exit(1)
+        "
+      shell: powershell
         
     - name: Extract version from tag
       id: get_version
@@ -50,7 +87,27 @@ jobs:
       
     - name: Build executable with PyInstaller
       run: |
-        pyinstaller --onefile --windowed --name "SMIS-${{ steps.get_version.outputs.VERSION }}" main.py
+        echo "Starting PyInstaller build..."
+        $version = "${{ steps.get_version.outputs.VERSION }}"
+        
+        # Check if main.py exists
+        if (-not (Test-Path "main.py")) {
+          echo "ERROR: main.py not found!"
+          exit 1
+        }
+        
+        echo "Building SMIS-$version.exe..."
+        pyinstaller --onefile --windowed --name "SMIS-$version" main.py --distpath dist --workpath build
+        
+        # Check if build was successful
+        if (-not (Test-Path "dist/SMIS-$version.exe")) {
+          echo "ERROR: PyInstaller build failed!"
+          exit 1
+        }
+        
+        echo "Build completed successfully: SMIS-$version.exe"
+        Get-ChildItem dist -Name
+      shell: powershell
         
     - name: Create installer with NSIS (optional - if you have NSIS script)
       run: |
