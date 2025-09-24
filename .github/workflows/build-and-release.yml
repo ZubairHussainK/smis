@@ -194,9 +194,25 @@ jobs:
         if (-not (Test-Path "installer.nsi")) {
           echo "ERROR: installer.nsi not found"; exit 1
         }
-        if (-not (Test-Path "dist/SMIS-$version.exe")) {
-          echo "ERROR: PyInstaller output dist/SMIS-$version.exe not found"; exit 1
+        
+        # Check if at least one variant was built successfully
+        $builtVariants = @()
+        $variants = @("GUI", "Console", "Minimal")
+        foreach ($variant in $variants) {
+          $executablePath = "dist/SMIS-$version-$variant.exe"
+          if (Test-Path $executablePath) {
+            $builtVariants += $variant
+            echo "Found variant: $variant"
+          }
         }
+        
+        if ($builtVariants.Count -eq 0) {
+          echo "ERROR: No executable variants found in dist folder!"
+          Get-ChildItem dist -Name
+          exit 1
+        }
+        
+        echo "Building installer with $($builtVariants.Count) variants: $($builtVariants -join ', ')"
         echo "Listing icon path (resources/icons):"
         if (Test-Path "resources/icons") { Get-ChildItem -Recurse -Path resources/icons } else { echo "resources/icons directory missing" }
         if (Test-Path "resources/icons/app_icon.ico") { echo "Icon file found." } else { echo "WARNING: resources/icons/app_icon.ico not found; build will continue with default icon." }
