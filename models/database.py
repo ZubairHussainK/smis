@@ -71,9 +71,18 @@ class Database:
         self.db_conn = DatabaseConnection()
         self.conn = self.db_conn.conn
         self.cursor = self.db_conn.cursor
-        self._create_tables()
-        self._create_indexes()
-        self._create_triggers()
+        # Create database tables, indexes, and triggers - NO dummy data insertion
+        try:
+            self._create_tables()
+            self._create_indexes()
+            self._create_triggers()
+            
+            # Skip dummy data insertion - clean database for production
+            logger.info("Database initialized without dummy data")
+            
+        except Exception as e:
+            logger.error(f"Database initialization failed: {e}")
+            raise
     
     def _create_tables(self):
         """Create necessary database tables with enhanced security."""
@@ -430,7 +439,8 @@ class Database:
                     FOREIGN KEY (student_id) REFERENCES students (id) ON DELETE CASCADE
                 )''')
                 
-            self._insert_dummy_data()
+            # Commented out to prevent dummy data insertion
+            # self._insert_dummy_data()
             logger.info("Database tables created successfully")
             
         except Exception as e:
@@ -621,7 +631,6 @@ class Database:
                        prov.name as province_name,
                        dist.name as district_name,
                        uc.name as union_council_name,
-                       nat.name as nationality_name,
                        COUNT(*) OVER() as total_count
                 FROM students s 
                 LEFT JOIN schools sch ON s.school_id = sch.id
@@ -629,7 +638,6 @@ class Database:
                 LEFT JOIN provinces prov ON s.province_id = prov.id
                 LEFT JOIN districts dist ON s.district_id = dist.id
                 LEFT JOIN union_councils uc ON s.union_council_id = uc.id
-                LEFT JOIN nationalities nat ON s.nationality_id = nat.id
                 WHERE s.is_deleted = 0
             """
             count_query = """
@@ -640,7 +648,6 @@ class Database:
                 LEFT JOIN provinces prov ON s.province_id = prov.id
                 LEFT JOIN districts dist ON s.district_id = dist.id
                 LEFT JOIN union_councils uc ON s.union_council_id = uc.id
-                LEFT JOIN nationalities nat ON s.nationality_id = nat.id
                 WHERE s.is_deleted = 0
             """
             params = []
@@ -1167,15 +1174,13 @@ class Database:
                        o.name as organization_name,
                        p.name as province_name,
                        d.name as district_name,
-                       uc.name as union_council_name,
-                       n.name as nationality_name
+                       uc.name as union_council_name
                 FROM students s 
                 LEFT JOIN schools sch ON s.school_id = sch.id 
                 LEFT JOIN organizations o ON s.org_id = o.id
                 LEFT JOIN provinces p ON s.province_id = p.id
                 LEFT JOIN districts d ON s.district_id = d.id
                 LEFT JOIN union_councils uc ON s.union_council_id = uc.id
-                LEFT JOIN nationalities n ON s.nationality_id = n.id
                 WHERE s.student_id = ? AND s.is_deleted = 0
             """
             
@@ -1186,6 +1191,16 @@ class Database:
                 columns = [desc[0] for desc in self.cursor.description]
                 student_data = dict(zip(columns, result))
                 
+                # Get nationality name from hardcoded list
+                nationality_id = student_data.get('nationality_id')
+                nationality_name = "Unknown"
+                if nationality_id:
+                    nationalities = self.get_nationalities()
+                    nationality_match = next((n for n in nationalities if n['id'] == nationality_id), None)
+                    if nationality_match:
+                        nationality_name = nationality_match['name']
+                student_data['nationality_name'] = nationality_name
+                
                 # Provide meaningful fallbacks for missing data
                 if not student_data.get('organization_name'):
                     student_data['organization_name'] = f"Organization ID #{student_data.get('org_id', 'N/A')}"
@@ -1195,8 +1210,6 @@ class Database:
                     student_data['district_name'] = f"District ID #{student_data.get('district_id', 'N/A')}"
                 if not student_data.get('union_council_name'):
                     student_data['union_council_name'] = f"UC ID #{student_data.get('union_council_id', 'N/A')}"
-                if not student_data.get('nationality_name'):
-                    student_data['nationality_name'] = f"Nationality ID #{student_data.get('nationality_id', 'N/A')}"
                 
                 return student_data
             
@@ -1357,188 +1370,12 @@ class Database:
         """Close database connection."""
         self.db_conn.close()
 
-    def _insert_dummy_data(self):
-        """Insert dummy data for organizations, provinces, districts, union councils, schools, classes, and sections if tables are empty."""
-        try:
-            # Check if organizations table is empty
-            self.cursor.execute("SELECT COUNT(*) FROM organizations")
-            if self.cursor.fetchone()[0] == 0:
-                # Insert dummy organizations
-                organizations_data = [
-                    ("Department of Education Punjab", "Government", "DOE-PB", "Provincial education department", "Civil Secretariat, Lahore", "042-99200000", "doe@punjab.gov.pk", "GOV-PB-001", "Civil Secretariat, Punjab"),
-                    ("Education Foundation Pakistan", "Non-Profit", "EFP", "Educational foundation", "Islamabad", "051-9876543", "info@efp.org.pk", "NGO-001", "F-8/2, Islamabad"),
-                    ("Private Schools Association", "Association", "PSA", "Private schools regulatory body", "Karachi", "021-3456789", "admin@psa.edu.pk", "ASSOC-001", "Clifton, Karachi"),
-                    ("Ministry of Education", "Federal", "MOE", "Federal education ministry", "Islamabad", "051-9207000", "moe@education.gov.pk", "FED-001", "Sector G-5/2, Islamabad")
-                ]
-                
-                for org in organizations_data:
-                    self.cursor.execute("""INSERT OR IGNORE INTO organizations 
-                        (name, type, code, description, address, contact_number, email, registration_number, head_office_address) 
-                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""", org)
-
-            # Check if provinces table is empty
-            self.cursor.execute("SELECT COUNT(*) FROM provinces")
-            if self.cursor.fetchone()[0] == 0:
-                # Insert Pakistan provinces
-                provinces_data = [
-                    ("Punjab", "PB", "Pakistan", "Lahore", 120000000, 205344),
-                    ("Sindh", "SD", "Pakistan", "Karachi", 55000000, 140914),
-                    ("Khyber Pakhtunkhwa", "KP", "Pakistan", "Peshawar", 40000000, 101741),
-                    ("Balochistan", "BA", "Pakistan", "Quetta", 15000000, 347190),
-                    ("Islamabad Capital Territory", "ICT", "Pakistan", "Islamabad", 2500000, 906),
-                    ("Gilgit-Baltistan", "GB", "Pakistan", "Gilgit", 2000000, 72971),
-                    ("Azad Jammu and Kashmir", "AJK", "Pakistan", "Muzaffarabad", 4500000, 13297)
-                ]
-                
-                for province in provinces_data:
-                    self.cursor.execute("""INSERT OR IGNORE INTO provinces 
-                        (name, code, country, capital_city, population, area_km2) 
-                        VALUES (?, ?, ?, ?, ?, ?)""", province)
-
-            # Check if districts table is empty
-            self.cursor.execute("SELECT COUNT(*) FROM districts")
-            if self.cursor.fetchone()[0] == 0:
-                # Get province IDs first
-                self.cursor.execute("SELECT id, name FROM provinces")
-                province_map = {row['name']: row['id'] for row in self.cursor.fetchall()}
-                
-                # Insert sample districts for major provinces
-                districts_data = [
-                    # Punjab districts
-                    ("Lahore", "LHR", province_map.get("Punjab", 1), "Lahore", 12000000, 1772),
-                    ("Karachi", "KHI", province_map.get("Sindh", 2), "Karachi", 16000000, 3527),
-                    ("Faisalabad", "FSD", province_map.get("Punjab", 1), "Faisalabad", 8000000, 5856),
-                    ("Rawalpindi", "RWP", province_map.get("Punjab", 1), "Rawalpindi", 6000000, 5286),
-                    ("Peshawar", "PSH", province_map.get("Khyber Pakhtunkhwa", 3), "Peshawar", 5000000, 1257),
-                    ("Multan", "MLT", province_map.get("Punjab", 1), "Multan", 4500000, 3720),
-                    ("Hyderabad", "HYD", province_map.get("Sindh", 2), "Hyderabad", 2500000, 26000),
-                    ("Gujranwala", "GRW", province_map.get("Punjab", 1), "Gujranwala", 2500000, 3622),
-                    ("Islamabad", "ISB", province_map.get("Islamabad Capital Territory", 5), "Islamabad", 2500000, 906),
-                    ("Quetta", "QTA", province_map.get("Balochistan", 4), "Quetta", 2500000, 2653)
-                ]
-                
-                for district in districts_data:
-                    self.cursor.execute("""INSERT OR IGNORE INTO districts 
-                        (name, code, province_id, headquarters, population, area_km2) 
-                        VALUES (?, ?, ?, ?, ?, ?)""", district)
-
-            # Check if union_councils table is empty
-            self.cursor.execute("SELECT COUNT(*) FROM union_councils")
-            if self.cursor.fetchone()[0] == 0:
-                # Get district and province IDs
-                self.cursor.execute("SELECT id, name, province_id FROM districts")
-                districts = self.cursor.fetchall()
-                
-                # Insert sample union councils for major districts
-                union_councils_data = []
-                uc_counter = 1
-                
-                for district in districts[:5]:  # Only for first 5 districts to keep data manageable
-                    district_name = district['name']
-                    district_id = district['id']
-                    province_id = district['province_id']
-                    
-                    # Add 3-5 union councils per district
-                    for i in range(1, 4):
-                        uc_name = f"{district_name} UC-{i}"
-                        uc_code = f"UC-{uc_counter:03d}"
-                        chairman = f"Chairman {district_name} {i}"
-                        contact = f"03{uc_counter:02d}{1000000 + uc_counter}"
-                        
-                        union_councils_data.append((uc_name, uc_code, district_id, province_id, 50000 + (uc_counter * 1000), 25.5, chairman, contact))
-                        uc_counter += 1
-                
-                for uc in union_councils_data:
-                    self.cursor.execute("""INSERT OR IGNORE INTO union_councils 
-                        (name, code, district_id, province_id, population, area_km2, chairman_name, contact_number) 
-                        VALUES (?, ?, ?, ?, ?, ?, ?, ?)""", uc)
-
-            # Check if schools table is empty
-            self.cursor.execute("SELECT COUNT(*) FROM schools")
-            if self.cursor.fetchone()[0] == 0:
-                # Get organization, province, district, and union council IDs
-                self.cursor.execute("SELECT id FROM organizations LIMIT 1")
-                org_id = self.cursor.fetchone()
-                org_id = org_id['id'] if org_id else 1
-                
-                self.cursor.execute("SELECT id FROM provinces WHERE name = 'Punjab' LIMIT 1")
-                province_id = self.cursor.fetchone()
-                province_id = province_id['id'] if province_id else 1
-                
-                self.cursor.execute("SELECT id FROM districts WHERE name = 'Lahore' LIMIT 1")
-                district_id = self.cursor.fetchone()
-                district_id = district_id['id'] if district_id else 1
-                
-                self.cursor.execute("SELECT id FROM union_councils LIMIT 1")
-                uc_id = self.cursor.fetchone()
-                uc_id = uc_id['id'] if uc_id else 1
-                
-                # Insert dummy schools with foreign key references
-                schools_data = [
-                    ("Greenfield Public School", "Public", org_id, province_id, district_id, uc_id, "123 Education Street, Karachi", "021-12345678", "Dr. Ahmad Khan", "greenfield@education.pk", "SCH-001"),
-                    ("Elite Grammar School", "Private", org_id, province_id, district_id, uc_id, "456 Learning Avenue, Lahore", "042-87654321", "Mrs. Fatima Sheikh", "elite@grammar.edu.pk", "SCH-002"),
-                    ("Sunrise Academy", "Private", org_id, province_id, district_id, uc_id, "789 Knowledge Road, Islamabad", "051-11223344", "Mr. Hassan Ali", "sunrise@academy.edu.pk", "SCH-003"),
-                    ("City Model School", "Public", org_id, province_id, district_id, uc_id, "321 School Lane, Peshawar", "091-55667788", "Ms. Ayesha Malik", "citymodel@education.pk", "SCH-004"),
-                    ("Future Leaders Institute", "Private", org_id, province_id, district_id, uc_id, "654 Academic Plaza, Multan", "061-99887766", "Prof. Muhammad Iqbal", "future@leaders.edu.pk", "SCH-005"),
-                    ("Al-Huda International School", "Private", org_id, province_id, district_id, uc_id, "987 Campus Drive, Faisalabad", "041-33445566", "Dr. Zainab Ahmed", "alhuda@international.edu.pk", "SCH-006")
-                ]
-                
-                for school in schools_data:
-                    self.cursor.execute("""INSERT OR IGNORE INTO schools 
-                        (name, type, org_id, province_id, district_id, union_council_id, address, contact_number, principal_name, email, registration_number) 
-                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""", school)
-            
-            # Check if classes table is empty
-            self.cursor.execute("SELECT COUNT(*) FROM classes")
-            if self.cursor.fetchone()[0] == 0:
-                # Insert classes data
-                classes_data = [
-                    ("Kachi", 0, "Pre-Primary class"),
-                    ("Paki", 1, "Primary class"),
-                    ("1", 2, "Grade 1"),
-                    ("2", 3, "Grade 2"),
-                    ("3", 4, "Grade 3"),
-                    ("4", 5, "Grade 4"),
-                    ("5", 6, "Grade 5"),
-                    ("6", 7, "Grade 6"),
-                    ("7", 8, "Grade 7"),
-                    ("8", 9, "Grade 8"),
-                    ("9", 10, "Grade 9"),
-                    ("10", 11, "Grade 10")
-                ]
-                
-                for class_data in classes_data:
-                    self.cursor.execute("""INSERT OR IGNORE INTO classes 
-                        (class_name, class_level, description) 
-                        VALUES (?, ?, ?)""", class_data)
-            
-            # Check if sections table is empty
-            self.cursor.execute("SELECT COUNT(*) FROM sections")
-            if self.cursor.fetchone()[0] == 0:
-                # Insert sections data
-                sections_data = [
-                    ("A", "Section A"),
-                    ("B", "Section B"),
-                    ("C", "Section C"),
-                    ("D", "Section D"),
-                    ("E", "Section E"),
-                    ("F", "Section F")
-                ]
-                
-                for section_data in sections_data:
-                    self.cursor.execute("""INSERT OR IGNORE INTO sections 
-                        (section_name, description) 
-                        VALUES (?, ?)""", section_data)
-            
-            # For students table, we'll skip dummy data since we have a clean structure now
-            # and want to avoid column reference issues
-            
-            self.conn.commit()
-            logging.info("Dummy data inserted successfully for all tables")
-            
-        except Exception as e:
-            logging.error(f"Error inserting dummy data: {e}")
-            # Don't raise the exception to avoid breaking database initialization
+    # def _insert_dummy_data(self):
+    #     """Dummy data insertion is disabled for production use."""
+    #     # This method is intentionally disabled to prevent dummy data insertion
+    #     # in production environment. All data should be added through the UI.
+    #     logging.info("Dummy data insertion is disabled - production mode")
+    #     pass
 
     def get_schools(self):
         """Get all schools from schools table."""
@@ -1781,20 +1618,16 @@ class Database:
     def get_attendance(self, student_id=None, date=None):
         """Get attendance records."""
         try:
-            query = """SELECT a.*, s.student_name as student_name, s.student_id 
+            # Updated query to work with the new schema where attendance.student_id is TEXT
+            # and matches students.student_id directly
+            query = """SELECT a.*, s.student_name as student_name 
                       FROM attendance a 
-                      JOIN students s ON a.student_id = s.id 
+                      JOIN students s ON a.student_id = s.student_id 
                       WHERE s.is_deleted = 0"""
             params = []
             
             if student_id:
-                # If student_id is a string (student_id code), convert it to database ID
-                if isinstance(student_id, str):
-                    db_id = self.get_student_id_by_student_id(student_id)
-                    if db_id:
-                        student_id = db_id
-                    else:
-                        return []
+                # No need to convert - we now use student_id directly
                 query += " AND a.student_id = ?"
                 params.append(student_id)
             if date:
@@ -1812,12 +1645,14 @@ class Database:
     def mark_attendance(self, student_id, date, status, remarks=""):
         """Mark attendance for a student."""
         try:
-            # If student_id is a string (student_id code), convert it to database ID
-            if isinstance(student_id, str):
-                db_id = self.get_student_id_by_student_id(student_id)
-                if not db_id:
+            # Ensure student_id is a string format (like 'STD054')
+            if not isinstance(student_id, str):
+                # Convert numeric id to student_id string if needed
+                self.cursor.execute("SELECT student_id FROM students WHERE id = ?", (student_id,))
+                result = self.cursor.fetchone()
+                if not result:
                     raise ValueError(f"Student with ID {student_id} not found")
-                student_id = db_id
+                student_id = result['student_id']
                 
             # Check if attendance already exists for this date
             self.cursor.execute("""SELECT id FROM attendance 

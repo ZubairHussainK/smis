@@ -15,6 +15,7 @@ if project_root not in sys.path:
 
 from core.auth import get_auth_manager
 from core.exceptions import SMISException
+from core.security_manager import SMISSecurityManager
 
 class SimplePasswordInput(QLineEdit):
     def __init__(self, parent=None):
@@ -34,8 +35,18 @@ class KeyValidationThread(QThread):
     def __init__(self, key, parent=None):
         super().__init__(parent)
         self.key = key
+    
     def run(self):
         try:
+            # Initialize the security manager
+            security_manager = SMISSecurityManager()
+            
+            # First check the new security manager validation
+            if security_manager.validate_key_format(self.key) and security_manager.validate_key_checksum(self.key):
+                self.validation_complete.emit(True, "✔️ Registration key validated successfully!")
+                return
+            
+            # Fallback to old JSON validation system for backward compatibility
             keys_file = "active_keys.json"
             if os.path.exists(keys_file):
                 with open(keys_file, 'r') as f:
@@ -48,17 +59,19 @@ class KeyValidationThread(QThread):
                             try:
                                 expiry_date = datetime.fromisoformat(expiry_str.replace('Z', '+00:00'))
                                 if datetime.now() > expiry_date:
-                                    self.validation_complete.emit(False, "Registration key has expired.")
+                                    self.validation_complete.emit(False, "❌ Registration key has expired.")
                                     return
                             except ValueError:
                                 pass
                         self.validation_complete.emit(True, "✔️ Registration key validated successfully!")
+                        return
                     else:
                         self.validation_complete.emit(False, "❌ Registration key is inactive or already used.")
-                else:
-                    self.validation_complete.emit(False, "❌ Invalid registration key.")
-            else:
-                self.validation_complete.emit(False, "❌ Key validation system not available.")
+                        return
+            
+            # If neither validation method succeeds
+            self.validation_complete.emit(False, "❌ Invalid registration key.")
+                
         except Exception as e:
             logging.error(f"Key validation error", exc_info=True)
             self.validation_complete.emit(False, "❌ Error validating registration key.")
@@ -183,6 +196,7 @@ class RegistrationWindow(QDialog):
         self.cancel_btn.clicked.connect(self.reject)
         self.register_btn = QPushButton("Register")
         self.register_btn.setEnabled(False)
+        self.register_btn.clicked.connect(self._register_user)
         layout.addWidget(self.cancel_btn)
         layout.addStretch()
         layout.addWidget(self.register_btn)
@@ -278,8 +292,8 @@ class RegistrationWindow(QDialog):
             errors.append("Organization is required.")
 
         # Password validation
-        password = self.password_input.text()
-        confirm_password = self.confirm_password_input.text()
+        password = self.password_input.input_field.text()
+        confirm_password = self.confirm_password_input.input_field.text()
 
         if not password:
             errors.append("Password is required.")
@@ -307,7 +321,7 @@ class RegistrationWindow(QDialog):
             # Prepare user data
             user_data = {
                 'username': self.username_input.input_field.text().strip(),
-                'password': self.password_input.text(),
+                'password': self.password_input.input_field.text(),
                 'full_name': self.username_input.input_field.text().strip(),  # Use username as full name
                 'email': self.email_input.input_field.text().strip(),
                 'phone': "",  # Default empty phone
@@ -353,8 +367,26 @@ class RegistrationWindow(QDialog):
             QMessageBox.critical(self, "Registration Error", f"An error occurred during registration: {str(e)}")
             
     def _mark_key_as_used(self, key):
-        """Mark the registration key as used in local file."""
+        """Mark the registration key as used using the security manager."""
         try:
+            # Use the security manager to register the key properly
+            security_manager = SMISSecurityManager()
+            
+            # Create user info for registration
+            user_info = {
+                'organization': self.organization_input.input_field.text().strip(),
+                'contact_person': self.username_input.input_field.text().strip(),
+                'email': self.email_input.input_field.text().strip()
+            }
+            
+            # Register the key with the security manager
+            success = security_manager.register_user(key, user_info)
+            if success:
+                logging.info(f"Registration key {key} registered successfully with security manager")
+            else:
+                logging.warning(f"Failed to register key {key} with security manager")
+            
+            # Also handle the old JSON system for backward compatibility
             keys_file = "active_keys.json"
             if os.path.exists(keys_file):
                 with open(keys_file, 'r') as f:
@@ -367,8 +399,9 @@ class RegistrationWindow(QDialog):
                     
                     with open(keys_file, 'w') as f:
                         json.dump(active_keys, f, indent=2)
+                    
+                    logging.info(f"Registration key {key} marked as used in JSON file")
                         
-                logging.info(f"Registration key {key} marked as used")
         except Exception as e:
             logging.error(f"Error marking key as used: {e}")
         

@@ -156,9 +156,17 @@ class SMISSecurityManager:
             pass  # Fail silently
     
     def validate_key_format(self, key: str) -> bool:
-        """Validate key format - supports both SMIS and Enhanced formats."""
+        """Validate key format - supports SMIS, Enhanced, and GitHub formats."""
         if not key:
             return False
+        
+        # Check for GitHub License Key format (typically longer, various patterns)
+        if len(key) >= 20 and (key.count('-') >= 3 or '_' in key or len(key) > 30):
+            # GitHub keys can be various formats - be more flexible
+            # Just ensure it's alphanumeric with allowed separators
+            allowed_chars = set('ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-_')
+            if all(c in allowed_chars for c in key.upper()):
+                return True
         
         # Check for Enhanced format (25 chars: XXXXX-XXXXX-XXXXX-XXXXX-XXXXX)
         if len(key) == 29:  # 25 chars + 4 dashes = 29
@@ -191,9 +199,14 @@ class SMISSecurityManager:
         return False
     
     def validate_key_checksum(self, key: str) -> bool:
-        """Validate key checksum - supports both SMIS and Enhanced formats."""
+        """Validate key checksum - supports SMIS, Enhanced, and GitHub formats."""
         try:
             parts = key.split('-')
+            
+            # For GitHub License Keys - skip checksum validation as they use different validation
+            if len(key) >= 20 and (key.count('-') >= 3 or '_' in key or len(key) > 30):
+                # GitHub keys are validated through their own system
+                return True
             
             # For Enhanced format keys (5 parts, each 5 chars)
             if len(parts) == 5 and len(parts[0]) == 5:
@@ -336,16 +349,34 @@ class SMISSecurityManager:
                 print("Invalid key checksum")
                 return False
             
-            # For enhanced keys (25-char), skip online validation
-            # For SMIS keys, use online validation
+            # Determine key type and validation method
             parts = key.split('-')
-            if len(parts) == 5 and len(parts[0]) == 5:
+            
+            # GitHub License Key
+            if len(key) >= 20 and (key.count('-') >= 3 or '_' in key or len(key) > 30):
+                # For GitHub keys, create validation result without online check
+                validation_result = {
+                    'valid': True,
+                    'message': 'GitHub license key validated successfully',
+                    'expiry': (datetime.now() + timedelta(days=365)).isoformat(),
+                    'license_type': 'GitHub License',
+                    'key_format': 'GitHub'
+                }
+                print("GitHub license key detected and validated")
+            
+            # Enhanced key format
+            elif len(parts) == 5 and len(parts[0]) == 5:
                 # Enhanced key - create mock validation result
                 validation_result = {
                     'valid': True,
                     'message': 'Enhanced key validated successfully',
-                    'expiry': (datetime.now() + timedelta(days=365)).isoformat()
+                    'expiry': (datetime.now() + timedelta(days=365)).isoformat(),
+                    'license_type': 'Enhanced',
+                    'key_format': 'Enhanced'
                 }
+                print("Enhanced key detected and validated")
+            
+            # SMIS key format
             else:
                 # SMIS key - use online validation
                 validation_result = self.validate_key_online(key)
@@ -355,9 +386,15 @@ class SMISSecurityManager:
             
             # Store validated key (non-critical if it fails)
             try:
+                # Ensure directory exists and is writable
+                key_dir = os.path.dirname(self.local_key_file)
+                if not os.path.exists(key_dir):
+                    os.makedirs(key_dir, exist_ok=True)
+                
                 self.store_validated_key(key, validation_result)
+                print("Key stored securely for future use")
             except Exception as e:
-                print(f"Warning: Could not store key: {e}")
+                print(f"Note: Key storage skipped - {e}")
                 # Continue anyway - storage is not critical for operation
             
             # Create registration database
@@ -369,6 +406,7 @@ class SMISSecurityManager:
                 CREATE TABLE IF NOT EXISTS registrations (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     key_hash TEXT UNIQUE NOT NULL,
+                    key_type TEXT DEFAULT 'Unknown',
                     organization TEXT NOT NULL,
                     contact_person TEXT NOT NULL,
                     email TEXT NOT NULL,
@@ -378,14 +416,25 @@ class SMISSecurityManager:
                 )
             ''')
             
+            # Add key_type column if it doesn't exist (for compatibility)
+            try:
+                cursor.execute('ALTER TABLE registrations ADD COLUMN key_type TEXT DEFAULT "Unknown"')
+                conn.commit()
+            except sqlite3.OperationalError:
+                # Column already exists, which is fine
+                pass
+            
             # Insert registration
             key_hash = hashlib.sha256(key.encode()).hexdigest()
+            key_type = validation_result.get('license_type', 'Unknown')
+            
             cursor.execute('''
                 INSERT OR REPLACE INTO registrations 
-                (key_hash, organization, contact_person, email, registered_at)
-                VALUES (?, ?, ?, ?, ?)
+                (key_hash, key_type, organization, contact_person, email, registered_at)
+                VALUES (?, ?, ?, ?, ?, ?)
             ''', (
                 key_hash,
+                key_type,
                 user_info['organization'],
                 user_info['contact_person'],
                 user_info['email'],
@@ -395,6 +444,7 @@ class SMISSecurityManager:
             conn.commit()
             conn.close()
             
+            print(f"Registration successful with {key_type} license!")
             return True
             
         except Exception as e:

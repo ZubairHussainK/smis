@@ -1,11 +1,12 @@
 from PyQt5.QtWidgets import (
     QTableWidget, QHeaderView, QTableWidgetItem, QWidget, QCheckBox, 
     QHBoxLayout, QVBoxLayout, QAbstractItemView, QToolTip, QLabel, QSizePolicy,
-    QStyledItemDelegate, QComboBox, QPushButton, QSpacerItem
+    QStyledItemDelegate,  QPushButton, QSpacerItem
 )
 from PyQt5.QtCore import Qt, QTimer, pyqtSignal, QSize
 from PyQt5.QtGui import QFont, QPalette, QColor, QCursor, QBrush, QIcon
-
+from ui.components.custom_combo_box import CustomComboBox
+from resources.styles.constants import COLORS, RADIUS
 
 class CenterAlignDelegate(QStyledItemDelegate):
 
@@ -29,28 +30,48 @@ class TablePagination(QWidget):
         self.page_size = page_size
         self.total_items = total_items
         
+        # Make pagination control responsive horizontally but with fixed vertical height
+        self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+        self.setMinimumHeight(50)  # Ensure enough height for the combobox
+        
         self._setup_ui()
     
     def _setup_ui(self):
         """Set up the pagination UI elements."""
-        layout = QHBoxLayout(self)
-        layout.setContentsMargins(0, 8, 0, 0)
+        # Main layout
+        main_layout = QHBoxLayout(self)
+        main_layout.setContentsMargins(0, 8, 0, 10)  # Added bottom margin of 10px
+        main_layout.setSpacing(10)
         
-        # Total records display on left side
+        # Left section for record count - takes up 1/3 of space
+        left_section = QWidget()
+        left_section.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+        left_section.setMinimumHeight(32)  # Ensure enough height for the combobox
+        left_layout = QHBoxLayout(left_section)
+        left_layout.setContentsMargins(5, 0, 5, 0)
+        left_layout.setSpacing(5)
+        
+        # Total records display
         self.records_label = QLabel(f"Total Records: {self.total_items}")
-        self.records_label.setStyleSheet("""
+        self.records_label.setStyleSheet(f"""
             font-weight: bold; 
-            color: #1E40AF;
+            color: {COLORS['primary_dark']};
             padding: 5px 10px;
             border: none;
-            border-radius: 4px;
-            background-color: transparent;
+            background: transparent;
         """)
-        self.records_label.setMinimumWidth(150)
-        layout.addWidget(self.records_label)
+        self.records_label.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Fixed)
+        left_layout.addWidget(self.records_label)
+        left_layout.addStretch(1)
         
-        # Add left spacer to push controls to center
-        layout.addItem(QSpacerItem(20, 20, QSizePolicy.Expanding, QSizePolicy.Minimum))
+        # Center section for navigation - takes up 1/3 of space
+        center_section = QWidget()
+        center_section.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+        center_section.setMinimumHeight(32)  # Ensure enough height for the combobox
+        center_layout = QHBoxLayout(center_section)
+        center_layout.setContentsMargins(0, 0, 5, 0)
+        center_layout.setSpacing(5)
+        center_layout.setAlignment(Qt.AlignCenter)
         
         # First page button
         self.first_btn = QPushButton()
@@ -58,7 +79,7 @@ class TablePagination(QWidget):
         self.first_btn.setToolTip("First Page")
         self.first_btn.clicked.connect(self._go_to_first)
         self.first_btn.setMaximumWidth(40)
-        layout.addWidget(self.first_btn)
+        center_layout.addWidget(self.first_btn)
         
         # Previous page button
         self.prev_btn = QPushButton()
@@ -66,13 +87,19 @@ class TablePagination(QWidget):
         self.prev_btn.setToolTip("Previous Page")
         self.prev_btn.clicked.connect(self._go_to_prev)
         self.prev_btn.setMaximumWidth(40)
-        layout.addWidget(self.prev_btn)
+        center_layout.addWidget(self.prev_btn)
         
         # Current page info
         self.page_info = QLabel("Page 1 of 1")
         self.page_info.setAlignment(Qt.AlignCenter)
         self.page_info.setMinimumWidth(120)
-        layout.addWidget(self.page_info)
+        self.page_info.setStyleSheet("""
+            QLabel {
+                background: transparent;
+                border: none;
+            }
+        """)
+        center_layout.addWidget(self.page_info)
         
         # Next page button
         self.next_btn = QPushButton()
@@ -80,7 +107,7 @@ class TablePagination(QWidget):
         self.next_btn.setToolTip("Next Page")
         self.next_btn.clicked.connect(self._go_to_next)
         self.next_btn.setMaximumWidth(40)
-        layout.addWidget(self.next_btn)
+        center_layout.addWidget(self.next_btn)
         
         # Last page button
         self.last_btn = QPushButton()
@@ -88,24 +115,46 @@ class TablePagination(QWidget):
         self.last_btn.setToolTip("Last Page")
         self.last_btn.clicked.connect(self._go_to_last)
         self.last_btn.setMaximumWidth(40)
-        layout.addWidget(self.last_btn)
+        center_layout.addWidget(self.last_btn)
+        
+        # Right section for page size - takes up 1/3 of space
+        right_section = QWidget()
+        right_section.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+        right_section.setMinimumHeight(32)  # Ensure enough height for the combobox
+        right_layout = QHBoxLayout(right_section)
+        right_layout.setContentsMargins(5, 5, 5, 5)  # Added vertical padding
+        right_layout.setSpacing(5)
+        right_layout.setAlignment(Qt.AlignRight)
         
         # Page size selector
-        layout.addSpacing(20)
-        layout.addWidget(QLabel("Rows per page:"))
+        rows_per_page_label = QLabel("Rows per page:")
+        rows_per_page_label.setStyleSheet("""
+            QLabel {
+                background: transparent;
+                border: none;
+            }
+        """)
+        right_layout.addWidget(rows_per_page_label)
         
-        self.page_size_combo = QComboBox()
+        # Page size combo
+        self.page_size_combo = CustomComboBox()
         self.page_size_combo.addItems(["10", "25", "50", "100"])
         self.page_size_combo.setCurrentText(str(self.page_size))
         self.page_size_combo.currentTextChanged.connect(self._on_page_size_changed)
-        layout.addWidget(self.page_size_combo)
+        self.page_size_combo.setMaximumWidth(120)
+        self.page_size_combo.setMinimumHeight(32)
+        # Set fixed margins to prevent cutoff
+        right_layout.setContentsMargins(5, 5, 5, 5)
+     
+        right_layout.addWidget(self.page_size_combo)
         
-        # Total items info
-        self.total_label = QLabel(f"Total: {self.total_items}")
-        layout.addWidget(self.total_label)
+
+
         
-        # Add right spacer to push controls to center
-        layout.addItem(QSpacerItem(40, 20, QSizePolicy.Expanding, QSizePolicy.Minimum))
+        # Add all sections to main layout with proper size ratios
+        main_layout.addWidget(left_section, 1)
+        main_layout.addWidget(center_section, 1)
+        main_layout.addWidget(right_section, 1)
         
         # Set initial button states
         self._update_button_states()
@@ -115,85 +164,60 @@ class TablePagination(QWidget):
     
     def _apply_styles(self):
         """Apply styling to the pagination controls."""
-        button_style = """
-            QPushButton {
-                border: 1px solid #CBD5E1;
-                border-radius: 4px;
-                background: white;
-                color: #334155;
+        button_style = f"""
+            QPushButton {{
+                border: 1px solid {COLORS['gray_300']};
+                border-radius: {RADIUS['sm']};
+                background: {COLORS['white']};
+                color: {COLORS['gray_700']};
                 padding: 5px;
                 min-width: 30px;
                 min-height: 30px;
                 font-weight: bold;
-            }
-            QPushButton:hover {
-                background: #F1F5F9;
-                border-color: #94A3B8;
-            }
-            QPushButton:pressed {
-                background: #E2E8F0;
-            }
-            QPushButton:disabled {
-                background: #F8FAFC;
-                border-color: #E2E8F0;
-                color: #94A3B8;
-            }
+            }}
+            QPushButton:hover {{
+                background: {COLORS['gray_100']};
+                border-color: {COLORS['gray_400']};
+            }}
+            QPushButton:pressed {{
+                background: {COLORS['gray_200']};
+            }}
+            QPushButton:disabled {{
+                background: {COLORS['gray_50']};
+                border-color: {COLORS['gray_200']};
+                color: {COLORS['gray_400']};
+            }}
         """
         
-        label_style = """
-            QLabel {
-                color: #334155;
+        label_style = f"""
+            QLabel {{
+                color: {COLORS['gray_700']};
                 font-size: 13px;
-            }
+                background: transparent;
+                border: none;
+            }}
         """
         
-        records_label_style = """
-            QLabel {
+        records_label_style = f"""
+            QLabel {{
                 font-weight: bold; 
-                color: #1E40AF;
+                color: {COLORS['primary_dark']};
                 padding: 5px 10px;
-                border: 1px solid #CBD5E1;
-                border-radius: 4px;
-                background-color: #F1F5F9;
+                border: none;
+                background: transparent;
                 font-size: 13px;
-            }
+            }}
         """
         
-        combo_style = """
-            QComboBox {
-                border: 1px solid #CBD5E1;
-                border-radius: 4px;
-                padding: 5px;
-                min-height: 30px;
-                background: white;
-                color: #334155;
-            }
-            QComboBox:hover {
-                border-color: #94A3B8;
-            }
-            QComboBox::drop-down {
-                subcontrol-origin: padding;
-                subcontrol-position: right center;
-                width: 20px;
-                border-left: 1px solid #CBD5E1;
-                border-top-right-radius: 3px;
-                border-bottom-right-radius: 3px;
-            }
-            QComboBox::down-arrow {
-                image: url(resources/icons/arrow_down_small.svg);
-                width: 12px;
-                height: 12px;
-            }
-        """
+
         
         self.first_btn.setStyleSheet(button_style)
         self.prev_btn.setStyleSheet(button_style)
         self.next_btn.setStyleSheet(button_style)
         self.last_btn.setStyleSheet(button_style)
         self.page_info.setStyleSheet(label_style)
-        self.total_label.setStyleSheet(label_style)
         self.records_label.setStyleSheet(records_label_style)
-        self.page_size_combo.setStyleSheet(combo_style)
+       
     
     def _update_button_states(self):
         """Update button enabled/disabled states based on current page."""
@@ -209,7 +233,6 @@ class TablePagination(QWidget):
         self.page_info.setText(f"Page {self.current_page} of {total_pages}")
         
         # Update total counts
-        self.total_label.setText(f"Total: {self.total_items}")
         self.records_label.setText(f"Total Records: {self.total_items}")
     
     def get_total_pages(self):
@@ -320,35 +343,35 @@ class CheckBoxDelegate(QWidget):
         self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
         
         # Style the checkbox with bold, visible styling and consistent borders
-        self.checkbox.setStyleSheet("""
-            QCheckBox {
+        self.checkbox.setStyleSheet(f"""
+            QCheckBox {{
                 border: none;
                 background: transparent;
                 spacing: 0px;  /* No space between box and text */
                 margin: 2px;   /* Small margin to prevent border clipping */
                 padding: 2px;  /* Add padding to prevent border clipping */
-            }
-            QCheckBox::indicator {
+            }}
+            QCheckBox::indicator {{
                 width: 18px;
                 height: 18px;
-                border: 2px solid #3B82F6;
+                border: 2px solid {COLORS['primary']};
                 border-radius: 3px;
-                background-color: white;
+                background-color: {COLORS['white']};
                 margin: 1px;   /* Small margin inside indicator */
-            }
-            QCheckBox::indicator:checked {
-                background-color: #3B82F6;
+            }}
+            QCheckBox::indicator:checked {{
+                background-color: {COLORS['primary']};
                 image: url(resources/icons/check_24.svg);
-                border: 2px solid #3B82F6;  /* Consistent border width */
-            }
-            QCheckBox::indicator:unchecked {
-                background-color: white;
-                border: 2px solid #CBD5E1;  /* Consistent 2px border */
-            }
-            QCheckBox::indicator:hover {
-                border: 2px solid #1D4ED8;
-                background-color: #EFF6FF;
-            }
+                border: 2px solid {COLORS['primary']};  /* Consistent border width */
+            }}
+            QCheckBox::indicator:unchecked {{
+                background-color: {COLORS['white']};
+                border: 2px solid {COLORS['gray_300']};  /* Consistent 2px border */
+            }}
+            QCheckBox::indicator:hover {{
+                border: 2px solid {COLORS['primary_dark']};
+                background-color: {COLORS['gray_50']};
+            }}
             /* We've removed the transition property as it's not fully supported */
         """)
         
@@ -407,21 +430,33 @@ class SMISTable(QWidget):
         self._filtered_data = []  # Store filtered data
         self._current_page_data = []  # Current page data
         self._show_pagination = show_pagination
+        self._checkbox_column = None  # Initialize checkbox column index
+        
+        # Set the SMISTable widget to expand in both directions
+        self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
         
         # Create layout
         self._main_layout = QVBoxLayout(self)
         self._main_layout.setContentsMargins(0, 0, 0, 0)
-        self._main_layout.setSpacing(0)
+        self._main_layout.setSpacing(2)  # Added small spacing between table and pagination
         
         # Create table widget
         self.table = QTableWidget(self)
+        self.table.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
         self._main_layout.addWidget(self.table)
         
         # Create pagination if needed
         if show_pagination:
             self.pagination = TablePagination(parent=self)
             self.pagination.pageChanged.connect(self._on_page_changed)
-            self._main_layout.addWidget(self.pagination)
+            # Create a container for pagination with proper margins
+            pagination_container = QWidget()
+            pagination_container.setMinimumHeight(40)  # Ensure enough height
+            pagination_container.setStyleSheet("background-color: white;")
+            pagination_layout = QVBoxLayout(pagination_container)
+            pagination_layout.setContentsMargins(0, 5, 0, 5)  # Add vertical padding
+            pagination_layout.addWidget(self.pagination)
+            self._main_layout.addWidget(pagination_container)
         else:
             self.pagination = None
         
@@ -432,7 +467,7 @@ class SMISTable(QWidget):
         """Initialize table with standard properties and styling."""
         # Standard table properties
         self.table.setSelectionBehavior(QTableWidget.SelectRows)
-        self.table.setSelectionMode(QTableWidget.MultiSelection)  # Allow multiple rows to be selected
+        self.table.setSelectionMode(QTableWidget.SingleSelection)  # Only allow single row selection
         self.table.setAlternatingRowColors(True)
         self.table.setSortingEnabled(True)
         self.table.setEditTriggers(QAbstractItemView.NoEditTriggers)
@@ -472,11 +507,20 @@ class SMISTable(QWidget):
         # Store checkbox column index
         self._checkbox_column = checkbox_column
         
+        # Get header view for configuration
+        header = self.table.horizontalHeader()
+        
         # If we have a checkbox column, customize its header
         if checkbox_column is not None:
-            header = self.table.horizontalHeader()
-            # Make checkbox column narrower (adjust width for best appearance)
-            header.resizeSection(checkbox_column, 39)  # Adjusted width for better appearance
+            # First set the resize mode to Fixed for the checkbox column
+            header.setSectionResizeMode(checkbox_column, QHeaderView.Fixed)
+            
+            # Calculate optimal width based on checkbox size and padding
+            # Checkbox size (22px) + padding (8px each side) + border (2px each side) = 42px
+            optimal_checkbox_width = 42
+            
+            # Set the checkbox column to the optimal width AFTER setting the mode
+            header.resizeSection(checkbox_column, optimal_checkbox_width)
             
             # Create an icon for the checkbox header
             from PyQt5.QtGui import QIcon
@@ -490,17 +534,44 @@ class SMISTable(QWidget):
                 # Set tooltip to explain the checkbox column
                 checkbox_item.setToolTip("Select/Deselect All")
                 
-                # Apply special style to ensure centering
-                header.setSectionResizeMode(checkbox_column, QHeaderView.Fixed)
-                
             # Apply center alignment to the entire column
             self.table.setItemDelegateForColumn(checkbox_column, 
                 CenterAlignDelegate(self.table))
-            
-        # Make headers stretch to fill available width
-        header = self.table.horizontalHeader()
-        header.setSectionResizeMode(QHeaderView.Interactive)
-        header.setStretchLastSection(True)
+        
+        # First, set all columns to ResizeToContents to adapt to header text
+        for i in range(len(headers)):
+            if i != checkbox_column:  # Skip the checkbox column
+                header.setSectionResizeMode(i, QHeaderView.ResizeToContents)
+        
+        # Set a reasonable minimum section size that allows checkbox column to be small
+        # but prevents other columns from being too narrow
+        header.setMinimumSectionSize(20)  # Small enough for checkbox, reasonable for others
+        
+        # After applying ResizeToContents, get the width of each column
+        # and set them to Interactive mode (but don't override the minimum section size)
+        for i in range(len(headers)):
+            if i != checkbox_column:
+                header.setSectionResizeMode(i, QHeaderView.Interactive)
+        
+        # Make the table expand to fill available space
+        self.table.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+        
+        # Make the last section stretch to fill remaining space, but only if there's no checkbox column
+        # If there's a checkbox column, we need to manage stretching more carefully
+        if checkbox_column is not None:
+            # Don't stretch the last section automatically when we have a checkbox column
+            header.setStretchLastSection(False)
+            # Instead, set the last non-checkbox column to stretch
+            last_column = len(headers) - 1
+            if last_column != checkbox_column:
+                header.setSectionResizeMode(last_column, QHeaderView.Stretch)
+                
+            # Re-apply checkbox column settings to ensure they're not overridden
+            optimal_checkbox_width = 42
+            header.setSectionResizeMode(checkbox_column, QHeaderView.Fixed)
+            header.resizeSection(checkbox_column, optimal_checkbox_width)
+        else:
+            header.setStretchLastSection(True)
     
     def populate_data(self, data, id_column=None):
         """
@@ -584,7 +655,8 @@ class SMISTable(QWidget):
                 # First create a transparent item for the cell background
                 transparent_item = QTableWidgetItem("")
                 transparent_item.setBackground(Qt.transparent)
-                transparent_item.setFlags(transparent_item.flags() & ~Qt.ItemIsSelectable)
+                # Make the item completely non-selectable and non-interactive
+                transparent_item.setFlags(Qt.NoItemFlags)
                 self.table.setItem(row_idx, col_idx, transparent_item)
                 
                 # Create checkbox
@@ -613,32 +685,33 @@ class SMISTable(QWidget):
             if is_checked:
                 self._selected_rows.add(row_id)
                 
-                # Select this row without clearing other selected rows
-                # First, save the current selection
-                currently_selected = []
-                for i in range(self.table.rowCount()):
-                    item = self.table.item(i, 0)
-                    if item and item.isSelected():
-                        currently_selected.append(i)
+                # Select this specific row - use proper row selection
+                # Block signals to prevent recursive calls
+                self.table.blockSignals(True)
                 
-                # Add this row to the selection
-                self.table.selectRow(row)
+                # Select all items in this row (except checkbox column)
+                for col in range(self.table.columnCount()):
+                    if col != self._checkbox_column:  # Skip checkbox column
+                        item = self.table.item(row, col)
+                        if item:
+                            item.setSelected(True)
                 
-                # Re-select all previously selected rows
-                for i in currently_selected:
-                    if i != row:  # Skip the current row as it's already selected
-                        for col in range(self.table.columnCount()):
-                            item = self.table.item(i, col)
-                            if item:
-                                item.setSelected(True)
+                self.table.blockSignals(False)
+                
             else:
                 self._selected_rows.discard(row_id)
                 
-                # Deselect only this row, keeping others selected
+                # Deselect this specific row completely
+                self.table.blockSignals(True)
+                
+                # Deselect all items in this row (except checkbox column)
                 for col in range(self.table.columnCount()):
-                    item = self.table.item(row, col)
-                    if item:
-                        item.setSelected(False)
+                    if col != self._checkbox_column:  # Skip checkbox column
+                        item = self.table.item(row, col)
+                        if item:
+                            item.setSelected(False)
+                            
+                self.table.blockSignals(False)
                         
         # Emit our custom selectionChanged signal
         self.selectionChanged.emit(list(self._selected_rows))
@@ -646,6 +719,14 @@ class SMISTable(QWidget):
     def get_selected_rows(self):
         """Get IDs of all selected rows."""
         return list(self._selected_rows)
+    
+    def set_id_column(self, column_index):
+        """Set the column that contains unique IDs for selection tracking."""
+        self._id_column = column_index
+    
+    def load_data(self, data):
+        """Load data into the table. Alias for populate_data for compatibility."""
+        self.populate_data(data, self._id_column)
     
     def set_selected_rows(self, row_ids):
         """Set selected rows by their IDs."""
@@ -715,25 +796,23 @@ class SMISTable(QWidget):
         if self._is_populating or self._checkbox_column is None:
             return
             
-        # Determine which rows are currently selected in the UI
-        currently_selected_rows = set()
-        for i in range(self.table.rowCount()):
-            # Check columns EXCEPT the checkbox column
-            columns_to_check = [col for col in range(self.table.columnCount()) if col != self._checkbox_column]
-            if any(self.table.item(i, col) and self.table.item(i, col).isSelected() for col in columns_to_check):
-                currently_selected_rows.add(i)
-                
-        # Make sure the checkbox column cells remain unselected
-        for row in range(self.table.rowCount()):
-            item = self.table.item(row, self._checkbox_column)
-            if item and item.isSelected():
-                item.setSelected(False)
+        # Prevent recursive calls
+        self._is_populating = True
         
-        # Track which rows should have checked and unchecked checkboxes
-        rows_to_check = set()
-        rows_to_uncheck = set()
+        # Get all selected indexes from selection model (more reliable)
+        selection_model = self.table.selectionModel()
+        selected_indexes = selection_model.selectedIndexes()
         
-        # For each row in the table
+        # Get unique selected rows (excluding checkbox column)
+        selected_rows = set()
+        for index in selected_indexes:
+            if index.column() != self._checkbox_column:  # Ignore checkbox column selections
+                selected_rows.add(index.row())
+        
+        # Clear our internal selection tracking first
+        self._selected_rows.clear()
+        
+        # Update checkboxes and selection tracking based on actual row selection
         for row in range(self.table.rowCount()):
             # Get the row ID
             row_id = None
@@ -742,34 +821,26 @@ class SMISTable(QWidget):
                 if id_item:
                     row_id = str(id_item.text())
             
+            # Get checkbox widget for this row
             checkbox_widget = self.table.cellWidget(row, self._checkbox_column)
+            
             if checkbox_widget and isinstance(checkbox_widget, CheckBoxDelegate):
-                if row in currently_selected_rows:
-                    # Row is selected, checkbox should be checked
-                    rows_to_check.add(row)
-                    if row_id:
-                        self._selected_rows.add(row_id)
-                else:
-                    # Row is not selected, checkbox should be unchecked
-                    rows_to_uncheck.add(row)
-                    if row_id:
-                        self._selected_rows.discard(row_id)
+                # Check if this row is selected
+                is_row_selected = row in selected_rows
+                
+                # Update checkbox state to match row selection
+                checkbox_widget.setChecked(is_row_selected)
+                
+                # Update internal tracking
+                if is_row_selected and row_id:
+                    self._selected_rows.add(row_id)
         
-        # Now update the checkboxes - we do this after collecting all changes
-        # to avoid triggering more selection changes during the process
-        self._is_populating = True
-        
-        # Check the boxes that should be checked
-        for row in rows_to_check:
-            checkbox_widget = self.table.cellWidget(row, self._checkbox_column)
-            if checkbox_widget and isinstance(checkbox_widget, CheckBoxDelegate) and not checkbox_widget.isChecked():
-                checkbox_widget.setChecked(True)
-        
-        # Uncheck the boxes that should be unchecked
-        for row in rows_to_uncheck:
-            checkbox_widget = self.table.cellWidget(row, self._checkbox_column)
-            if checkbox_widget and isinstance(checkbox_widget, CheckBoxDelegate) and checkbox_widget.isChecked():
-                checkbox_widget.setChecked(False)
+        # Make sure checkbox column items are never selected
+        if self._checkbox_column is not None:
+            for row in range(self.table.rowCount()):
+                item = self.table.item(row, self._checkbox_column)
+                if item and item.isSelected():
+                    item.setSelected(False)
         
         self._is_populating = False
                     
@@ -778,141 +849,141 @@ class SMISTable(QWidget):
     
     def _get_table_style(self):
         """Get the standard table styling."""
-        return """
-            QTableWidget {
+        return f"""
+            QTableWidget {{
                 border: none;
-                border-radius: 12px;
-                background: white;
-                gridline-color: #E5E7EB;
+                border-radius: {RADIUS['xl']};
+                background: {COLORS['white']};
+                gridline-color: {COLORS['gray_200']};
                 font-family: 'Poppins';
                 font-size: 13px;
                 font-weight: 400;
                 outline: none;
-                alternate-background-color: #F8FAFC;
+                alternate-background-color: {COLORS['gray_50']};
                 show-decoration-selected: 0;
-            }
-            QTableWidget:focus {
+            }}
+            QTableWidget:focus {{
                 outline: none;
                 border: none;
-            }
-            QHeaderView::section {
+            }}
+            QHeaderView::section {{
                 background: qlineargradient(x1:0, y1:0, x2:0, y2:1, 
-                    stop:0 #F1F5F9, stop:1 #E2E8F0);
-                color: #1E293B;
+                    stop:0 {COLORS['gray_100']}, stop:1 {COLORS['gray_200']});
+                color: {COLORS['gray_800']};
                 font-family: 'Arial', 'Segoe UI', 'Poppins Bold', sans-serif;
                 font-weight: 700;
                 font-size: 13px;
                 padding: 8px 5px;
                 border: none;
-                border-bottom: 3px solid #3B82F6;
-                border-right: 1px solid #CBD5E1;
+                border-bottom: 3px solid {COLORS['primary']};
+                border-right: 1px solid {COLORS['gray_300']};
                 text-align: center;
-            }
-            QHeaderView::section:first {
-                border-top-left-radius: 8px;
-            }
-            QHeaderView::section:last {
-                border-top-right-radius: 8px;
+            }}
+            QHeaderView::section:first {{
+                border-top-left-radius: {RADIUS['md']};
+            }}
+            QHeaderView::section:last {{
+                border-top-right-radius: {RADIUS['md']};
                 border-right: none;
-            }
-            QTableWidget::item {
+            }}
+            QTableWidget::item {{
                 padding: 0px;
                 margin: 0px;
-                border-bottom: 1px solid #E2E8F0;
-                border-right: 1px solid #F1F5F9;
+                border-bottom: 1px solid {COLORS['gray_200']};
+                border-right: 1px solid {COLORS['gray_100']};
                 background-color: transparent;
-                color: #374151;
+                color: {COLORS['gray_700']};
                 font-weight: 500;
                 font-size: 13px;
                 outline: none;
-            }
-            QTableWidget::item:selected {
-                background-color: #3B82F6;
-                color: white;
+            }}
+            QTableWidget::item:selected {{
+                background-color: {COLORS['primary']};
+                color: {COLORS['white']};
                 border: none;
                 font-weight: 600;
                 outline: none;
-            }
-            QTableWidget::item:hover:!selected {
-                background-color: #DBEAFE;
-                color: #1E40AF;
-            }
-            QTableWidget::item:focus {
+            }}
+            QTableWidget::item:hover:!selected {{
+                background-color: {COLORS['gray_100']};
+                color: {COLORS['primary_dark']};
+            }}
+            QTableWidget::item:focus {{
                 outline: none;
                 border: none;
-            }
-            QTableWidget::item:alternate {
-                background-color: #F8FAFC;
-            }
-            QTableWidget::item:alternate:selected {
-                background-color: #3B82F6;
-                color: white;
-            }
+            }}
+            QTableWidget::item:alternate {{
+                background-color: {COLORS['gray_50']};
+            }}
+            QTableWidget::item:alternate:selected {{
+                background-color: {COLORS['primary']};
+                color: {COLORS['white']};
+            }}
             /* Force transparent background for checkbox column in all scenarios */
-            QTableWidget::item:first {
+            QTableWidget::item:first {{
                 background-color: transparent !important;
-            }
-            QTableWidget::item:first:selected {
+            }}
+            QTableWidget::item:first:selected {{
                 background-color: transparent !important;
-                color: #374151 !important;
-            }
-            QTableWidget::item:first:hover {
+                color: {COLORS['gray_700']} !important;
+            }}
+            QTableWidget::item:first:hover {{
                 background-color: transparent !important;
-            }
-            QTableWidget::item:first:alternate {
+            }}
+            QTableWidget::item:first:alternate {{
                 background-color: transparent !important;
-            }
-            QTableWidget::item:first:alternate:selected {
+            }}
+            QTableWidget::item:first:alternate:selected {{
                 background-color: transparent !important;
-                color: #374151 !important;
-            }
+                color: {COLORS['gray_700']} !important;
+            }}
             /* More specific selectors to ensure checkbox background stays transparent */
-            QTableWidget::item:first:focus {
+            QTableWidget::item:first:focus {{
                 background-color: transparent !important;
-            }
-            QTableWidget::item:first:active {
+            }}
+            QTableWidget::item:first:active {{
                 background-color: transparent !important;
-            }
-            QTableWidget::item:first:disabled {
+            }}
+            QTableWidget::item:first:disabled {{
                 background-color: transparent !important;
-            }
-            QScrollBar:vertical {
+            }}
+            QScrollBar:vertical {{
                 border: none;
-                background: #F1F5F9;
+                background: {COLORS['gray_100']};
                 width: 12px;
                 border-radius: 6px;
-            }
-            QScrollBar::handle:vertical {
-                background: #CBD5E1;
+            }}
+            QScrollBar::handle:vertical {{
+                background: {COLORS['gray_300']};
                 border-radius: 6px;
                 min-height: 20px;
-            }
-            QScrollBar::handle:vertical:hover {
-                background: #94A3B8;
-            }
-            QScrollBar:horizontal {
+            }}
+            QScrollBar::handle:vertical:hover {{
+                background: {COLORS['gray_400']};
+            }}
+            QScrollBar:horizontal {{
                 border: none;
-                background: #F1F5F9;
+                background: {COLORS['gray_100']};
                 height: 12px;
                 border-radius: 6px;
-            }
-            QScrollBar::handle:horizontal {
-                background: #CBD5E1;
+            }}
+            QScrollBar::handle:horizontal {{
+                background: {COLORS['gray_300']};
                 border-radius: 6px;
                 min-width: 20px;
-            }
-            QScrollBar::handle:horizontal:hover {
-                background: #94A3B8;
-            }
-            QToolTip {
-                background: #1E293B;
-                color: #F8FAFC;
-                border: 2px solid #3B82F6;
-                border-radius: 8px;
+            }}
+            QScrollBar::handle:horizontal:hover {{
+                background: {COLORS['gray_400']};
+            }}
+            QToolTip {{
+                background: {COLORS['gray_800']};
+                color: {COLORS['gray_50']};
+                border: 2px solid {COLORS['primary']};
+                border-radius: {RADIUS['md']};
                 padding: 12px 16px;
                 font-family: 'Poppins';
                 font-size: 13px;
                 font-weight: 500;
                 max-width: 400px;
-            }
+            }}
         """

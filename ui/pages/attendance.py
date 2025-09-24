@@ -20,8 +20,8 @@ from PyQt5.QtGui import QFont, QIcon
 # Import styling and calendar functions
 from resources.styles import (get_attendance_styles, 
                            show_info_message, COLORS, SPACING_MD, SPACING_LG)
-from ui.styles.table_styles import apply_standard_table_style
 from models.database import Database
+from ui.components.custom_table import SMISTable
 
 # Try to import the modern calendar widget - Direct implementation instead of import
 try:
@@ -864,7 +864,7 @@ class AttendancePage(QWidget):
             
             # Clear student selection in table
             if hasattr(self, 'students_table'):
-                self.students_table.clearSelection()
+                self.students_table.table.clearSelection()
                 
             print("✅ Calendar state reset successfully")
             
@@ -1207,10 +1207,10 @@ class AttendancePage(QWidget):
         from PyQt5.QtCore import QEvent
         
         # Handle students table mouse events
-        if obj == self.students_table:
+        if obj == self.students_table.table:
             if event.type() == QEvent.MouseButtonPress:
                 # Ensure table gets focus and clear other widget focuses
-                self.students_table.setFocus(Qt.MouseFocusReason)
+                self.students_table.table.setFocus(Qt.MouseFocusReason)
                 
                 # Clear focus from calendar and other widgets
                 if hasattr(self, 'calendar'):
@@ -1234,7 +1234,7 @@ class AttendancePage(QWidget):
                 self.calendar.setFocus(Qt.MouseFocusReason)
                 
                 # Clear focus from student table and other widgets
-                self.students_table.clearFocus()
+                self.students_table.table.clearFocus()
                 self.status_combo.clearFocus()
                 
                 # Clear focus from action buttons
@@ -1413,33 +1413,30 @@ class AttendancePage(QWidget):
         table_layout.setSpacing(6)
         
         # Students table
-        self.students_table = QTableWidget()
-        self.students_table.setColumnCount(5)
-        self.students_table.setHorizontalHeaderLabels(["Student ID", "Student Name", "Father Name", "Class", "Section"])
+        self.students_table = SMISTable(table_frame)
+        self.students_table.table.setColumnCount(5)
+        self.students_table.table.setHorizontalHeaderLabels(["Student ID", "Student Name", "Father Name", "Class", "Section"])
 
         # Enable strong focus for table navigation with arrow keys
-        self.students_table.setFocusPolicy(Qt.StrongFocus)
-        
-        # Apply standard table styling
-        apply_standard_table_style(self.students_table)
+        self.students_table.table.setFocusPolicy(Qt.StrongFocus)
         
         # Set column widths
-        self.students_table.setColumnWidth(0, 60)
-        self.students_table.setColumnWidth(1, 120)
-        self.students_table.setColumnWidth(2, 60)
-        self.students_table.setColumnWidth(3, 80)
+        self.students_table.table.setColumnWidth(0, 60)
+        self.students_table.table.setColumnWidth(1, 120)
+        self.students_table.table.setColumnWidth(2, 60)
+        self.students_table.table.setColumnWidth(3, 80)
         
         # Connect selection
-        self.students_table.itemSelectionChanged.connect(self.on_student_selected)
+        self.students_table.table.itemSelectionChanged.connect(self.on_student_selected)
         
         # Install event filter for proper mouse handling
-        self.students_table.installEventFilter(self)
+        self.students_table.table.installEventFilter(self)
         
         # Populate table
         self.populate_students_table()
         
         # Give initial focus to student table for navigation
-        self.students_table.setFocus()
+        self.students_table.table.setFocus()
         
         table_layout.addWidget(self.students_table)
         
@@ -1903,14 +1900,14 @@ class AttendancePage(QWidget):
         
     def populate_students_table(self):
         """Populate the students table with data."""
-        self.students_table.setRowCount(len(self.students_data))
+        self.students_table.table.setRowCount(len(self.students_data))
         
         for row, student in enumerate(self.students_data):
-            self.students_table.setItem(row, 0, QTableWidgetItem(student["id"]))  # Student ID
-            self.students_table.setItem(row, 1, QTableWidgetItem(student["name"]))  # Student Name
-            self.students_table.setItem(row, 2, QTableWidgetItem(student["father"]))  # Father Name
-            self.students_table.setItem(row, 3, QTableWidgetItem(student["class"]))  # Class
-            self.students_table.setItem(row, 4, QTableWidgetItem(student["section"]))  # Section
+            self.students_table.table.setItem(row, 0, QTableWidgetItem(student["id"]))  # Student ID
+            self.students_table.table.setItem(row, 1, QTableWidgetItem(student["name"]))  # Student Name
+            self.students_table.table.setItem(row, 2, QTableWidgetItem(student["father"]))  # Father Name
+            self.students_table.table.setItem(row, 3, QTableWidgetItem(student["class"]))  # Class
+            self.students_table.table.setItem(row, 4, QTableWidgetItem(student["section"]))  # Section
 
     def load_schools_data(self):
         """Load schools from database and populate school combo."""
@@ -2010,13 +2007,13 @@ class AttendancePage(QWidget):
                 filtered_students.append(student)
         
         # Update table
-        self.students_table.setRowCount(len(filtered_students))
+        self.students_table.table.setRowCount(len(filtered_students))
         for row, student in enumerate(filtered_students):
-            self.students_table.setItem(row, 0, QTableWidgetItem(student["id"]))  # Student ID
-            self.students_table.setItem(row, 1, QTableWidgetItem(student["name"]))  # Student Name
-            self.students_table.setItem(row, 2, QTableWidgetItem(student["father"]))  # Father Name
-            self.students_table.setItem(row, 3, QTableWidgetItem(student["class"]))  # Class
-            self.students_table.setItem(row, 4, QTableWidgetItem(student["section"]))  # Section
+            self.students_table.table.setItem(row, 0, QTableWidgetItem(student["id"]))  # Student ID
+            self.students_table.table.setItem(row, 1, QTableWidgetItem(student["name"]))  # Student Name
+            self.students_table.table.setItem(row, 2, QTableWidgetItem(student["father"]))  # Father Name
+            self.students_table.table.setItem(row, 3, QTableWidgetItem(student["class"]))  # Class
+            self.students_table.table.setItem(row, 4, QTableWidgetItem(student["section"]))  # Section
             
         print(f"🔍 Search: '{text}' - Found {len(filtered_students)} students")
         

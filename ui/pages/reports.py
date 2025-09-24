@@ -1,10 +1,10 @@
 """Reports page UI implementation."""
 from PyQt5.QtWidgets import (QWidget, QVBoxLayout, QFormLayout,
-                           QPushButton, QTableWidget)
+                           QPushButton)
 from ui.components.custom_combo_box import CustomComboBox
 from datetime import datetime
-from ui.styles.table_styles import apply_standard_table_style
 from models.database import Database
+from ui.components.custom_table import SMISTable
 
 class ReportsPage(QWidget):
     """Reports generation and export page."""
@@ -57,9 +57,7 @@ class ReportsPage(QWidget):
         self.export_btn = QPushButton("Export to Excel")
         
         # Report table
-        self.report_table = QTableWidget()
-        # Apply standard table styling
-        apply_standard_table_style(self.report_table)
+        self.report_table = SMISTable(self)
         
         layout.addLayout(filter_layout)
         layout.addWidget(self.generate_btn)
@@ -76,7 +74,7 @@ class ReportsPage(QWidget):
 
     def refresh_data(self):
         """Refresh the page data."""
-        self.report_table.setRowCount(0)
+        self.report_table.table.setRowCount(0)
         self.class_filter.setCurrentIndex(0)
         self.school_filter.setCurrentIndex(0)
         self.month_filter.setCurrentIndex(0)

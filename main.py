@@ -28,6 +28,9 @@ load_dotenv()
 # Add project root to Python path
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
+# Import version information
+from version import __version__, VERSION_FULL
+
 # CRITICAL: Import security system FIRST
 from core.security_manager import secure_app_startup, register_application
 
@@ -54,6 +57,7 @@ logger = logging.getLogger(__name__)
 class SMISApplication:
     
     def __init__(self) -> None:
+
         """Initialize the SMIS application."""
         # Type annotations for better IDE support
         self.app: Optional[QApplication] = None
@@ -69,7 +73,7 @@ class SMISApplication:
         try:
             # Set up logging first
             setup_logging()
-            logger.info("Starting School Management Information System v2.0")
+            logger.info(f"Starting {VERSION_FULL}")
             
             # Log application startup
             log_security_event("application_startup")
@@ -82,7 +86,7 @@ class SMISApplication:
             self.app = QApplication(sys.argv)
             self.app.setStyle('Fusion')
             self.app.setApplicationName("School Management Information System")
-            self.app.setApplicationVersion("2.0.0")
+            self.app.setApplicationVersion(__version__)
             self.app.setOrganizationName("SMIS")
             
             # Setup fonts

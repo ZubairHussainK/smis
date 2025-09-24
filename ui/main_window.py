@@ -14,6 +14,7 @@ if project_root not in sys.path:
     sys.path.append(project_root)
 
 from config.settings import Config, SHORTCUTS
+from version import __version__, VERSION_SHORT
 from ui.pages.dashboard import DashboardPage
 from ui.pages.student import StudentPage
 from ui.pages.student_list import StudentListPage
@@ -37,7 +38,7 @@ class MainWindow(QMainWindow):
         self.backup_manager = get_backup_manager()
         
         try:
-            self.setWindowTitle(Config.WINDOW_TITLE)
+            self.setWindowTitle(f"{Config.WINDOW_TITLE} v{__version__}")
             self.setGeometry(*Config.WINDOW_GEOMETRY)
             
             # Set window size policy to prevent unwanted resizing
@@ -87,8 +88,9 @@ class MainWindow(QMainWindow):
         if not self.current_user:
             return
         
-        # Update window title with user info
-        title = f"{Config.WINDOW_TITLE} - {self.current_user.full_name or self.current_user.username}"
+        # Update window title with user info and version
+        base_title = f"{Config.WINDOW_TITLE} v{__version__}"
+        title = f"{base_title} - {self.current_user.full_name or self.current_user.username}"
         if self.current_user.role:
             title += f" ({self.current_user.role.title()})"
         self.setWindowTitle(title)
@@ -100,8 +102,9 @@ class MainWindow(QMainWindow):
         # Update menu bar based on permissions
         self._update_menu_permissions()
         
-        # Update status bar
-        self.user_label.setText(f"User: {self.current_user.username} | Role: {self.current_user.role.title()}")
+        # Update status bar - show user info with version
+        user_info = f"User: {self.current_user.username} | Role: {self.current_user.role.title()} | v{__version__}"
+        self.user_label.setText(user_info)
     
     def _create_menu_bar(self):
         """Create enhanced menu bar with user management."""
@@ -339,12 +342,16 @@ class MainWindow(QMainWindow):
     
     def _show_about(self):
         """Show about dialog."""
+        from version import __version__, __app_name__, __build_date__, __author__
+        
         QMessageBox.about(
             self,
             "About SMIS",
-            f"School Management Information System\\n"
-            f"Version 2.0.0\\n\\n"
+            f"{__app_name__}\\n"
+            f"Version {__version__}\\n"
+            f"Build Date: {__build_date__}\\n\\n"
             f"A comprehensive school management solution with enhanced security features.\\n\\n"
+            f"Developed by: {__author__}\\n\\n"
             f"Current User: {self.current_user.username if self.current_user else 'Unknown'}\\n"
             f"Role: {self.current_user.role.title() if self.current_user else 'Unknown'}"
         )
@@ -459,13 +466,14 @@ class MainWindow(QMainWindow):
             self.content_stack.setCurrentWidget(self.reports_page)
 
     def _setup_status_bar(self):
-        """Set up the status bar."""
+        """Set up the status bar with user information and version."""
         try:
             self.status_bar = QStatusBar()
             self.setStatusBar(self.status_bar)
             
-            # Add user label to status bar
-            self.user_label = QLabel("Not logged in")
+            # Add user label to right side of status bar (will include version after login)
+            self.user_label = QLabel(f"Not logged in | v{__version__}")
+            self.user_label.setStyleSheet("QLabel { color: #333; font-weight: bold; padding: 2px 8px; }")
             self.status_bar.addPermanentWidget(self.user_label)
             
             self.status_bar.showMessage("Ready")

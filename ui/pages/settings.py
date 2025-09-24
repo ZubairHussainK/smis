@@ -5,13 +5,13 @@ PyQt5 single-file widget with better design, validation, and table tooling.
 
 from PyQt5.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QTabWidget, QFormLayout, QLineEdit, QPushButton,
-    QLabel, QMessageBox, QTableWidget, QTableWidgetItem, QGroupBox, QFrame,
+    QLabel, QMessageBox, QTableWidgetItem, QGroupBox, QFrame,
     QAbstractItemView, QHeaderView, QToolButton, QStyle, QSpacerItem, QSizePolicy
 )
 from PyQt5.QtCore import Qt, QRegularExpression, QSortFilterProxyModel
 from PyQt5.QtGui import QFont
 from models.database import Database
-from ui.styles.table_styles import apply_standard_table_style
+from ui.components.custom_table import SMISTable
 from PyQt5.QtGui import QDoubleValidator, QIntValidator, QRegularExpressionValidator, QIcon, QKeySequence
 
 
@@ -120,12 +120,6 @@ class SettingsPage(QWidget):
         QPushButton:pressed {
             background: #E0E7FF;
         }
-        QTableWidget {
-            gridline-color: #E5E7EB;
-            selection-background-color: #DBEAFE;
-            selection-color: #1E293B;
-            alternate-background-color: #F8FAFC;
-        }
         """
 
     # ---------------- Reusable bits ----------------
@@ -133,7 +127,7 @@ class SettingsPage(QWidget):
         label = QLabel("")
         label.setWordWrap(True)
         label.setStyleSheet(
-            "QLabel { background:#F0F9FF; border:1px solid #BAE6FD; color:#0C4A6E; padding:6px 8px; border-radius:8px; }"
+            "QLabel { background: transparent; border: none; color:#0C4A6E; padding:6px 8px; }"
         )
         label.hide()
         parent_layout.addWidget(label)
@@ -180,24 +174,24 @@ class SettingsPage(QWidget):
         parent_layout.addLayout(bar)
         return search, clear_btn
 
-    def _prep_table(self, table: QTableWidget):
-        # Apply standard table styling
-        apply_standard_table_style(table)
+    def _prep_table(self, table: SMISTable):
+        # SMISTable already has standard styling applied
+        # No need to call apply_standard_table_style as it's built into SMISTable
         
         # Override specific settings if needed
-        table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
+        table.table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
 
-    def _bind_search(self, table: QTableWidget, search: QLineEdit, clear_btn: QToolButton):
+    def _bind_search(self, table: SMISTable, search: QLineEdit, clear_btn: QToolButton):
         def apply_filter(text: str):
             text = text.lower().strip()
-            for r in range(table.rowCount()):
+            for r in range(table.table.rowCount()):
                 match = False
-                for c in range(table.columnCount()):
-                    item = table.item(r, c)
+                for c in range(table.table.columnCount()):
+                    item = table.table.item(r, c)
                     if item and text in item.text().lower():
                         match = True
                         break
-                table.setRowHidden(r, not match) if text else table.setRowHidden(r, False)
+                table.table.setRowHidden(r, not match) if text else table.table.setRowHidden(r, False)
 
         search.textChanged.connect(apply_filter)
         clear_btn.clicked.connect(lambda: search.clear())
@@ -265,11 +259,12 @@ class SettingsPage(QWidget):
         )
 
         # Table
-        self.school_table = QTableWidget(0, 9)
-        self.school_table.setHorizontalHeaderLabels([
+        self.school_table = SMISTable(self)
+        headers = [
             "🏫 BEMIS Code", "📝 Name", "🏠 Address", "🌐 Longitude", "🌐 Latitude",
             "🌍 Country", "🏞️ Province", "🏙️ District", "🏘️ Union Council"
-        ])
+        ]
+        self.school_table.setup_with_headers(headers)
         self._prep_table(self.school_table)
         layout.addWidget(self.school_table, 3)
 
@@ -335,7 +330,7 @@ class SettingsPage(QWidget):
         self.cancel_school_btn.clicked.connect(self._clear_school_form)
 
         # Double-click row to load into form
-        self.school_table.itemDoubleClicked.connect(self._load_school_from_row)
+        self.school_table.table.itemDoubleClicked.connect(self._load_school_from_row)
 
     def _clear_school_form(self):
         for w in (
@@ -350,18 +345,18 @@ class SettingsPage(QWidget):
         self.school_name_input.setFocus()
 
     def _delete_school_row(self):
-        r = self.school_table.currentRow()
+        r = self.school_table.table.currentRow()
         if r < 0:
             QMessageBox.information(self, "Delete", "Select a row to delete.")
             return
-        self.school_table.removeRow(r)
+        self.school_table.table.removeRow(r)
         self._show_status(self.school_status, "Row deleted.")
 
     def _load_school_from_row(self):
-        r = self.school_table.currentRow()
+        r = self.school_table.table.currentRow()
         if r < 0:
             return
-        vals = [self.school_table.item(r, c).text() if self.school_table.item(r, c) else "" for c in range(9)]
+        vals = [self.school_table.table.item(r, c).text() if self.school_table.table.item(r, c) else "" for c in range(9)]
         (
             self.school_name_input, self.school_address_input, self.longitude_input, self.latitude_input,
             self.bemis_code_input, self.school_country_input, self.school_province_input,
@@ -407,18 +402,18 @@ class SettingsPage(QWidget):
         ]
 
         # If a row is selected, update it; otherwise insert new (good UX)
-        r = self.school_table.currentRow()
-        if r >= 0 and self.school_table.rowCount() > 0:
+        r = self.school_table.table.currentRow()
+        if r >= 0 and self.school_table.table.rowCount() > 0:
             for c, v in enumerate(record):
-                self.school_table.setItem(r, c, QTableWidgetItem(v))
+                self.school_table.table.setItem(r, c, QTableWidgetItem(v))
         else:
-            r = self.school_table.rowCount()
-            self.school_table.insertRow(r)
+            r = self.school_table.table.rowCount()
+            self.school_table.table.insertRow(r)
             for c, v in enumerate(record):
                 item = QTableWidgetItem(v)
                 if c in (2, 3, 4):  # numeric-ish
                     item.setTextAlignment(Qt.AlignRight | Qt.AlignVCenter)
-                self.school_table.setItem(r, c, item)
+                self.school_table.table.setItem(r, c, item)
 
         # TODO: DB save can be added here, use self.db
         self._clear_school_form()
@@ -434,8 +429,8 @@ class SettingsPage(QWidget):
             layout, on_add=self._show_class_form, on_delete=self._delete_class_row
         )
 
-        self.class_table = QTableWidget(0, 1)
-        self.class_table.setHorizontalHeaderLabels(["📚 Class Name"])
+        self.class_table = SMISTable(self)
+        self.class_table.setup_with_headers(["📚 Class Name"])
         self._prep_table(self.class_table)
         layout.addWidget(self.class_table, 3)
         self._bind_search(self.class_table, search, clear_btn)
@@ -460,23 +455,23 @@ class SettingsPage(QWidget):
 
         self.save_class_btn.clicked.connect(self.save_class)
         self.cancel_class_btn.clicked.connect(lambda: self.class_name_input.clear())
-        self.class_table.itemDoubleClicked.connect(self._load_class_from_row)
+        self.class_table.table.itemDoubleClicked.connect(self._load_class_from_row)
 
     def _show_class_form(self):
         self.class_name_input.setFocus()
 
     def _delete_class_row(self):
-        r = self.class_table.currentRow()
+        r = self.class_table.table.currentRow()
         if r < 0:
             QMessageBox.information(self, "Delete", "Select a row to delete.")
             return
-        self.class_table.removeRow(r)
+        self.class_table.table.removeRow(r)
         self._show_status(self.class_status, "Row deleted.")
 
     def _load_class_from_row(self):
-        r = self.class_table.currentRow()
+        r = self.class_table.table.currentRow()
         if r >= 0:
-            item = self.class_table.item(r, 0)
+            item = self.class_table.table.item(r, 0)
             self.class_name_input.setText(item.text() if item else "")
 
     def save_class(self):
@@ -485,13 +480,13 @@ class SettingsPage(QWidget):
             self._show_status(self.class_status, "Class Name is required.", error=True)
             return
 
-        r = self.class_table.currentRow()
-        if r >= 0 and self.class_table.rowCount() > 0:
-            self.class_table.setItem(r, 0, QTableWidgetItem(name))
+        r = self.class_table.table.currentRow()
+        if r >= 0 and self.class_table.table.rowCount() > 0:
+            self.class_table.table.setItem(r, 0, QTableWidgetItem(name))
         else:
-            r = self.class_table.rowCount()
-            self.class_table.insertRow(r)
-            self.class_table.setItem(r, 0, QTableWidgetItem(name))
+            r = self.class_table.table.rowCount()
+            self.class_table.table.insertRow(r)
+            self.class_table.table.setItem(r, 0, QTableWidgetItem(name))
 
         # TODO: DB save
         self.class_name_input.clear()
@@ -507,8 +502,8 @@ class SettingsPage(QWidget):
             layout, on_add=self._show_section_form, on_delete=self._delete_section_row
         )
 
-        self.section_table = QTableWidget(0, 1)
-        self.section_table.setHorizontalHeaderLabels(["📝 Section Name"])
+        self.section_table = SMISTable(self)
+        self.section_table.setup_with_headers(["📝 Section Name"])
         self._prep_table(self.section_table)
         layout.addWidget(self.section_table, 3)
         self._bind_search(self.section_table, search, clear_btn)
@@ -533,23 +528,23 @@ class SettingsPage(QWidget):
 
         self.save_section_btn.clicked.connect(self.save_section)
         self.cancel_section_btn.clicked.connect(lambda: self.section_name_input.clear())
-        self.section_table.itemDoubleClicked.connect(self._load_section_from_row)
+        self.section_table.table.itemDoubleClicked.connect(self._load_section_from_row)
 
     def _show_section_form(self):
         self.section_name_input.setFocus()
 
     def _delete_section_row(self):
-        r = self.section_table.currentRow()
+        r = self.section_table.table.currentRow()
         if r < 0:
             QMessageBox.information(self, "Delete", "Select a row to delete.")
             return
-        self.section_table.removeRow(r)
+        self.section_table.table.removeRow(r)
         self._show_status(self.section_status, "Row deleted.")
 
     def _load_section_from_row(self):
-        r = self.section_table.currentRow()
+        r = self.section_table.table.currentRow()
         if r >= 0:
-            item = self.section_table.item(r, 0)
+            item = self.section_table.table.item(r, 0)
             self.section_name_input.setText(item.text() if item else "")
 
     def save_section(self):
@@ -558,13 +553,13 @@ class SettingsPage(QWidget):
             self._show_status(self.section_status, "Section Name is required.", error=True)
             return
 
-        r = self.section_table.currentRow()
-        if r >= 0 and self.section_table.rowCount() > 0:
-            self.section_table.setItem(r, 0, QTableWidgetItem(name))
+        r = self.section_table.table.currentRow()
+        if r >= 0 and self.section_table.table.rowCount() > 0:
+            self.section_table.table.setItem(r, 0, QTableWidgetItem(name))
         else:
-            r = self.section_table.rowCount()
-            self.section_table.insertRow(r)
-            self.section_table.setItem(r, 0, QTableWidgetItem(name))
+            r = self.section_table.table.rowCount()
+            self.section_table.table.insertRow(r)
+            self.section_table.table.setItem(r, 0, QTableWidgetItem(name))
 
         # TODO: DB save
         self.section_name_input.clear()
@@ -574,11 +569,11 @@ class SettingsPage(QWidget):
     def _show_status(self, label: QLabel, text: str, error: bool = False):
         if error:
             label.setStyleSheet(
-                "QLabel { background:#FEF2F2; border:1px solid #FECACA; color:#7F1D1D; padding:6px 8px; border-radius:8px; }"
+                "QLabel { background: transparent; border: none; color:#7F1D1D; padding:6px 8px; }"
             )
         else:
             label.setStyleSheet(
-                "QLabel { background:#F0F9FF; border:1px solid #BAE6FD; color:#0C4A6E; padding:6px 8px; border-radius:8px; }"
+                "QLabel { background: transparent; border: none; color:#0C4A6E; padding:6px 8px; }"
             )
         label.setText(text)
         label.show()

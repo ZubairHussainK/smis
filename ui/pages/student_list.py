@@ -1,13 +1,20 @@
 """Student list page UI implementation with complete database integration and export functionality."""
 from PyQt5.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel,
-                           QPushButton, QTableWidget, QFrame,
+                           QPushButton, QFrame,
                            QMessageBox, QTableWidgetItem, QHeaderView, QLineEdit,
-                           QGridLayout, QFileDialog, QSizePolicy, QCheckBox)
+                           QGridLayout, QFileDialog, QSizePolicy, QCheckBox,
+                           QAbstractItemView)
+from ui.components.custom_table import SMISTable
 from ui.components.custom_combo_box import CustomComboBox
 from PyQt5.QtCore import Qt
 from models.database import Database
-from ui.styles.table_styles import apply_standard_table_style
-from resources.styles import COLORS, SPACING_MD, get_attendance_styles
+# No need to import apply_standard_table_style as we're using SMISTable
+from resources.styles import COLORS, SPACING_MD, get_attendance_styles, get_global_styles, get_modern_widget_styles
+from resources.styles.messages import (
+    show_info_message, show_warning_message, show_error_message, 
+    show_critical_message, show_success_message, show_confirmation_message, 
+    show_delete_confirmation
+)
 import csv
 import os
 from datetime import datetime
@@ -35,12 +42,6 @@ class StudentListPage(QWidget):
         self.students_data = []  # Store current students data
         self.selected_students = set()  # Store selected student IDs
         
-        # Pagination variables
-        self.current_page = 1
-        self.records_per_page = 30
-        self.total_records = 0
-        self.total_pages = 0
-        
         # Setup UI
         self._init_ui()
         
@@ -49,15 +50,23 @@ class StudentListPage(QWidget):
         self.class_combo.currentTextChanged.connect(self._on_filters_changed)
         self.section_combo.currentTextChanged.connect(self._on_filters_changed)
         self.status_filter_combo.currentTextChanged.connect(self._on_filters_changed)
+        # Search input connection is already added in _create_filter_section
         
         # Load initial data
         self._load_initial_data()
         
         # Initial load
         self._load_students()
-        
+
+    def apply_modern_styles(self):
+        """Apply centralized modern styles from theme.py"""
+        self.setStyleSheet(get_modern_widget_styles())
+
     def _init_ui(self):
         """Initialize the modern student list page UI components."""
+        # Apply centralized modern styles
+        self.apply_modern_styles()
+
         main_layout = QVBoxLayout()
         main_layout.setSpacing(12)
         main_layout.setContentsMargins(16, 16, 16, 16)
@@ -70,27 +79,25 @@ class StudentListPage(QWidget):
         export_section = self._create_export_section()
         main_layout.addLayout(export_section)
         
+        table_frame = QFrame()
+        #table_frame.setStyleSheet("background-color: white; border: 1px solid #ddd; border-radius: 8px; padding: 8px;")
+        table_frame_layout = QVBoxLayout(table_frame)
+        table_frame_layout.setSpacing(8)
+
         # Create table with all database headers
         self.student_table = self._create_table()
-        main_layout.addWidget(self.student_table)
+        table_frame_layout.addWidget(self.student_table)
+
+        main_layout.addWidget(table_frame)
         
-        # Create pagination controls
-        pagination_layout = self._create_pagination_section()
-        main_layout.addLayout(pagination_layout)
+        # Pagination is handled by SMISTable, no need for separate pagination controls
         
         self.setLayout(main_layout)
 
     def _create_filter_section(self):
         """Create enhanced filter section with 3x3 grid layout including all filters."""
         filters_frame = QFrame()
-        filters_frame.setStyleSheet(f"""
-            QFrame {{
-                background: {COLORS['gray_50']};
-                border: 1px solid {COLORS['gray_200']};
-                border-radius: 8px;
-                padding: 12px;
-            }}
-        """)
+        filters_frame.setStyleSheet("background-color: white; border: 1px solid #ddd; border-radius: 8px; padding: 8px;")
         
         filters_layout = QVBoxLayout(filters_frame)
         filters_layout.setSpacing(8)
@@ -119,11 +126,17 @@ class StudentListPage(QWidget):
         ])
         # CustomComboBox has its own styling
         
-        # Add widgets to grid: 2x2 layout
+        # Add search input field
+        self.search_input = QLineEdit()
+        self.search_input.setPlaceholderText("Search by name, ID, or phone...")
+        self.search_input.textChanged.connect(self._on_filters_changed)
+        
+        # Add widgets to grid: 3x2 layout
         filter_grid.addWidget(self.school_combo, 0, 0)          # Row 1, Col 1
         filter_grid.addWidget(self.class_combo, 0, 1)           # Row 1, Col 2
         filter_grid.addWidget(self.section_combo, 1, 0)         # Row 2, Col 1
         filter_grid.addWidget(self.status_filter_combo, 1, 1)   # Row 2, Col 2
+        filter_grid.addWidget(self.search_input, 2, 0, 1, 2)    # Row 3, Col 1-2 (span 2 columns)
         filters_layout.addLayout(filter_grid)
         
         return filters_frame
@@ -134,18 +147,6 @@ class StudentListPage(QWidget):
         
         # Table information label - shows total records and filter status
         self.table_info_label = QLabel("Total: 0 records")
-        self.table_info_label.setStyleSheet(f"""
-            QLabel {{
-                color: {COLORS['gray_600']};
-                font-size: 14px;
-                font-weight: 500;
-                padding: 8px 15px;
-                background: {COLORS['gray_100']};
-                border-radius: 6px;
-                border: 1px solid {COLORS['gray_200']};
-                min-width: 500px;
-            }}
-        """)
         # Set size policy to expand horizontally
         self.table_info_label.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
         
@@ -154,79 +155,17 @@ class StudentListPage(QWidget):
         self.status_combo.addItems([
             "Select Status", "Active", "Drop", "Duplicate", "Fail", "Graduated"
         ])
-        self.status_combo.setStyleSheet(f"""
-            QComboBox {{
-                background: {COLORS['gray_50']};
-                border: 2px solid {COLORS['gray_200']};
-                border-radius: 6px;
-                padding: 8px 12px;
-                font-size: 13px;
-                font-weight: 500;
-                min-height: 20px;
-                min-width: 120px;
-            }}
-            QComboBox:hover {{
-                border-color: {COLORS['primary']};
-            }}
-            QComboBox::drop-down {{
-                border: none;
-                background: transparent;
-            }}
-            QComboBox::down-arrow {{
-                image: none;
-                border: none;
-            }}
-        """)
         
-        # Update Status button
+        # Update Status button using global styles
         self.update_status_btn = QPushButton("Update Status")
-        self.update_status_btn.setStyleSheet(f"""
-            QPushButton {{
-                background: {COLORS['success']};
-                color: white;
-                border: none;
-                padding: 8px 16px;
-                border-radius: 6px;
-                font-weight: bold;
-                min-height: 36px;
-                min-width: 120px;
-            }}
-            QPushButton:hover {{
-                background: #16A34A;
-            }}
-            QPushButton:pressed {{
-                background: #15803D;
-                opacity: 0.9;
-            }}
-            QPushButton:disabled {{
-                background: {COLORS['gray_300']};
-                color: {COLORS['gray_500']};
-            }}
-        """)
+        styles = get_global_styles()
+        self.update_status_btn.setStyleSheet(styles['button_success'])
         self.update_status_btn.clicked.connect(self._update_selected_status)
         self.update_status_btn.setEnabled(False)  # Initially disabled
         
-        # Export button with modern styling
+        # Export button using global styles
         self.export_btn = QPushButton("Export to Excel")
-        self.export_btn.setStyleSheet(f"""
-            QPushButton {{
-                background: {COLORS['primary']};
-                color: white;
-                border: none;
-                padding: 8px 16px;
-                border-radius: 6px;
-                font-weight: bold;
-                min-height: 36px;
-                min-width: 120px;
-            }}
-            QPushButton:hover {{
-                background: {COLORS['primary_dark']};
-            }}
-            QPushButton:pressed {{
-                background: {COLORS['primary_dark']};
-                opacity: 0.9;
-            }}
-        """)
+        self.export_btn.setStyleSheet(styles['button_primary'])
         self.export_btn.clicked.connect(self._export_data)
         
         export_layout.addWidget(self.table_info_label, 1)  # Add stretch factor to expand
@@ -239,14 +178,14 @@ class StudentListPage(QWidget):
         
         return export_layout
 
+
     def _create_table(self):
         """Create the students table with ALL database columns and checkboxes."""
-        table = QTableWidget()
-        
+        table = SMISTable(self)
+
         # Define ALL non-audit columns with names instead of IDs - complete student information
-        # Add checkbox column at the beginning
         self.table_columns = [
-            "✔ Select All", "ID", "Status", "Student ID", "Final Unique Codes",
+            "✔", "ID", "Status", "Student ID", "Final Unique Codes",
             "Organization", "School Name", "Province", "District", "Union Council", "Nationality",
             "Registration Number", "Class Teacher Name",
             "Student Name", "Gender", "Date of Birth", "B-Form Number", 
@@ -260,250 +199,28 @@ class StudentListPage(QWidget):
             "Alternate CNIC", "Alternate CNIC DOI", "Alternate CNIC Exp", "Alternate MWA",
             "Alternate Relationship"
         ]
+
+        # Setup table with checkbox column using SMISTable functionality
+        table.setup_with_headers(self.table_columns, checkbox_column=0)
         
-        table.setColumnCount(len(self.table_columns))
-        table.setHorizontalHeaderLabels(self.table_columns)
+        # Set ID column for selection tracking (Student ID is at index 3)
+        table.set_id_column(3)
         
-        # Apply standard table styling
-        apply_standard_table_style(table)
+        # Selection behavior - SMISTable handles checkbox synchronization
+        table.table.setSelectionBehavior(QAbstractItemView.SelectRows)
+        table.table.setSelectionMode(QAbstractItemView.MultiSelection)
         
-        # Change selection behavior to allow multiple selections
-        table.setSelectionBehavior(QTableWidget.SelectRows)
-        table.setSelectionMode(QTableWidget.MultiSelection)
-        
-        # Add select all functionality to header
-        header = table.horizontalHeader()
-        header.setStretchLastSection(False)
-        header.sectionClicked.connect(self._on_header_clicked)
-        
-        # Set specific widths for better display
-        table.setColumnWidth(0, 100)  # Select All checkbox
-        table.setColumnWidth(1, 80)   # ID
-        table.setColumnWidth(2, 80)   # Status
-        table.setColumnWidth(3, 120)  # Student ID
-        table.setColumnWidth(4, 150)  # Student Name
-        table.setColumnWidth(5, 130)  # Father Name
-        table.setColumnWidth(6, 130)  # Mother Name
-        table.setColumnWidth(7, 60)   # Class
-        table.setColumnWidth(8, 60)   # Section
-        table.setColumnWidth(9, 110)  # Father Phone
-        table.setColumnWidth(10, 110) # Mother Phone
-        table.setColumnWidth(11, 70)  # Gender
-        table.setColumnWidth(12, 100) # Date of Birth
-        
-        # Make table responsive
-        header.setSectionResizeMode(QHeaderView.Interactive)
+        # Connect to SMISTable selection changed signal
+        table.selectionChanged.connect(self._on_selection_changed)
         
         # Store selected student IDs for persistent selection
         self.selected_students = set()
-        
+
         return table
 
-    def _create_pagination_section(self):
-        """Create pagination controls section."""
-        pagination_layout = QHBoxLayout()
-        pagination_layout.setSpacing(10)
-        
-        # Records info label
-        self.records_info_label = QLabel("Showing 0 - 0 of 0 records")
-        self.records_info_label.setStyleSheet(f"""
-            QLabel {{
-                color: {COLORS['gray_600']};
-                font-family: 'Poppins';
-                font-size: 13px;
-                font-weight: 500;
-                padding: 8px 0;
-            }}
-        """)
-        
-        # Records per page combo
-        records_per_page_layout = QHBoxLayout()
-        records_per_page_layout.setSpacing(5)
-        
-        records_label = QLabel("Records per page:")
-        records_label.setStyleSheet(f"""
-            QLabel {{
-                color: {COLORS['gray_600']};
-                font-family: 'Poppins';
-                font-size: 13px;
-                font-weight: 500;
-            }}
-        """)
-        
-        self.records_per_page_combo = CustomComboBox()
-        self.records_per_page_combo.addItems(["10", "20", "30", "50", "100"])
-        self.records_per_page_combo.setCurrentText("30")  # Default to 30
-        self.records_per_page_combo.setStyleSheet(f"""
-            QComboBox {{
-                background: white;
-                color: {COLORS['gray_700']};
-                border: 2px solid {COLORS['gray_300']};
-                border-radius: 6px;
-                padding: 6px 12px;
-                font-family: 'Poppins';
-                font-size: 13px;
-                min-width: 60px;
-            }}
-            QComboBox:focus {{
-                border-color: {COLORS['primary']};
-            }}
-            QComboBox::drop-down {{
-                border: none;
-                width: 20px;
-            }}
-            QComboBox::down-arrow {{
-                image: none;
-                border-left: 4px solid transparent;
-                border-right: 4px solid transparent;
-                border-top: 6px solid {COLORS['gray_500']};
-                margin-right: 6px;
-            }}
-        """)
-        self.records_per_page_combo.currentTextChanged.connect(self._on_records_per_page_changed)
-        
-        records_per_page_layout.addWidget(records_label)
-        records_per_page_layout.addWidget(self.records_per_page_combo)
-        
-        # Navigation buttons
-        nav_layout = QHBoxLayout()
-        nav_layout.setSpacing(5)
-        
-        # First page button
-        self.first_btn = QPushButton("❮❮")
-        self.first_btn.setToolTip("First Page")
-        self.first_btn.clicked.connect(self._go_to_first_page)
-        
-        # Previous page button
-        self.prev_btn = QPushButton("❮")
-        self.prev_btn.setToolTip("Previous Page")
-        self.prev_btn.clicked.connect(self._go_to_previous_page)
-        
-        # Page info label
-        self.page_info_label = QLabel("Page 1 of 1")
-        self.page_info_label.setStyleSheet(f"""
-            QLabel {{
-                color: {COLORS['gray_700']};
-                font-family: 'Poppins';
-                font-size: 13px;
-                font-weight: 600;
-                padding: 8px 12px;
-                min-width: 80px;
-                text-align: center;
-            }}
-        """)
-        
-        # Next page button
-        self.next_btn = QPushButton("❯")
-        self.next_btn.setToolTip("Next Page")
-        self.next_btn.clicked.connect(self._go_to_next_page)
-        
-        # Last page button
-        self.last_btn = QPushButton("❯❯")
-        self.last_btn.setToolTip("Last Page")
-        self.last_btn.clicked.connect(self._go_to_last_page)
-        
-        # Style navigation buttons
-        nav_button_style = f"""
-            QPushButton {{
-                background: {COLORS['primary']};
-                color: white;
-                border: none;
-                border-radius: 6px;
-                padding: 8px 12px;
-                font-family: 'Poppins';
-                font-size: 13px;
-                font-weight: 600;
-                min-width: 40px;
-                min-height: 32px;
-            }}
-            QPushButton:hover {{
-                background: {COLORS['primary_dark']};
-            }}
-            QPushButton:pressed {{
-                background: {COLORS['primary_dark']};
-                opacity: 0.9;
-            }}
-            QPushButton:disabled {{
-                background: {COLORS['gray_300']};
-                color: {COLORS['gray_500']};
-            }}
-        """
-        
-        for btn in [self.first_btn, self.prev_btn, self.next_btn, self.last_btn]:
-            btn.setStyleSheet(nav_button_style)
-        
-        nav_layout.addWidget(self.first_btn)
-        nav_layout.addWidget(self.prev_btn)
-        nav_layout.addWidget(self.page_info_label)
-        nav_layout.addWidget(self.next_btn)
-        nav_layout.addWidget(self.last_btn)
-        
-        # Add everything to main pagination layout
-        pagination_layout.addWidget(self.records_info_label)
-        pagination_layout.addStretch()
-        pagination_layout.addLayout(records_per_page_layout)
-        pagination_layout.addSpacing(20)
-        pagination_layout.addLayout(nav_layout)
-        
-        return pagination_layout
+    # Pagination section is no longer needed as SMISTable provides built-in pagination
 
-    def _on_header_clicked(self, logical_index):
-        """Handle header clicks for Select All functionality."""
-        if logical_index == 0:  # First column (Select All)
-            self._toggle_select_all()
 
-    def _toggle_select_all(self):
-        """Toggle selection of all visible students."""
-        # Check if all visible students are currently selected
-        visible_student_ids = set()
-        for row in range(self.student_table.rowCount()):
-            checkbox_widget = self.student_table.cellWidget(row, 0)
-            if checkbox_widget:
-                checkbox = checkbox_widget.findChild(QCheckBox)
-                if checkbox:
-                    # Get student_id from the row data
-                    student_id_item = self.student_table.item(row, 3)  # Student ID column
-                    if student_id_item:
-                        student_id = student_id_item.text()
-                        visible_student_ids.add(student_id)
-        
-        # Check if all visible students are selected
-        all_selected = visible_student_ids.issubset(self.selected_students)
-        
-        if all_selected:
-            # Deselect all visible students
-            for student_id in visible_student_ids:
-                self.selected_students.discard(student_id)
-            action = "Deselected"
-        else:
-            # Select all visible students
-            self.selected_students.update(visible_student_ids)
-            action = "Selected"
-        
-        # Update all checkboxes
-        for row in range(self.student_table.rowCount()):
-            checkbox_widget = self.student_table.cellWidget(row, 0)
-            if checkbox_widget:
-                checkbox = checkbox_widget.findChild(QCheckBox)
-                if checkbox:
-                    student_id_item = self.student_table.item(row, 3)
-                    if student_id_item:
-                        student_id = student_id_item.text()
-                        is_selected = student_id in self.selected_students
-                        checkbox.blockSignals(True)  # Prevent signal loops
-                        checkbox.setChecked(is_selected)
-                        checkbox.blockSignals(False)
-                        
-                        # Update tick label visibility
-                        if hasattr(checkbox, 'tick_label'):
-                            if is_selected:
-                                checkbox.tick_label.show()
-                            else:
-                                checkbox.tick_label.hide()
-        
-        print(f"📋 {action} all {len(visible_student_ids)} visible students")
-        self._update_button_states()
-        self._update_table_info()
 
     def _load_initial_data(self):
         """Load initial data for basic filters from database."""
@@ -536,53 +253,10 @@ class StudentListPage(QWidget):
         self.current_page = 1  # Reset to first page when filters change
         self._load_students()
 
-    # Pagination methods
-    def _on_records_per_page_changed(self):
-        """Handle records per page change."""
-        self.records_per_page = int(self.records_per_page_combo.currentText())
-        self.current_page = 1  # Reset to first page
-        self._load_students()
 
-    def _go_to_first_page(self):
-        """Go to first page."""
-        self.current_page = 1
-        self._load_students()
-
-    def _go_to_previous_page(self):
-        """Go to previous page."""
-        if self.current_page > 1:
-            self.current_page -= 1
-            self._load_students()
-
-    def _go_to_next_page(self):
-        """Go to next page."""
-        if self.current_page < self.total_pages:
-            self.current_page += 1
-            self._load_students()
-
-    def _go_to_last_page(self):
-        """Go to last page."""
-        self.current_page = self.total_pages
-        self._load_students()
-
-    def _update_pagination_controls(self):
-        """Update pagination controls state and labels."""
-        # Update page info
-        self.page_info_label.setText(f"Page {self.current_page} of {self.total_pages}")
-        
-        # Update records info
-        start_record = (self.current_page - 1) * self.records_per_page + 1
-        end_record = min(self.current_page * self.records_per_page, self.total_records)
-        self.records_info_label.setText(f"Showing {start_record} - {end_record} of {self.total_records} records")
-        
-        # Enable/disable navigation buttons
-        self.first_btn.setEnabled(self.current_page > 1)
-        self.prev_btn.setEnabled(self.current_page > 1)
-        self.next_btn.setEnabled(self.current_page < self.total_pages)
-        self.last_btn.setEnabled(self.current_page < self.total_pages)
 
     def _load_students(self):
-        """Load students from database using Database class methods with pagination."""
+        """Load students from database using Database class methods."""
         try:
             # Get filter parameters
             school_filter = self.school_combo.currentText()
@@ -600,120 +274,45 @@ class StudentListPage(QWidget):
             section_name = None if section_filter == "Please Select Section" else section_filter
             status_name = None if status_filter == "All Status" else status_filter
             
-            print(f"📋 Loading students with filters: School ID={school_id}, Class={class_name}, Section={section_name}, Status={status_name}")
+            print(f"Loading students with filters: School ID={school_id}, Class={class_name}, Section={section_name}, Status={status_name}")
             
-            # First get total count for pagination
-            total_result = self.db.get_students(
+            # Get all students for the table - SMISTable will handle pagination
+            result = self.db.get_students(
                 school_id=school_id,
                 class_name=class_name, 
                 section=section_name,
-                status=status_name,
-                per_page=999999  # Get all for count
+                status=status_name
             )
             
-            all_students = total_result.get('students', [])
-            self.total_records = len(all_students)
-            self.total_pages = max(1, (self.total_records + self.records_per_page - 1) // self.records_per_page)
+            students = result.get('students', [])
             
-            # Ensure current page is valid
-            if self.current_page > self.total_pages:
-                self.current_page = self.total_pages
-            
-            # Get paginated students
-            start_index = (self.current_page - 1) * self.records_per_page
-            end_index = start_index + self.records_per_page
-            students = all_students[start_index:end_index]
-            
-            self.students_data = students  # Store current page for search functionality
+            self.students_data = students  # Store all student data for search functionality
             
             self._populate_table(students)
-            self._update_table_info()  # Update the info label
-            self._update_pagination_controls()  # Update pagination controls
-            print(f"📚 Loaded {len(students)} students in student list (Page {self.current_page} of {self.total_pages})")
+            print(f"📚 Loaded {len(students)} students in student list")
             
         except Exception as e:
             print(f"❌ Error loading students: {e}")
             self.students_data = []
-            self.total_records = 0
-            self.total_pages = 1
             self._populate_table([])
-            self._update_pagination_controls()
 
     def _populate_table(self, students):
-        """Populate the table with student data from database and checkboxes."""
-        from PyQt5.QtWidgets import QCheckBox, QWidget, QHBoxLayout
-        from PyQt5.QtCore import Qt
+        """Populate the table with student data using SMISTable data loading."""
+        # Prepare data for SMISTable
+        table_data = []
         
-        self.student_table.setRowCount(len(students))
-        
-        for row_idx, student in enumerate(students):
+        for student in students:
             if not isinstance(student, dict):
                 continue
-                
-            student_id = student.get("student_id", "")
-            
-            # Create checkbox for selection
-            # Create a custom checkbox with visible tick
-            checkbox_widget = QWidget()
-            checkbox_widget.setFixedSize(22, 22)
-            
-            # Create checkbox
-            checkbox = QCheckBox(checkbox_widget)
-            checkbox.setFixedSize(22, 22)
-            checkbox.setStyleSheet("""
-                QCheckBox::indicator {
-                    width: 18px;
-                    height: 18px;
-                    border-radius: 3px;
-                    border: 2px solid #374151;
-                    background: white;
-                }
-                QCheckBox::indicator:checked {
-                    background: white;
-                    border-color: #374151;
-                }
-                QCheckBox::indicator:hover {
-                    border-color: #374151;
-                }
-            """)
-            
-            # Create a label for the tick symbol that will overlay the checkbox
-            tick_label = QLabel("✔", checkbox_widget)
-            tick_label.setFixedSize(22, 22)
-            tick_label.setAlignment(Qt.AlignCenter)
-            tick_label.setStyleSheet("""
-                QLabel {
-                    color: #374151;
-                    font-size: 14px;
-                    font-weight: 900;
-                    font-family: 'Segoe UI Symbol', 'Arial Unicode MS', 'Segoe UI', sans-serif;
-                    background: transparent;
-                    border: none;
-                }
-            """)
-            tick_label.move(0, 0)  # Position the label on top of checkbox
-            
-            # Initially hide the tick if not selected
-            if student_id in self.selected_students:
-                checkbox.setChecked(True)
-                tick_label.show()
-            else:
-                tick_label.hide()
-            
-            # Store reference to tick label for later use
-            checkbox.tick_label = tick_label
-            
-            # Connect checkbox signal
-            checkbox.stateChanged.connect(lambda state, sid=student_id: self._on_checkbox_changed(state, sid))
-            
-            self.student_table.setCellWidget(row_idx, 0, checkbox_widget)
             
             # Map ALL non-audit database fields with proper name handling - using real names instead of IDs
+            # Note: Index 0 is for checkbox (placeholder), data columns start from index 1
             row_data = [
-                str(student.get("id", "")),
-                student.get("status", ""),
-                student.get("student_id", ""),
-                student.get("final_unique_codes", ""),
+                "",                                             # Index 0: Checkbox placeholder (handled by SMISTable)
+                str(student.get("id", "")),                     # Index 1: ID column
+                student.get("status", ""),                      # Index 2: Status column  
+                student.get("student_id", ""),                  # Index 3: Student ID column
+                student.get("final_unique_codes", ""),          # Index 4: Final Unique Codes
                 student.get("organization_name", "N/A"),        # Real organization name from JOIN
                 student.get("school_name", ""),                 # School name from JOIN
                 student.get("province_name", "N/A"),            # Real province name from JOIN
@@ -759,33 +358,27 @@ class StudentListPage(QWidget):
                 student.get("alternate_relationship_with_mother", "")
             ]
             
-            # Start from column 1 (skip checkbox column)
-            for col_idx, value in enumerate(row_data):
-                if col_idx + 1 < len(self.table_columns):  # Safety check
-                    item = QTableWidgetItem(str(value))
-                    self.student_table.setItem(row_idx, col_idx + 1, item)
+            table_data.append(row_data)
+        
+        # Load data into SMISTable (it will handle checkboxes automatically)
+        self.student_table.load_data(table_data)
         
         # Update button state based on selection
         self._update_button_states()
+        
+        # Update table info
+        self._update_table_info()
 
-    def _on_checkbox_changed(self, state, student_id):
-        """Handle checkbox state changes for persistent selection."""
-        from PyQt5.QtCore import Qt
+    def _on_selection_changed(self, selected_ids):
+        """Handle selection changes from SMISTable."""
+        # Update our internal selected_students set
+        self.selected_students = set(selected_ids)
         
-        # Find the checkbox that triggered this
-        checkbox = self.sender()
-        
-        if state == Qt.Checked:
-            self.selected_students.add(student_id)
-            if hasattr(checkbox, 'tick_label'):
-                checkbox.tick_label.show()
+        print(f"📋 Selection changed: {len(selected_ids)} students selected")
+        for student_id in selected_ids:
             print(f"✅ Selected student: {student_id}")
-        else:
-            self.selected_students.discard(student_id)
-            if hasattr(checkbox, 'tick_label'):
-                checkbox.tick_label.hide()
-            print(f"❌ Deselected student: {student_id}")
         
+        # Update button states and table info
         self._update_button_states()
         self._update_table_info()
 
@@ -798,12 +391,12 @@ class StudentListPage(QWidget):
         """Update status for selected students."""
         try:
             if not self.selected_students:
-                QMessageBox.warning(self, "No Selection", "Please select students to update status.")
+                show_warning_message("No Selection", "Please select students to update status.")
                 return
             
             selected_status = self.status_combo.currentText()
             if selected_status == "Select Status":
-                QMessageBox.warning(self, "No Status Selected", "Please select a status to update.")
+                show_warning_message("No Status Selected", "Please select a status to update.")
                 return
             
             # Confirm the action
@@ -812,15 +405,10 @@ class StudentListPage(QWidget):
             if count > 5:
                 student_list += f" and {count - 5} more"
             
-            reply = QMessageBox.question(
-                self, 
+            if show_confirmation_message(
                 "Confirm Status Update",
-                f"Are you sure you want to update status to '{selected_status}' for {count} student(s)?\n\nStudents: {student_list}",
-                QMessageBox.Yes | QMessageBox.No,
-                QMessageBox.No
-            )
-            
-            if reply == QMessageBox.Yes:
+                f"Are you sure you want to update status to '{selected_status}' for {count} student(s)?\n\nStudents: {student_list}"
+            ):
                 # Update database - pass list of student IDs as expected by the database method
                 student_ids_list = list(self.selected_students)
                 
@@ -835,33 +423,42 @@ class StudentListPage(QWidget):
                     )
                     
                     if success:
-                        QMessageBox.information(
-                            self, 
+                        show_success_message(
                             "Status Updated",
                             f"Successfully updated status to '{selected_status}' for {count} student(s)."
                         )
                         
                         print(f"✅ Updated status for {count} students to {selected_status}")
                         
-                        # Reset status filter combo to "All Status" 
+                        # Store the updated student IDs to maintain selection after reload
+                        updated_student_ids = student_ids_list.copy()
+                        
+                        # Reset status filter combo to "All Status" to show updated records
                         self.status_filter_combo.setCurrentText("All Status")
                         
                         # Reset status update combo to "Select Status"
                         self.status_combo.setCurrentText("Select Status")
                         
-                        # Clear selection and reload data
-                        self.selected_students.clear()
+                        # Reload data to reflect the status changes
                         self._load_students()
+                        
+                        # Restore selection for the updated records so user can see what was updated
+                        self.student_table.set_selected_rows(updated_student_ids)
+                        
+                        # Update our internal selection tracking
+                        self.selected_students = set(updated_student_ids)
+                        
+                        # Update button states based on restored selection
                         self._update_button_states()
                     else:
-                        QMessageBox.warning(self, "Update Failed", "Failed to update student status. Please check the logs for details.")
+                        show_warning_message("Update Failed", "Failed to update student status. Please check the logs for details.")
                         
                 except Exception as e:
-                    QMessageBox.critical(self, "Database Error", f"An error occurred while updating status: {e}")
+                    show_critical_message("Database Error", f"An error occurred while updating status: {e}")
                     print(f"❌ Database error in status update: {e}")
                     
         except Exception as e:
-            QMessageBox.critical(self, "Error", f"An unexpected error occurred: {e}")
+            show_critical_message("Error", f"An unexpected error occurred: {e}")
             print(f"❌ Error in status update: {e}")
 
     def _export_data(self):
@@ -874,10 +471,10 @@ class StudentListPage(QWidget):
             search_text = self.search_input.text().strip()
             if search_text:
                 # Use filtered data
-                for row in range(self.student_table.rowCount()):
+                for row in range(self.student_table.table.rowCount()):
                     student_data = {}
-                    for col in range(self.student_table.columnCount()):
-                        item = self.student_table.item(row, col)
+                    for col in range(self.student_table.table.columnCount()):
+                        item = self.student_table.table.item(row, col)
                         header = self.table_columns[col]
                         student_data[header] = item.text() if item else ""
                     current_students.append(student_data)
@@ -936,7 +533,7 @@ class StudentListPage(QWidget):
                     current_students.append(student_data)
             
             if not current_students:
-                QMessageBox.information(self, "Export", "No data to export!")
+                show_info_message("Export", "No data to export!")
                 return
             
             # Generate filename with timestamp
@@ -974,11 +571,11 @@ class StudentListPage(QWidget):
                 else:
                     self._export_to_csv(current_students, file_path)  # Default to CSV
                 
-                QMessageBox.information(self, "Export Successful", 
+                show_success_message("Export Successful", 
                                       f"Successfully exported {len(current_students)} student records to:\n{file_path}")
                 
         except Exception as e:
-            QMessageBox.critical(self, "Export Error", f"Failed to export data: {e}")
+            show_critical_message("Export Error", f"Failed to export data: {e}")
 
     def _export_to_csv(self, students_data, file_path):
         """Export students data to CSV file."""
@@ -1011,12 +608,13 @@ class StudentListPage(QWidget):
         self.school_combo.setCurrentIndex(0)
         self.class_combo.setCurrentIndex(0)
         self.section_combo.setCurrentIndex(0)
+        self.status_filter_combo.setCurrentIndex(0)
         self.search_input.clear()
         self._load_students()
 
     def get_total_students_count(self):
         """Get total number of currently displayed students."""
-        return self.student_table.rowCount()
+        return self.student_table.table.rowCount()
 
     def _update_table_info(self):
         """Update the table information label with current filter status and record count."""
@@ -1028,7 +626,7 @@ class StudentListPage(QWidget):
             current_status = self.status_filter_combo.currentText()
             
             # Count records
-            total_records = self.student_table.rowCount()
+            total_records = self.student_table.table.rowCount()
             
             # Start with base text - always show total records
             info_text = f"Total: {total_records} records"
@@ -1063,4 +661,4 @@ class StudentListPage(QWidget):
             
         except Exception as e:
             print(f"Error updating table info: {e}")
-            self.table_info_label.setText(f"Total: {self.student_table.rowCount()} records")
+            self.table_info_label.setText(f"Total: {self.student_table.table.rowCount()} records")

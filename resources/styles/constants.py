@@ -37,9 +37,9 @@ FONT_ICONS_SIZE = "16px"
 
 # Professional Color Palette
 COLORS = {
-    'primary': '#2563EB',      # Professional Blue
-    'primary_light': '#3B82F6', # Lighter Blue
-    'primary_dark': '#1D4ED8',  # Darker Blue
+    'primary': '#0874b4',      # Professional Blue
+    'primary_light': "#2988D6", # Lighter Blue
+    'primary_dark': '#0668a0',  # Darker Blue
     'secondary': '#64748B',     # Slate Gray
     'success': '#10B981',       # Emerald Green
     'warning': '#F59E0B',       # Amber

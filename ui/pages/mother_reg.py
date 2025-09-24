@@ -14,7 +14,7 @@ from PyQt5.QtWidgets import (
     QFrame, QGridLayout, QLineEdit, QMessageBox, QHeaderView, QTableWidgetItem,
     QScrollArea, QSplitter, QTextEdit, QGroupBox, 
     QFormLayout, QCheckBox, QDateEdit, QSpinBox, QTabWidget, QDialog, 
-    QDialogButtonBox, QSizePolicy, QApplication
+    QDialogButtonBox, QSizePolicy, QApplication, QStackedWidget, QComboBox
 )
 from ui.components.custom_combo_box import CustomComboBox
 from PyQt5.QtCore import Qt, QDate, pyqtSignal, QRegExp, QTimer, QEvent, QObject
@@ -58,11 +58,24 @@ class FormStyleManager:
             field_container.setAutoFillBackground(False)
             field_container.setStyleSheet("background-color: white;")
             
-            # Fix any label children
+            # Fix any label children - make them transparent with no borders
             for child in field_container.findChildren(QLabel):
                 child.setAutoFillBackground(False)
+                child.setStyleSheet("background: transparent; border: none;")
                 if hasattr(child, 'enforceStyle'):
                     child.enforceStyle()
+            
+            # Ensure input fields have visible borders
+            for child in field_container.findChildren(QLineEdit):
+                child.setStyleSheet("""
+                    QLineEdit {
+                        border: 1px solid #cccccc;
+                        border-radius: 4px;
+                        padding: 5px;
+                        background-color: #ffffff;
+                    }
+                """)
+            # Do NOT apply any custom inline styling to CustomComboBox
     
 
 
@@ -222,14 +235,26 @@ class MotherRegPage(QWidget):
             if not self._validate_form_frame():
                 return
             
-            if self.form_frame.isVisible():
-                return
-            
+            # Setup form before showing
             self._setup_form_layout()
+            
+            # First make form visible to ensure proper sizing
             self.form_frame.setVisible(True)
             
+            # Adjust splitter to show both table and form with emphasis on form
+            total_width = self.content_splitter.width()
+            table_width = int(total_width * 0.4)  # Table gets 40%
+            form_width = int(total_width * 0.6)   # Form gets 60%
+            self.content_splitter.setSizes([table_width, form_width])
         except Exception as e:
             QMessageBox.critical(self, "Error", f"Failed to open form:\n{str(e)}")
+            
+    def _show_table(self):
+        """Show the table panel."""
+        # Use splitter to focus on table
+        self.form_frame.setVisible(False)
+        # Reset splitter to emphasize the table
+        self.content_splitter.setSizes([1000, 0])
     
     def _validate_form_frame(self):
         """Validate that form frame is available."""
@@ -361,17 +386,20 @@ class MotherRegPage(QWidget):
         save_btn = QPushButton("Save Information")
         apply_all_checkbox = QCheckBox("Apply to all filtered rows")
         
-        # Apply differentiated button styling
+        # Apply differentiated button styling using theme styles
         reset_btn.setStyleSheet(self.styles['button_secondary'])  # Secondary for reset
-
+   
+        
         cancel_btn.setStyleSheet(self.styles['button_warning'])   # Warning for cancel
 
+        
         save_btn.setStyleSheet(self.styles['button_success'])     # Success for save
+
 
         
         # Connect signals
         reset_btn.clicked.connect(self._reset_form)
-        cancel_btn.clicked.connect(lambda: self.form_frame.setVisible(False))
+        cancel_btn.clicked.connect(self._show_table)
         save_btn.clicked.connect(lambda: self._save_form_data(apply_all_checkbox.isChecked()))
         
         # Layout buttons
@@ -397,6 +425,26 @@ class MotherRegPage(QWidget):
                         if layout.count() >= 2:
                             widget = layout.itemAt(1).widget()
                             
+                            # Ensure input fields have visible borders
+                            if isinstance(widget, QLineEdit):
+                                widget.setStyleSheet("""
+                                    QLineEdit {
+                                        border: 1px solid #cccccc;
+                                        border-radius: 4px;
+                                        padding: 5px;
+                                        background-color: #ffffff;
+                                    }
+                                """)
+                            elif isinstance(widget, QSpinBox):
+                                widget.setStyleSheet("""
+                                    QSpinBox {
+                                        border: 1px solid #cccccc;
+                                        border-radius: 4px;
+                                        padding: 5px;
+                                        background-color: #ffffff;
+                                    }
+                                """)
+                            # Do NOT apply any custom inline styling to CustomComboBox
             
             # Additional focused protection for the recipient combo specifically
             if hasattr(self, 'recipient_combo') and isinstance(self.recipient_combo, CustomComboBox):
@@ -623,7 +671,8 @@ class MotherRegPage(QWidget):
             if updated_count > 0:
                 QMessageBox.information(self, "Saved", 
                                       f"{recipient_type} information saved to {updated_count} student(s).")
-                self.form_frame.setVisible(False)
+                # Hide form and focus on table
+                self._show_table()
                 self.selected_snos.clear()
                 self._load_data()
             else:
@@ -631,21 +680,20 @@ class MotherRegPage(QWidget):
                 
         except Exception as e:
             QMessageBox.critical(self, "Save Error", f"Failed to save information:\n{str(e)}")
-    def _create_left_panel(self):
-        # Main left panel container
-        left_panel = QFrame()
-        left_panel.setStyleSheet(f"""
+    def _create_table_panel(self):
+        """Create the table panel."""
+        table_panel = QFrame()
+        table_panel.setStyleSheet(f"""
             QFrame {{
                 background: {COLORS['white']};
-                border-radius: {RADIUS['xl']};
-                border: 1px solid {COLORS['gray_200']};
+                border: none;
             }}
         """)
         
         # Main panel layout
-        panel_layout = QVBoxLayout(left_panel)
-        panel_layout.setContentsMargins(15, 15, 15, 15)
-        panel_layout.setSpacing(15)
+        panel_layout = QVBoxLayout(table_panel)
+        panel_layout.setContentsMargins(0, 10, 0, 0)
+        panel_layout.setSpacing(0)
         
         # Create and configure the SMISTable component
         self.mothers_table = SMISTable()
@@ -661,75 +709,28 @@ class MotherRegPage(QWidget):
         # Add table directly to the main panel layout
         panel_layout.addWidget(self.mothers_table, 1)  # Give table stretch factor 1
         
-        # Create action buttons container at the bottom
-        action_container = QFrame()
-        action_container.setObjectName("ActionContainer")
-        action_container.setStyleSheet(f"""
-            QFrame#ActionContainer {{
-                background: {COLORS['white']};
-                border-radius: {RADIUS['md']};
-                border: none;
-                padding: 8px;
-            }}
-        """)
+        return table_panel
         
-        # Action buttons layout
-        action_layout = QHBoxLayout(action_container)
-        action_layout.setContentsMargins(0, 0, 0, 0)
-        action_layout.setSpacing(10)
-        
-        # Create action buttons with distinct styling based on function
-        self.edit_btn = QPushButton("Edit Selected")
-        self.edit_btn.setEnabled(False)
-        self.edit_btn.setStyleSheet(self.styles['button_secondary'])  # Outline style for edit
+    # Keep the original method for backward compatibility
+    def _create_left_panel(self):
+        """Deprecated: Use _create_table_panel instead."""
+        return self._create_table_panel()
 
-        
-        self.delete_btn = QPushButton("Delete Selected")
-        self.delete_btn.setEnabled(False)
-        self.delete_btn.setStyleSheet(self.styles['button_warning'])  # Warning style for delete
-    
-        
-        self.view_details_btn = QPushButton("View Details")
-        self.view_details_btn.setEnabled(False)
-        self.view_details_btn.setStyleSheet(self.styles['button_primary'])  # Primary style for view
-      
-        
-        # Add buttons to the left side of action layout
-        action_layout.addWidget(self.edit_btn)
-        action_layout.addWidget(self.delete_btn)
-        action_layout.addWidget(self.view_details_btn)
-        action_layout.addStretch()
-        
-        # Selected summary on the right
-        self.selected_info_label = QLabel("Selected: 0")
-        #self.selected_info_label.setStyleSheet(self.styles['label_info_style'])
-        
-        self.view_selected_btn = QPushButton("View Selected")
-        self.view_selected_btn.setEnabled(False)
-        self.view_selected_btn.setStyleSheet(self.styles['button_secondary'])  # Secondary style for supplementary view
-
-        
-        # Add summary and view selected button to right side
-        action_layout.addWidget(self.selected_info_label)
-        action_layout.addWidget(self.view_selected_btn)
-        
-        # Add action container to main panel layout
-        panel_layout.addWidget(action_container)
-        
-        return left_panel
-
-    def _create_right_panel(self):
+    def _create_form_panel(self):
+        """Create the form panel for the stacked widget."""
         self.form_frame = QFrame()
         self.form_frame.setStyleSheet(f"""
             QFrame {{
                 background: {COLORS['white']};
-                border-radius: {RADIUS['xl']};
                 border: none;
                 min-height: 500px;
-                max-height: 700px;
             }}
         """)
         return self.form_frame
+        
+    def _create_right_panel(self):
+        """Deprecated: Use _create_form_panel instead."""
+        return self._create_form_panel()
 
     def _load_data(self):
         """Load student data that needs mother/guardian information."""
@@ -995,50 +996,89 @@ class MotherRegPage(QWidget):
 
     def _init_ui(self):
         main_layout = QVBoxLayout(self)
-        main_layout.setContentsMargins(20, 20, 20, 20)
-        main_layout.setSpacing(8)  # Reduced spacing
+        main_layout.setContentsMargins(20, 5, 20, 20)  # Reduced top margin
+        main_layout.setSpacing(0)  # Remove spacing between components
+        
+        # Create header frame
         header_frame = self._create_header()
-        main_layout.addWidget(header_frame)
+        main_layout.addWidget(header_frame, 0)
         
-        # Create filter section
+        # Create the main container that will hold filter, table and form
+        self.main_container = QFrame()
+        self.main_container.setStyleSheet(f"""
+            QFrame {{
+                background: {COLORS['white']};
+                border-radius: {RADIUS['lg']};
+                border: 1px solid {COLORS['gray_200']};
+            }}
+        """)
+        
+        # Main container layout
+        main_container_layout = QVBoxLayout(self.main_container)
+        main_container_layout.setContentsMargins(0, 0, 0, 0)
+        main_container_layout.setSpacing(0)
+        
+        # Create filter section and add to main container
         filter_frame = self._create_filter_section()
-        main_layout.addWidget(filter_frame)
+        main_container_layout.addWidget(filter_frame)
         
-        splitter = QSplitter(Qt.Horizontal)
-        left_panel = self._create_left_panel()
-        splitter.addWidget(left_panel)
-        right_panel = self._create_right_panel()
-        splitter.addWidget(right_panel)
-        # Give more space to the table panel by adjusting splitter sizes
-        splitter.setSizes([650, 400])
-        splitter.setCollapsible(0, False)
-        splitter.setCollapsible(1, False)
-        main_layout.addWidget(splitter)
+        # Create content area with splitter for table and form
+        content_container = QFrame()
+        content_container.setStyleSheet("background: transparent; border: none;")
+        content_layout = QVBoxLayout(content_container)
+        content_layout.setContentsMargins(15, 0, 15, 15)
+        content_layout.setSpacing(0)
+        
+        # Create splitter for table and form
+        self.content_splitter = QSplitter(Qt.Horizontal)
+        
+        # Create and add table panel
+        table_panel = self._create_table_panel()
+        self.content_splitter.addWidget(table_panel)
+        
+        # Create and add form panel - reusing the existing form panel logic
+        form_panel = self._create_form_panel()
+        self.content_splitter.addWidget(form_panel)
+        
+        # Set initial sizes for the splitter and hide form initially
+        self.content_splitter.setSizes([1000, 0])
+        self.content_splitter.setCollapsible(0, False)
+        self.content_splitter.setCollapsible(1, False)
         self.form_frame.setVisible(False)
+        
+        # Add splitter to content container
+        content_layout.addWidget(self.content_splitter)
+        
+        # Add content container to main container
+        main_container_layout.addWidget(content_container, 1)  # Give it stretch factor
+        
+        # Add main container to the page layout
+        main_layout.addWidget(self.main_container, 1)  # Give it stretch factor
 
     def _create_filter_section(self):
         """Create enhanced filter section with 2x2 grid layout for mother registration."""
         from resources.styles import COLORS, get_attendance_styles
         
         filters_frame = QFrame()
+        filters_frame.setFixedHeight(180)  # Fixed height to prevent stretching
         filters_frame.setStyleSheet(f"""
             QFrame {{
                 background:white;
                 border: 1px solid {COLORS['gray_200']};
-                border-radius: 8px;
-                padding: 8px;
-                max-height: 120px;
+                border-radius: 0 0 8px 8px;  /* Rounded only on bottom */
+                padding: 12px;
+                margin-top: -1px;  /* Overlap with header to remove line */
             }}
         """)
         
         filters_layout = QVBoxLayout(filters_frame)
-        filters_layout.setSpacing(4)
-        filters_layout.setContentsMargins(15, 0, 15, 0)
+        filters_layout.setSpacing(10)  # Slightly reduced vertical spacing
+        filters_layout.setContentsMargins(10, 4, 10, 4)  # Reduced vertical margins
         
         # Create grid layout for filters
         filter_grid = QGridLayout()
-        filter_grid.setSpacing(6)
-        filter_grid.setVerticalSpacing(4)
+        filter_grid.setSpacing(12)  # Increased horizontal spacing
+        filter_grid.setVerticalSpacing(10)  # Increased vertical spacing
         filter_grid.setColumnStretch(0, 1)  # Equal column widths
         filter_grid.setColumnStretch(1, 1)
         
@@ -1067,22 +1107,77 @@ class MotherRegPage(QWidget):
         filter_grid.addWidget(self.status_filter_combo, 1, 1)   # Row 2, Col 2
         filters_layout.addLayout(filter_grid)
         
-        # Add filter information label
+        # Create action bar with filter label and buttons
+        action_bar = QHBoxLayout()
+        action_bar.setContentsMargins(15, 5, 15, 5)  # Reduced vertical margins
+        action_bar.setSpacing(15)
+        
+        # Filter information label (left side)
         self.filter_info_label = QLabel("No filters applied")
         self.filter_info_label.setStyleSheet(f"""
             QLabel {{
                 color: {COLORS['gray_600']};
                 font-size: 12px;
                 font-weight: 500;
-                padding: 4px 8px;
-                background: {COLORS['gray_100']};
-                border-radius: 4px;
-                border: 1px solid {COLORS['gray_200']};
-                margin-top: 2px;
-                max-height: 22px;
+                padding: 8px 12px;
+                background: transparent;
+                border: none;
+                margin-top: 5px;
+                min-height: 25px;
             }}
         """)
-        filters_layout.addWidget(self.filter_info_label)
+        action_bar.addWidget(self.filter_info_label)
+        
+        # Add spacer to push buttons to the right
+        action_bar.addStretch(1)
+        
+        # Selected count info
+        self.selected_info_label = QLabel("Selected: 0")
+        self.selected_info_label.setStyleSheet(f"""
+            QLabel {{
+                color: {COLORS['gray_600']};
+                font-size: 12px;
+                font-weight: 500;
+                padding: 8px 12px;
+                background: transparent;
+                border: none;
+                min-height: 25px;
+            }}
+        """)
+        action_bar.addWidget(self.selected_info_label)
+        
+        # Create action buttons with standardized 28px height from constants
+        
+        # View Selected button
+        self.view_selected_btn = QPushButton("View Selected")
+        self.view_selected_btn.setEnabled(False)
+        self.view_selected_btn.setStyleSheet(self.styles['button_secondary'])
+  
+        action_bar.addWidget(self.view_selected_btn)
+        
+        # Edit Selected button
+        self.edit_btn = QPushButton("Edit Selected")
+        self.edit_btn.setEnabled(False)
+        self.edit_btn.setStyleSheet(self.styles['button_secondary'])
+
+        action_bar.addWidget(self.edit_btn)
+        
+        # Delete Selected button
+        self.delete_btn = QPushButton("Delete Selected")
+        self.delete_btn.setEnabled(False)
+        self.delete_btn.setStyleSheet(self.styles['button_warning'])
+
+        action_bar.addWidget(self.delete_btn)
+        
+        # View Details button
+        self.view_details_btn = QPushButton("View Details")
+        self.view_details_btn.setEnabled(False)
+        self.view_details_btn.setStyleSheet(self.styles['button_primary'])
+  
+        action_bar.addWidget(self.view_details_btn)
+        
+        # Add action bar to filters layout
+        filters_layout.addLayout(action_bar)
         
         # Note: Signal connections are handled in _connect_signals method
         
@@ -1090,21 +1185,22 @@ class MotherRegPage(QWidget):
         
     def _create_header(self):
         header_frame = QFrame()
-        header_frame.setStyleSheet("""
-            QFrame {
-                background: qlineargradient(x1:0, y1:0, x2:1, y2:0, 
-                    stop:0 #3B82F6, stop:1 #2563EB);
-                border-radius: 8px;
-                padding: 12px 16px;
-                margin-bottom: 8px;
-                max-height: 60px;
-            }
+        header_frame.setFixedHeight(60)  # Slightly reduced height
+        header_frame.setStyleSheet(f"""
+            QFrame {{
+                background: {COLORS['primary']};
+                padding-left: 10px;
+                padding-right: 10px;
+                padding-top: 0px;
+                padding-bottom: 0px;
+                margin-bottom: 10px;
+            }}
         """)
         header_layout = QHBoxLayout(header_frame)
-        header_layout.setContentsMargins(0, 0, 0, 0)
-        header_layout.setSpacing(12)
+        header_layout.setContentsMargins(0, 0, 0, 0)  # Increased horizontal margins
+        header_layout.setSpacing(10)  # Increased spacing
         title_layout = QVBoxLayout()
-        title_layout.setSpacing(2)
+        title_layout.setSpacing(0)
         page_title = QLabel("Mother Registration")
         page_title.setStyleSheet("""
             QLabel {
@@ -1112,8 +1208,6 @@ class MotherRegPage(QWidget):
                 font-size: 18px;
                 font-family: 'Poppins Bold';
                 font-weight: 700;
-                margin: 0px;
-                padding: (0px, 0px, 5px, 5px);
                 border: none;
                 background: transparent;
             }
@@ -1123,9 +1217,11 @@ class MotherRegPage(QWidget):
         actions_layout.setSpacing(8)
         self.add_new_btn = QPushButton("➕ Add Mother")
         self.add_new_btn.setStyleSheet(self.styles['button_success'])  # Success style for add actions
+
     
         self.refresh_btn = QPushButton("🔄 Refresh")
         self.refresh_btn.setStyleSheet(self.styles['button_secondary'])  # Secondary style for utility actions
+   
  
         actions_layout.addWidget(self.add_new_btn)
         actions_layout.addWidget(self.refresh_btn)

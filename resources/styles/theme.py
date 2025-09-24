@@ -6,7 +6,7 @@ Contains functions for getting global styles, sidebar styles, and theme colors.
 import os
 from .constants import (
     COLORS, FONT_REGULAR, FONT_MEDIUM, FONT_SEMIBOLD, FONT_BOLD,
-    RADIUS, SPACING_XS, SPACING_SM, SPACING_MD, SPACING_LG, SPACING_XL, SPACING_XXL
+    RADIUS,BUTTON_GRADIENT, BACKGROUND_GRADIENT, FOCUS_BORDER_COLOR, HOVER_BUTTON_COLOR, LABEL_BORDER_COLOR
 )
 
 def get_global_styles():
@@ -21,14 +21,18 @@ def get_global_styles():
         'button_primary': f"""
             QPushButton {{
                 background: qlineargradient(x1:0, y1:0, x2:0, y2:1, 
-                    stop:0 {COLORS['primary']}, stop:1 {COLORS['primary_dark']});
+                stop:0 {COLORS['primary']}, stop:1 {COLORS['primary_dark']});
                 color: {COLORS['white']};
                 border: none;
                 border-radius: {RADIUS['md']};
-                padding: {SPACING_MD} {SPACING_XL};
-                min-height: 28px;
+                padding-top: 0px;
+                padding-bottom: 0px;
+                padding-left: 10px;
+                padding-right: 10px;
+                min-height: 32px;
+                max-height: 32px;
                 font-family: {FONT_SEMIBOLD};
-                font-size: 14px;
+                font-size: 12px;
             }}
             QPushButton:hover {{
                 background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
@@ -46,24 +50,31 @@ def get_global_styles():
             QPushButton {{
                 background: {COLORS['white']};
                 color: {COLORS['gray_700']};
-                border: 1px solid {COLORS['gray_300']};
+                border: 2px solid {COLORS['gray_300']};
                 border-radius: {RADIUS['md']};
-                padding: {SPACING_MD} {SPACING_XL};
-                min-height: 28px;
-                font-family: {FONT_MEDIUM};
+                padding-top: 0px;
+                padding-bottom: 0px;
+                padding-left: 10px;
+                padding-right: 10px;
+                min-height: 32px;
+                max-height: 32px;
+                font-family: {FONT_SEMIBOLD};
                 font-size: 14px;
             }}
             QPushButton:hover {{
-                background: {COLORS['gray_100']};
-                border-color: {COLORS['gray_400']};
+                background: {COLORS['primary_light']};
+                color: {COLORS['white']};
+                border-color: {COLORS['primary_light']};
             }}
             QPushButton:pressed {{
-                background: {COLORS['gray_200']};
-                border-color: {COLORS['gray_400']};
+                background: {COLORS['primary_dark']};
+                color: {COLORS['white']};
+                border-color: {COLORS['primary_dark']};
             }}
             QPushButton:disabled {{
                 background: {COLORS['gray_100']};
                 color: {COLORS['gray_400']};
+
                 border-color: {COLORS['gray_200']};
             }}
         """,
@@ -73,8 +84,12 @@ def get_global_styles():
                 color: {COLORS['white']};
                 border: none;
                 border-radius: {RADIUS['md']};
-                padding: {SPACING_MD} {SPACING_XL};
-                min-height: 28px;
+                padding-top: 0px;
+                padding-bottom: 0px;
+                padding-left: 10px;
+                padding-right: 10px;
+                min-height: 32px;
+                max-height: 32px;
                 font-family: {FONT_SEMIBOLD};
                 font-size: 14px;
             }}
@@ -95,8 +110,12 @@ def get_global_styles():
                 color: {COLORS['white']};
                 border: none;
                 border-radius: {RADIUS['md']};
-                padding: {SPACING_MD} {SPACING_XL};
-                min-height: 28px;
+                padding-top: 0px;
+                padding-bottom: 0px;
+                padding-left: 10px;
+                padding-right: 10px;
+                min-height: 32px;
+                max-height: 32px;
                 font-family: {FONT_SEMIBOLD};
                 font-size: 14px;
             }}
@@ -117,8 +136,9 @@ def get_global_styles():
                 color: {COLORS['white']};
                 border: none;
                 border-radius: {RADIUS['md']};
-                padding: {SPACING_MD} {SPACING_XL};
-                min-height: 28px;
+                padding: 0px;
+                min-height: 22px;
+                max-height: 22px;
                 font-family: {FONT_SEMIBOLD};
                 font-size: 14px;
             }}
@@ -140,7 +160,8 @@ def get_global_styles():
                 border: 1px solid {COLORS['gray_300']};
                 border-radius: {RADIUS['md']};
                 padding: 4px 12px;
-                min-height: 28px;
+                min-height: 22px;
+                max-height: 22px;
                 selection-background-color: {COLORS['primary_light']};
                 selection-color: {COLORS['white']};
                 font-family: {FONT_REGULAR};
@@ -178,7 +199,8 @@ def get_attendance_styles():
             border: 1px solid {COLORS['gray_300']};
             border-radius: {RADIUS['md']};
             padding: 4px 12px 4px 36px;
-            min-height: 28px;
+            min-height: 22px;
+            max-height: 22px;
             font-family: {FONT_REGULAR};
             font-size: 14px;
             background-image: url(:/icons/search.png);
@@ -209,7 +231,8 @@ def get_attendance_styles():
             border: 1px solid {COLORS['gray_300']};
             border-radius: {RADIUS['md']};
             padding: 4px 12px;
-            min-height: 28px;
+            min-height: 22px;
+            max-height: 22px;
             font-family: {FONT_REGULAR};
             font-size: 14px;
         }}
@@ -291,8 +314,8 @@ def get_attendance_styles():
             font-family: {FONT_REGULAR};
             font-size: 13px;
             padding: 2px 5px;
-            background-color: {COLORS['gray_100']};
-            border-radius: {RADIUS['sm']};
+            background: transparent;
+            border: none;
         }}
     """
     

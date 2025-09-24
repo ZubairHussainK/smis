@@ -12,46 +12,66 @@ from utils.material_icons import MaterialIcons
 from ui.registration_window import RegistrationWindow
 import sys
 import os
+from PyQt5.QtWidgets import QToolButton
 
 
 
-class PasswordInputWidget(QLineEdit):
-    """Custom password input with show/hide eye icon."""
-    
+class PasswordLineEdit(QLineEdit):
     def __init__(self, parent=None):
         super().__init__(parent)
-        self.setEchoMode(QLineEdit.Password)
         self.password_visible = False
-        
-        # Create eye icon label with Material Design
-        self.eye_label = QLabel(self)
-        self.eye_label.setText("👁")  # Material Design visibility icon
-        self.eye_label.setObjectName("eyeLabel")
-        self.eye_label.setCursor(QCursor(Qt.PointingHandCursor))
-        self.eye_label.mousePressEvent = self.toggle_password_visibility
-        # Position the eye icon
+        self.setEchoMode(QLineEdit.Password)
+
+        # Create toggle button
+        self.eye_button = QToolButton(self)
+        self.eye_button.setCursor(QCursor(Qt.PointingHandCursor))
+        self.eye_button.setStyleSheet("border: none; padding: 0px;")
+
+        # Load icons
+        self.eye_open_icon = QIcon("resources/icons/eye_open.svg")
+        self.eye_off_icon = QIcon("resources/icons/eye_off.svg")
+
+        # Default state
+        self.eye_button.setIcon(self.eye_off_icon)
+
+        # Connect click event
+        self.eye_button.clicked.connect(self.toggle_password_visibility)
+
+        # Position button initially
         self.update_eye_position()
-    
+
     def resizeEvent(self, event):
-        """Reposition eye icon when widget is resized."""
         super().resizeEvent(event)
         self.update_eye_position()
-    
+
+
+
     def update_eye_position(self):
-        """Position the eye icon on the right side of the input."""
-        self.eye_label.move(self.width() - 26, (self.height() - self.eye_label.height()) // 2)
-    
-    def toggle_password_visibility(self, event):
-        """Toggle password visibility when eye icon is clicked."""
+        """Place the eye button inside the line edit."""
+        frame_width = self.style().pixelMetric(self.style().PM_DefaultFrameWidth)
+        button_size = self.eye_button.sizeHint()
+        right_margin = 6  # adjust space from right ed
+        self.eye_button.move(
+            self.width() - button_size.width() - frame_width,
+            (self.height() - button_size.height()) // 2
+        )
+        self.eye_button.move(
+            self.width() - button_size.width() - frame_width - right_margin,
+            (self.height() - button_size.height()) // 2
+        )
+
+    def toggle_password_visibility(self):
+        """Toggle password visibility when eye button is clicked."""
         if self.password_visible:
             self.setEchoMode(QLineEdit.Password)
-            self.eye_label.setText("👁")  # Closed eye
+            self.eye_button.setIcon(self.eye_off_icon)
             self.password_visible = False
         else:
             self.setEchoMode(QLineEdit.Normal)
-            self.eye_label.setText("🙈")  # Open eye (monkey covering eyes emoji)
+            self.eye_button.setIcon(self.eye_open_icon)
             self.password_visible = True
 
+                        
 class LoginWorker(QThread):
     """Background worker for login operations to prevent UI blocking."""
     
@@ -165,7 +185,7 @@ class LoginWindow(QDialog):
 
                 
         # Title
-        title_label = QLabel("School Management\nInformation System")
+        title_label = QLabel("School Management Information System")
         title_label.setAlignment(Qt.AlignCenter)
         title_label.setObjectName("loginTitleLabel")
         # Subtitle
@@ -214,7 +234,7 @@ class LoginWindow(QDialog):
         password_label.setMaximumHeight(18)
         form_layout.addWidget(password_label)
         
-        self.password_input = PasswordInputWidget()
+        self.password_input = PasswordLineEdit()
         self.password_input.setPlaceholderText("Enter your password")
         self.password_input.setObjectName("passwordInput")
         self.password_input.setMinimumHeight(32)  # Reduced input height

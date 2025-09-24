@@ -1,16 +1,16 @@
 """Student management page UI implementation."""
 from PyQt5.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel,
                            QPushButton, QFrame, QGridLayout, 
-                           QLineEdit, QMessageBox, QTableWidget, QHeaderView,
+                           QLineEdit, QMessageBox, QHeaderView,
                            QScrollArea, QTableWidgetItem, QSplitter, QTextEdit,
                            QGroupBox, QFormLayout, QCheckBox, QDateEdit,
                            QSpinBox, QTabWidget, QDialog, QDialogButtonBox,
                            QAbstractItemView, QAbstractScrollArea, QSizePolicy)
 from ui.components.custom_combo_box import CustomComboBox
+from ui.components.custom_table import SMISTable
 from PyQt5.QtCore import Qt, QDate, pyqtSignal, QRegExp
 from PyQt5.QtGui import QFont, QIcon, QColor, QRegExpValidator
 from models.database import Database
-from ui.styles.table_styles import apply_standard_table_style
 from resources.styles import COLORS, get_attendance_styles
 
 class StudentPage(QWidget):
@@ -283,118 +283,18 @@ class StudentPage(QWidget):
         
         table_layout = QVBoxLayout(table_group)
         
-        self.students_table = QTableWidget()
-        self.students_table.setColumnCount(5)
-        self.students_table.setHorizontalHeaderLabels([
-            "🆔 Student ID", "👤 Student Name", "👨‍👦 Father Name", "📚 Class", "📝 Section"
+        # Create student table with custom implementation
+        self.students_table = SMISTable(self)
+        self.students_table.table.setColumnCount(5)
+        self.students_table.table.setHorizontalHeaderLabels([
+            "Student ID", "Student Name", "Father Name", "Class", "Section"
         ])
         
-        self.students_table.setStyleSheet("""
-            QTableWidget {
-                border: 2px solid #E5E7EB;
-                border-radius: 12px;
-                background: white;
-                gridline-color: #E5E7EB;
-                font-family: 'Poppins';
-                font-size: 8px;
-                selection-background-color: #3B82F6;
-                selection-color: white;
-                alternate-background-color: #F8FAFC;
-            }
-            QHeaderView::section {
-                background: qlineargradient(x1:0, y1:0, x2:0, y2:1, 
-                    stop:0 #F1F5F9, stop:1 #E2E8F0);
-                color: #1E293B;
-                font-family: 'Poppins Bold';
-                font-weight: 700;
-                font-size: 13px;
-                padding: 12px 10px;
-                border: none;
-                border-bottom: 3px solid #3B82F6;
-                border-right: 1px solid #CBD5E1;
-                text-align: center;
-            }
-            QHeaderView::section:first {
-                border-top-left-radius: 8px;
-            }
-            QHeaderView::section:last {
-                border-top-right-radius: 8px;
-                border-right: none;
-            }
-            QTableWidget::item {
-                padding: 10px 8px;
-                border-bottom: 1px solid #E2E8F0;
-                border-right: 1px solid #F1F5F9;
-                background: white;
-                color: #374151;
-                font-weight: 500;
-                outline: none;
-            }
-            QTableWidget::item:selected {
-                background: qlineargradient(x1:0, y1:0, x2:0, y2:1, 
-                    stop:0 #3B82F6, stop:1 #2563EB);
-                color: white;
-                border: none;
-                font-weight: 600;
-                outline: none;
-            }
-            QTableWidget::item:hover {
-                background: qlineargradient(x1:0, y1:0, x2:0, y2:1, 
-                    stop:0 #EBF4FF, stop:1 #DBEAFE);
-                color: #1E40AF;
-                border: none;
-                outline: none;
-            }
-            QTableWidget::item:focus {
-                background: qlineargradient(x1:0, y1:0, x2:0, y2:1, 
-                    stop:0 #3B82F6, stop:1 #2563EB);
-                color: white;
-                border: none;
-                outline: none;
-            }
-            QTableWidget::item:alternate {
-                background: #F8FAFC;
-            }
-            QTableWidget::item:alternate:selected {
-                background: qlineargradient(x1:0, y1:0, x2:0, y2:1, 
-                    stop:0 #3B82F6, stop:1 #2563EB);
-                color: white;
-                border: none;
-                outline: none;
-            }
-            QScrollBar:vertical {
-                border: none;
-                background: #F1F5F9;
-                width: 12px;
-                border-radius: 6px;
-            }
-            QScrollBar::handle:vertical {
-                background: #CBD5E1;
-                border-radius: 6px;
-                min-height: 20px;
-            }
-            QScrollBar::handle:vertical:hover {
-                background: #94A3B8;
-            }
-        """)
-        
-        # Table properties for better readability and selection
-        self.students_table.setSelectionBehavior(QTableWidget.SelectRows)
-        self.students_table.setSelectionMode(QTableWidget.SingleSelection)
-        self.students_table.setAlternatingRowColors(True)
-        self.students_table.setSortingEnabled(True)
-        self.students_table.verticalHeader().setVisible(False)
-        self.students_table.setShowGrid(True)
-        self.students_table.setFocusPolicy(Qt.StrongFocus)
-        
-        # Disable direct editing - users can only select and use edit button
-        self.students_table.setEditTriggers(QTableWidget.NoEditTriggers)
-        
         # Set row height for comfortable reading
-        self.students_table.verticalHeader().setDefaultSectionSize(35)
+        self.students_table.table.verticalHeader().setDefaultSectionSize(35)
         
         # Auto resize columns for 5 columns only
-        header = self.students_table.horizontalHeader()
+        header = self.students_table.table.horizontalHeader()
         header.setStretchLastSection(True)
         header.setSectionResizeMode(0, QHeaderView.ResizeToContents)  # Student ID
         header.setSectionResizeMode(1, QHeaderView.Stretch)          # Student Name
@@ -407,15 +307,15 @@ class StudentPage(QWidget):
         # Table actions
         table_actions = QHBoxLayout()
         
-        self.edit_btn = QPushButton("✏️ Edit Selected")
+        self.edit_btn = QPushButton("Edit Selected")
         self.edit_btn.setEnabled(False)
         self.edit_btn.setStyleSheet(self._get_button_style('#F59E0B', '#D97706'))
         
-        self.delete_btn = QPushButton("🗑️ Delete Selected")
+        self.delete_btn = QPushButton("Delete Selected")
         self.delete_btn.setEnabled(False)
         self.delete_btn.setStyleSheet(self._get_button_style('#EF4444', '#DC2626'))
         
-        self.view_details_btn = QPushButton("👁️ View Details")
+        self.view_details_btn = QPushButton("View Details")
         self.view_details_btn.setEnabled(False)
         self.view_details_btn.setStyleSheet(self._get_button_style('#6B7280', '#4B5563'))
         
@@ -625,7 +525,7 @@ class StudentPage(QWidget):
     
     def _populate_table(self, students):
         """Populate the students table with data and improved styling."""
-        self.students_table.setRowCount(len(students))
+        self.students_table.table.setRowCount(len(students))
         
         for row, student in enumerate(students):
             # Student ID with smaller font
@@ -633,33 +533,33 @@ class StudentPage(QWidget):
             id_item.setTextAlignment(Qt.AlignCenter)
             id_item.setFont(QFont('Poppins', 8))
             id_item.setFlags(id_item.flags() & ~Qt.ItemIsEditable)  # Make non-editable
-            self.students_table.setItem(row, 0, id_item)
+            self.students_table.table.setItem(row, 0, id_item)
             
             # Student Name with smaller font
             name_item = QTableWidgetItem(student["name"].title())
             name_item.setFont(QFont('Poppins', 8))
             name_item.setFlags(name_item.flags() & ~Qt.ItemIsEditable)  # Make non-editable
-            self.students_table.setItem(row, 1, name_item)
+            self.students_table.table.setItem(row, 1, name_item)
             
             # Father Name with smaller font
             father_name_item = QTableWidgetItem(student.get("father_name", "N/A").title())
             father_name_item.setFont(QFont('Poppins', 8))
             father_name_item.setFlags(father_name_item.flags() & ~Qt.ItemIsEditable)  # Make non-editable
-            self.students_table.setItem(row, 2, father_name_item)
+            self.students_table.table.setItem(row, 2, father_name_item)
             
             # Class with smaller font
             class_item = QTableWidgetItem(student["class"])
             class_item.setTextAlignment(Qt.AlignCenter)
             class_item.setFont(QFont('Poppins', 8))
             class_item.setFlags(class_item.flags() & ~Qt.ItemIsEditable)  # Make non-editable
-            self.students_table.setItem(row, 3, class_item)
+            self.students_table.table.setItem(row, 3, class_item)
             
             # Section with smaller font
             section_item = QTableWidgetItem(student["section"])
             section_item.setTextAlignment(Qt.AlignCenter)
             section_item.setFont(QFont('Poppins', 8))
             section_item.setFlags(section_item.flags() & ~Qt.ItemIsEditable)  # Make non-editable
-            self.students_table.setItem(row, 4, section_item)
+            self.students_table.table.setItem(row, 4, section_item)
     
     def _connect_signals(self):
         """Connect all signals to their handlers."""
@@ -675,8 +575,8 @@ class StudentPage(QWidget):
         self.section_combo.currentTextChanged.connect(self._apply_filters)
         
         # Table selection
-        self.students_table.itemSelectionChanged.connect(self._on_selection_changed)
-        self.students_table.itemDoubleClicked.connect(self._on_double_click)
+        self.students_table.table.itemSelectionChanged.connect(self._on_selection_changed)
+        self.students_table.table.itemDoubleClicked.connect(self._on_double_click)
         
         # Action buttons
         self.edit_btn.clicked.connect(self._edit_student)
@@ -1074,15 +974,15 @@ class StudentPage(QWidget):
     
     def _edit_student(self):
         """Edit the selected student."""
-        selected_row = self.students_table.currentRow()
+        selected_row = self.students_table.table.currentRow()
         if selected_row >= 0:
             try:
                 # Get table items for the 5 columns that actually exist
-                id_item = self.students_table.item(selected_row, 0)
-                name_item = self.students_table.item(selected_row, 1)
-                father_name_item = self.students_table.item(selected_row, 2)
-                class_item = self.students_table.item(selected_row, 3)
-                section_item = self.students_table.item(selected_row, 4)
+                id_item = self.students_table.table.item(selected_row, 0)
+                name_item = self.students_table.table.item(selected_row, 1)
+                father_name_item = self.students_table.table.item(selected_row, 2)
+                class_item = self.students_table.table.item(selected_row, 3)
+                section_item = self.students_table.table.item(selected_row, 4)
                 
                 # Validate that we can read the essential data
                 if not id_item or not name_item:
@@ -1149,10 +1049,10 @@ class StudentPage(QWidget):
     
     def _delete_student(self):
         """Delete the selected student."""
-        selected_row = self.students_table.currentRow()
+        selected_row = self.students_table.table.currentRow()
         if selected_row >= 0:
             try:
-                name_item = self.students_table.item(selected_row, 1)
+                name_item = self.students_table.table.item(selected_row, 1)
                 if not name_item:
                     QMessageBox.warning(self, "Error", "Unable to read student data. Please refresh and try again.")
                     return
@@ -1168,7 +1068,7 @@ class StudentPage(QWidget):
                 )
                 
                 if reply == QMessageBox.Yes:
-                    id_item = self.students_table.item(selected_row, 0)
+                    id_item = self.students_table.table.item(selected_row, 0)
                     if not id_item:
                         QMessageBox.warning(self, "Error", "Unable to read student ID. Please refresh and try again.")
                         return
@@ -1183,7 +1083,7 @@ class StudentPage(QWidget):
                         user_phone = getattr(self.current_user, 'phone', None) if self.current_user else None
                         
                         if self.db.delete_student(student_id, user_id, username, user_phone):
-                            self.students_table.removeRow(selected_row)
+                            self.students_table.table.removeRow(selected_row)
                             self.student_deleted.emit(student_id)
                             QMessageBox.information(self, "Success", f"Student '{student_name}' has been deleted.")
                         else:
@@ -1197,11 +1097,11 @@ class StudentPage(QWidget):
     
     def _view_details(self):
         """View detailed information about the selected student."""
-        selected_row = self.students_table.currentRow()
+        selected_row = self.students_table.table.currentRow()
         if selected_row >= 0:
             try:
-                id_item = self.students_table.item(selected_row, 0)
-                name_item = self.students_table.item(selected_row, 1)
+                id_item = self.students_table.table.item(selected_row, 0)
+                name_item = self.students_table.table.item(selected_row, 1)
                 
                 if not all([id_item, name_item]):
                     QMessageBox.warning(self, "Error", "Unable to read student data. Please refresh and try again.")
@@ -1219,8 +1119,8 @@ class StudentPage(QWidget):
     
     def _on_selection_changed(self):
         """Handle table selection changes with improved feedback."""
-        has_selection = len(self.students_table.selectedItems()) > 0
-        current_row = self.students_table.currentRow()
+        has_selection = len(self.students_table.table.selectedItems()) > 0
+        current_row = self.students_table.table.currentRow()
         
         # Enable/disable buttons based on selection
         self.edit_btn.setEnabled(has_selection)
@@ -1230,16 +1130,16 @@ class StudentPage(QWidget):
         # Update button text to show selected student info
         if has_selection and current_row >= 0:
             try:
-                student_name = self.students_table.item(current_row, 1).text()
-                student_id = self.students_table.item(current_row, 0).text()
+                student_name = self.students_table.table.item(current_row, 1).text()
+                student_id = self.students_table.table.item(current_row, 0).text()
                 
                 self.edit_btn.setText(f"✏️ Edit {student_name}")
                 self.delete_btn.setText(f"🗑️ Delete {student_name}")
                 self.view_details_btn.setText(f"👁️ View {student_name}")
                 
                 # Highlight the entire row
-                for col in range(self.students_table.columnCount()):
-                    item = self.students_table.item(current_row, col)
+                for col in range(self.students_table.table.columnCount()):
+                    item = self.students_table.table.item(current_row, col)
                     if item:
                         item.setSelected(True)
                         
@@ -1279,20 +1179,20 @@ class StudentPage(QWidget):
             self.section_combo.currentText() == "Please Select Section"
         ):
             # Apply search filter to current table
-            for row in range(self.students_table.rowCount()):
+            for row in range(self.students_table.table.rowCount()):
                 show_row = True
                 
                 if search_text:
                     row_text = ""
-                    for col in range(self.students_table.columnCount() - 1):  # Exclude actions column
-                        item = self.students_table.item(row, col)
+                    for col in range(self.students_table.table.columnCount() - 1):  # Exclude actions column
+                        item = self.students_table.table.item(row, col)
                         if item:
                             row_text += item.text().lower() + " "
                     
                     if search_text not in row_text:
                         show_row = False
                 
-                self.students_table.setRowHidden(row, not show_row)
+                self.students_table.table.setRowHidden(row, not show_row)
         else:
             # For dropdown filters, reload data from database
             self._load_data()
@@ -2785,93 +2685,93 @@ class StudentPage(QWidget):
         # Apply improved combo box styling  
         self._apply_improved_combo_styling(widget, combo_type)
     
-    def _apply_improved_combo_styling(self, widget, combo_type):
-        """Apply single-frame combo box styling with editable support."""
-        improved_style = """
-            QComboBox {
-                background-color: #FFFFFF;
-                border: 1px solid #D1D5DB;
-                border-radius: 4px;
-                padding: 6px 8px;
-                font-family: 'Poppins Medium';
-                font-size: 12px;
-                color: #1E293B;
-                min-height: 24px;
-                max-height: 32px;
-            }
-            QComboBox:focus {
-                border: 2px solid #3B82F6;
-                background-color: #FFFFFF;
-            }
-            QComboBox:hover {
-                border: 1px solid #6B7280;
-                background-color: #F9FAFB;
-            }
-            QComboBox:editable {
-                background-color: #FFFFFF;
-            }
-            QComboBox QLineEdit {
-                background-color: transparent;
-                border: none;
-                padding: 0px;
-                font-family: 'Poppins Medium';
-                font-size: 12px;
-                color: #1E293B;
-            }
-            QComboBox QLineEdit:focus {
-                background-color: transparent;
-                border: none;
-            }
-            QComboBox::drop-down {
-                subcontrol-origin: padding;
-                subcontrol-position: top right;
-                width: 20px;
-                border: none;
-                border-left: 1px solid #D1D5DB;
-                border-top-right-radius: 4px;
-                border-bottom-right-radius: 4px;
-                background: #F3F4F6;
-            }
-            QComboBox::down-arrow {
-                width: 0;
-                height: 0;
-                border-left: 4px solid transparent;
-                border-right: 4px solid transparent;
-                border-top: 5px solid #6B7280;
-                margin: auto;
-            }
-            QComboBox::down-arrow:hover {
-                border-top: 5px solid #374151;
-            }
-            QComboBox QAbstractItemView {
-                border: 1px solid #D1D5DB;
-                border-radius: 4px;
-                background-color: #FFFFFF;
-                selection-background-color: #3B82F6;
-                selection-color: white;
-                outline: none;
-                show-decoration-selected: 1;
-                margin: 0px;
-                padding: 0px;
-            }
-            QComboBox QAbstractItemView::item {
-                height: 20px;
-                padding: 4px 8px;
-                border: none;
-                background-color: transparent;
-                margin: 0px;
-            }
-            QComboBox QAbstractItemView::item:selected {
-                background-color: #3B82F6;
-                color: white;
-            }
-            QComboBox QAbstractItemView::item:hover {
-                background-color: #EBF4FF;
-                color: #1E293B;
-            }
-        """
+    # def _apply_improved_combo_styling(self, widget, combo_type):
+    #     """Apply single-frame combo box styling with editable support."""
+    #     improved_style = """
+    #         QComboBox {
+    #             background-color: #FFFFFF;
+    #             border: 1px solid #D1D5DB;
+    #             border-radius: 4px;
+    #             padding: 6px 8px;
+    #             font-family: 'Poppins Medium';
+    #             font-size: 12px;
+    #             color: #1E293B;
+    #             min-height: 24px;
+    #             max-height: 32px;
+    #         }
+    #         QComboBox:focus {
+    #             border: 2px solid #3B82F6;
+    #             background-color: #FFFFFF;
+    #         }
+    #         QComboBox:hover {
+    #             border: 1px solid #6B7280;
+    #             background-color: #F9FAFB;
+    #         }
+    #         QComboBox:editable {
+    #             background-color: #FFFFFF;
+    #         }
+    #         QComboBox QLineEdit {
+    #             background-color: transparent;
+    #             border: none;
+    #             padding: 0px;
+    #             font-family: 'Poppins Medium';
+    #             font-size: 12px;
+    #             color: #1E293B;
+    #         }
+    #         QComboBox QLineEdit:focus {
+    #             background-color: transparent;
+    #             border: none;
+    #         }
+    #         QComboBox::drop-down {
+    #             subcontrol-origin: padding;
+    #             subcontrol-position: top right;
+    #             width: 20px;
+    #             border: none;
+    #             border-left: 1px solid #D1D5DB;
+    #             border-top-right-radius: 4px;
+    #             border-bottom-right-radius: 4px;
+    #             background: #F3F4F6;
+    #         }
+    #         QComboBox::down-arrow {
+    #             width: 0;
+    #             height: 0;
+    #             border-left: 4px solid transparent;
+    #             border-right: 4px solid transparent;
+    #             border-top: 5px solid #6B7280;
+    #             margin: auto;
+    #         }
+    #         QComboBox::down-arrow:hover {
+    #             border-top: 5px solid #374151;
+    #         }
+    #         QComboBox QAbstractItemView {
+    #             border: 1px solid #D1D5DB;
+    #             border-radius: 4px;
+    #             background-color: #FFFFFF;
+    #             selection-background-color: #3B82F6;
+    #             selection-color: white;
+    #             outline: none;
+    #             show-decoration-selected: 1;
+    #             margin: 0px;
+    #             padding: 0px;
+    #         }
+    #         QComboBox QAbstractItemView::item {
+    #             height: 20px;
+    #             padding: 4px 8px;
+    #             border: none;
+    #             background-color: transparent;
+    #             margin: 0px;
+    #         }
+    #         QComboBox QAbstractItemView::item:selected {
+    #             background-color: #3B82F6;
+    #             color: white;
+    #         }
+    #         QComboBox QAbstractItemView::item:hover {
+    #             background-color: #EBF4FF;
+    #             color: #1E293B;
+    #         }
+    #     """
         
-        widget.setStyleSheet(improved_style)
+    #     widget.setStyleSheet(improved_style)
 
     def _get_input_style(self):
         """Return standard input field styling."""
@@ -4047,19 +3947,15 @@ class StudentPage(QWidget):
         layout.addWidget(header_label)
         
         # History table
-        history_table = QTableWidget()
-        history_table.setColumnCount(6)
-        history_table.setHorizontalHeaderLabels([
+        history_table = SMISTable(self)
+        history_table.table.setColumnCount(6)
+        history_table.table.setHorizontalHeaderLabels([
             "📅 Date & Time", "🔄 Field Changed", "📋 Old Value", "✨ New Value", "🏷️ Type", "👤 Changed By"
         ])
         
-        # Apply standard table styling with enhanced readability
-        apply_standard_table_style(history_table)
-        
         # Additional styling for better content visibility and optimized text size
-        history_table.setAlternatingRowColors(True)
-        history_table.setSelectionBehavior(QAbstractItemView.SelectRows)
-        history_table.setStyleSheet(history_table.styleSheet() + """
+        history_table.table.setAlternatingRowColors(True)
+        history_table.table.setStyleSheet("""
             QTableWidget {
                 gridline-color: #E5E7EB;
                 alternate-background-color: #F9FAFB;
@@ -4115,18 +4011,18 @@ class StudentPage(QWidget):
                 }
             ]
         
-        history_table.setRowCount(len(history_records))
+        history_table.table.setRowCount(len(history_records))
         
         for row, record in enumerate(history_records):
             # Date & Time
             date_item = QTableWidgetItem(record.get('date_time', 'Unknown'))
             date_item.setTextAlignment(Qt.AlignCenter)
-            history_table.setItem(row, 0, date_item)
+            history_table.table.setItem(row, 0, date_item)
             
             # Field Changed
             field_item = QTableWidgetItem(record.get('field_changed', 'N/A'))
             field_item.setTextAlignment(Qt.AlignLeft | Qt.AlignVCenter)
-            history_table.setItem(row, 1, field_item)
+            history_table.table.setItem(row, 1, field_item)
             
             # Old Value
             old_value = record.get('old_value', '')
@@ -4135,7 +4031,7 @@ class StudentPage(QWidget):
             old_item = QTableWidgetItem(old_value)
             old_item.setTextAlignment(Qt.AlignLeft | Qt.AlignVCenter)
             old_item.setToolTip(record.get('old_value', ''))  # Show full value in tooltip
-            history_table.setItem(row, 2, old_item)
+            history_table.table.setItem(row, 2, old_item)
             
             # New Value
             new_value = record.get('new_value', '')
@@ -4144,7 +4040,7 @@ class StudentPage(QWidget):
             new_item = QTableWidgetItem(new_value)
             new_item.setTextAlignment(Qt.AlignLeft | Qt.AlignVCenter)
             new_item.setToolTip(record.get('new_value', ''))  # Show full value in tooltip
-            history_table.setItem(row, 3, new_item)
+            history_table.table.setItem(row, 3, new_item)
             
             # Change Type
             change_type = record.get('change_type', 'UNKNOWN')
@@ -4165,7 +4061,7 @@ class StudentPage(QWidget):
             else:
                 type_item.setBackground(QColor("#F3F4F6"))
                 type_item.setForeground(QColor("#6B7280"))
-            history_table.setItem(row, 4, type_item)
+            history_table.table.setItem(row, 4, type_item)
             
             # Changed By - Now showing proper usernames
             changed_by = record.get('changed_by', 'Unknown')
@@ -4178,10 +4074,10 @@ class StudentPage(QWidget):
             elif changed_by.lower() != 'unknown' and changed_by.lower() != 'system':
                 changed_by_item.setBackground(QColor("#F0FDF4"))
                 changed_by_item.setForeground(QColor("#166534"))
-            history_table.setItem(row, 5, changed_by_item)
+            history_table.table.setItem(row, 5, changed_by_item)
         
         # Auto resize columns based on content for better visibility
-        header = history_table.horizontalHeader()
+        header = history_table.table.horizontalHeader()
         header.setSectionResizeMode(0, QHeaderView.ResizeToContents)  # Date & Time - fit content
         header.setSectionResizeMode(1, QHeaderView.ResizeToContents)  # Field Changed - fit content
         header.setSectionResizeMode(2, QHeaderView.ResizeToContents)  # Old Value - fit content
@@ -4190,22 +4086,22 @@ class StudentPage(QWidget):
         header.setSectionResizeMode(5, QHeaderView.ResizeToContents)  # Changed By - fit content
         
         # Set minimum widths to ensure readability but allow expansion (reduced for better fit)
-        history_table.setColumnWidth(0, 150)  # Date & Time minimum width
-        history_table.setColumnWidth(1, 180)  # Field Changed minimum width
-        history_table.setColumnWidth(2, 200)  # Old Value minimum width
-        history_table.setColumnWidth(3, 200)  # New Value minimum width
-        history_table.setColumnWidth(4, 100)  # Change Type minimum width
-        history_table.setColumnWidth(5, 120)  # Changed By minimum width
+        history_table.table.setColumnWidth(0, 150)  # Date & Time minimum width
+        history_table.table.setColumnWidth(1, 180)  # Field Changed minimum width
+        history_table.table.setColumnWidth(2, 200)  # Old Value minimum width
+        history_table.table.setColumnWidth(3, 200)  # New Value minimum width
+        history_table.table.setColumnWidth(4, 100)  # Change Type minimum width
+        history_table.table.setColumnWidth(5, 120)  # Changed By minimum width
         
         # Enable word wrap for better text display
-        history_table.setWordWrap(True)
+        history_table.table.setWordWrap(True)
         
         # Allow horizontal stretching beyond table width for full content visibility
         header.setStretchLastSection(False)
         header.setCascadingSectionResizes(False)
         
         # Set row height for better content visibility (reduced from 50 to 40)
-        history_table.verticalHeader().setDefaultSectionSize(40)
+        history_table.table.verticalHeader().setDefaultSectionSize(40)
         
         # Auto-adjust table height dynamically based on content
         num_records = len(history_records)
@@ -4229,8 +4125,8 @@ class StudentPage(QWidget):
         history_table.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
         
         # Enable table's own scrollbars for very large content
-        history_table.setHorizontalScrollBarPolicy(Qt.ScrollBarAsNeeded)
-        history_table.setVerticalScrollBarPolicy(Qt.ScrollBarAsNeeded)
+        history_table.table.setHorizontalScrollBarPolicy(Qt.ScrollBarAsNeeded)
+        history_table.table.setVerticalScrollBarPolicy(Qt.ScrollBarAsNeeded)
         
         print(f"📏 History table dynamic height: {num_records} records, min height: {table_height}px")
         
