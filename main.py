@@ -5,7 +5,22 @@ from typing import Optional, Dict, Any
 from PyQt5.QtWidgets import QApplication, QMessageBox
 from PyQt5.QtCore import Qt, QTimer
 from PyQt5.QtGui import QIcon, QPixmap, QPainter, QFont
-from dotenv import load_dotenv
+
+# Robust dotenv import with fallback
+try:
+    from dotenv import load_dotenv
+    DOTENV_AVAILABLE = True
+except ImportError:
+    try:
+        import python_dotenv
+        from python_dotenv import load_dotenv
+        DOTENV_AVAILABLE = True
+    except ImportError:
+        # Fallback when dotenv is not available
+        def load_dotenv():
+            """Fallback function when python-dotenv is not available"""
+            pass
+        DOTENV_AVAILABLE = False
 
 try:
     # Import Qt constants properly for Pylance
@@ -22,8 +37,15 @@ except ImportError:
     AA_UseHighDpiPixmaps = 0x2000000
 
 
-# Load environment variables first
-load_dotenv()
+# Load environment variables first (if available)
+try:
+    load_dotenv()
+    if DOTENV_AVAILABLE:
+        logging.info("Environment variables loaded successfully")
+    else:
+        logging.info("Running without dotenv support")
+except Exception as e:
+    logging.warning(f"Could not load environment variables: {e}")
 
 # Add project root to Python path
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))

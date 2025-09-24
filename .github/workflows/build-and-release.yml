@@ -128,11 +128,21 @@ jobs:
             --hidden-import sip `
             --hidden-import sqlite3 `
             --hidden-import dotenv `
-            --hidden-import python-dotenv `
+            --hidden-import python_dotenv `
+            --hidden-import python_dotenv.main `
+            --hidden-import python_dotenv.parser `
             --hidden-import cryptography `
+            --hidden-import cryptography.fernet `
+            --hidden-import cryptography.hazmat `
+            --hidden-import cryptography.hazmat.primitives `
+            --hidden-import cryptography.hazmat.backends `
             --hidden-import requests `
             --hidden-import urllib3 `
+            --hidden-import urllib3.util `
+            --hidden-import urllib3.exceptions `
             --hidden-import certifi `
+            --hidden-import json `
+            --hidden-import email.mime `
             --icon "resources/icons/app_icon.ico" `
             --noupx --clean
           
@@ -179,9 +189,11 @@ jobs:
             --hidden-import PyQt5.sip `
             --hidden-import sip `
             --hidden-import dotenv `
-            --hidden-import python-dotenv `
+            --hidden-import python_dotenv `
+            --hidden-import python_dotenv.main `
             --hidden-import cryptography `
             --hidden-import requests `
+            --hidden-import urllib3 `
             --icon "resources/icons/app_icon.ico" `
             --noupx --clean
         }
