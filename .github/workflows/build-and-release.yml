@@ -143,7 +143,23 @@ jobs:
         # Path to makensis (usually in Program Files (x86))
         $nsis = "C:/Program Files (x86)/NSIS/makensis.exe"
         if (-not (Test-Path $nsis)) { $nsis = "C:/Program Files/NSIS/makensis.exe" }
-        if (-not (Test-Path $nsis)) { echo "ERROR: makensis not found on runner"; exit 1 }
+        if (-not (Test-Path $nsis)) {
+          echo "makensis not found. Attempting silent installation of NSIS..."
+          $temp = "$env:RUNNER_TEMP/nsis"
+          New-Item -ItemType Directory -Force -Path $temp | Out-Null
+          $nsisUrl = "https://downloads.sourceforge.net/project/nsis/NSIS%203/3.10/nsis-3.10-setup.exe"
+          $installerPath = Join-Path $temp "nsis-setup.exe"
+          echo "Downloading NSIS from $nsisUrl"
+          Invoke-WebRequest -Uri $nsisUrl -OutFile $installerPath -UseBasicParsing
+          if (-not (Test-Path $installerPath)) { echo "ERROR: Failed to download NSIS installer"; exit 1 }
+          echo "Running silent NSIS installer..."
+          Start-Process -FilePath $installerPath -ArgumentList "/S" -Wait -NoNewWindow
+          # Re-check standard install locations
+          $nsis = "C:/Program Files (x86)/NSIS/makensis.exe"
+          if (-not (Test-Path $nsis)) { $nsis = "C:/Program Files/NSIS/makensis.exe" }
+          if (-not (Test-Path $nsis)) { echo "ERROR: makensis still not found after install"; exit 1 }
+          echo "NSIS installed successfully. Proceeding with build."
+        }
         & "$nsis" /DVERSION=$version installer.nsi
         if ($LASTEXITCODE -ne 0) { echo "NSIS build failed"; exit 1 }
         if (-not (Test-Path "SMIS-Setup-$version.exe")) { echo "ERROR: Expected NSIS output SMIS-Setup-$version.exe missing"; Get-ChildItem -Path . -Filter "SMIS-Setup*"; exit 1 }

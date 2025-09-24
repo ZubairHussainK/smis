@@ -3,6 +3,12 @@
 ; Generated and maintained via build workflow
 ; ================================================
 
+; NOTE:
+; If building in GitHub Actions and NSIS is missing, the workflow step will
+; download and silently install NSIS automatically (see build-and-release.yml).
+; Ensure PyInstaller produced dist/SMIS-<version>.exe before invoking makensis.
+; Icon and LICENSE inclusion are conditional.
+
 !include "MUI2.nsh"
 
 ; --------------------------------
