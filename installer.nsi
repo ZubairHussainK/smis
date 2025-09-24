@@ -30,11 +30,15 @@ VIAddVersionKey /LANG=1033 "FileVersion" "${VERSION}"
 VIAddVersionKey /LANG=1033 "CompanyName" "YourOrg"
 VIAddVersionKey /LANG=1033 "LegalCopyright" "© 2025 YourOrg"
 ; --------------------------------
-; Icons
+; Icons (conditional)
 ; --------------------------------
-; Use application icon from resources (ensure path exists)
-Icon "resources\icons\app_icon.ico"
-UninstallIcon "resources\icons\app_icon.ico"
+!define ICON_PATH "resources\icons\app_icon.ico"
+!ifexist "${ICON_PATH}"
+  Icon "${ICON_PATH}"
+  UninstallIcon "${ICON_PATH}"
+!else
+  !warning "Icon not found at ${ICON_PATH}. Using default NSIS icon."
+!endif
 
 ; --------------------------------
 ; UI Pages
@@ -65,14 +69,15 @@ Section "Install"
   File "dist\\SMIS-${VERSION}.exe"
 
   ; Include icon in install directory if present
-  !ifexist "resources\icons\app_icon.ico"
-    File "resources\icons\app_icon.ico"
+  !ifexist "${ICON_PATH}"
+    File "${ICON_PATH}"
   !endif
 
   ; Create Start Menu folder
   CreateDirectory "$SMPROGRAMS\SMIS"
 
   ; Shortcuts
+  ; Shortcuts use installed icon if available
   CreateShortcut "$DESKTOP\SMIS.lnk" "$INSTDIR\SMIS-${VERSION}.exe" "" "$INSTDIR\app_icon.ico"
   CreateShortcut "$SMPROGRAMS\SMIS\SMIS.lnk" "$INSTDIR\SMIS-${VERSION}.exe" "" "$INSTDIR\app_icon.ico"
 
@@ -83,7 +88,7 @@ Section "Install"
   WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\SMIS" "DisplayName" "SMIS"
   WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\SMIS" "UninstallString" "$INSTDIR\Uninstall.exe"
   WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\SMIS" "DisplayVersion" "${VERSION}"
-  WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\SMIS" "Publisher" "YourOrg"
+  WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\SMIS" "Publisher" "ZubairHussainKharal"
 SectionEnd
 
 ; --------------------------------

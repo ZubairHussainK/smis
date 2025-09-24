@@ -140,6 +140,9 @@ jobs:
         if (-not (Test-Path "dist/SMIS-$version.exe")) {
           echo "ERROR: PyInstaller output dist/SMIS-$version.exe not found"; exit 1
         }
+        echo "Listing icon path (resources/icons):"
+        if (Test-Path "resources/icons") { Get-ChildItem -Recurse -Path resources/icons } else { echo "resources/icons directory missing" }
+        if (Test-Path "resources/icons/app_icon.ico") { echo "Icon file found." } else { echo "WARNING: resources/icons/app_icon.ico not found; build will continue with default icon." }
         # Path to makensis (usually in Program Files (x86))
         $nsis = "C:/Program Files (x86)/NSIS/makensis.exe"
         if (-not (Test-Path $nsis)) { $nsis = "C:/Program Files/NSIS/makensis.exe" }
