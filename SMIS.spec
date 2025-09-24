@@ -12,7 +12,12 @@ block_cipher = None
 
 # Collect ALL PyQt5 related modules, data, and binaries
 print("Collecting PyQt5 modules...")
-PyQt5_datas, PyQt5_binaries, PyQt5_hiddenimports = collect_all('PyQt5')
+try:
+    PyQt5_datas, PyQt5_binaries, PyQt5_hiddenimports = collect_all('PyQt5')
+    print(f"✅ PyQt5 base package collected")
+except Exception as e:
+    print(f"❌ PyQt5 base package not found: {e}")
+    PyQt5_datas, PyQt5_binaries, PyQt5_hiddenimports = [], [], []
 
 # Also collect PyQt5-Qt5 and PyQt5-sip
 try:
@@ -20,44 +25,53 @@ try:
     PyQt5_datas.extend(qt5_datas)
     PyQt5_binaries.extend(qt5_binaries)
     PyQt5_hiddenimports.extend(qt5_hiddenimports)
-except:
-    pass
+    print(f"✅ PyQt5-Qt5 package collected")
+except Exception as e:
+    print(f"⚠ PyQt5-Qt5 package not found: {e}")
 
 try:
     sip_datas, sip_binaries, sip_hiddenimports = collect_all('PyQt5-sip')
     PyQt5_datas.extend(sip_datas)
     PyQt5_binaries.extend(sip_binaries)
     PyQt5_hiddenimports.extend(sip_hiddenimports)
-except:
-    pass
+    print(f"✅ PyQt5-sip package collected")
+except Exception as e:
+    print(f"⚠ PyQt5-sip package not found: {e}")
 
 # Add all PyQt5 submodules explicitly
-PyQt5_submodules = collect_submodules('PyQt5')
-PyQt5_hiddenimports.extend(PyQt5_submodules)
+try:
+    PyQt5_submodules = collect_submodules('PyQt5')
+    PyQt5_hiddenimports.extend(PyQt5_submodules)
+    print(f"✅ PyQt5 submodules collected: {len(PyQt5_submodules)}")
+except Exception as e:
+    print(f"⚠ PyQt5 submodules not found: {e}")
 
-# Get PyQt5 path and add ALL files as binaries
-import PyQt5
-pyqt5_path = os.path.dirname(PyQt5.__file__)
-print(f"PyQt5 path: {pyqt5_path}")
+# Get PyQt5 path and add ALL files as binaries - only if available
+try:
+    import PyQt5
+    pyqt5_path = os.path.dirname(PyQt5.__file__)
+    print(f"PyQt5 path: {pyqt5_path}")
 
-# Add all .pyd files explicitly as binaries to root PyQt5 folder
-for file in os.listdir(pyqt5_path):
-    if file.endswith('.pyd') or file.endswith('.dll'):
-        source_path = os.path.join(pyqt5_path, file)
-        PyQt5_binaries.append((source_path, 'PyQt5'))
-        print(f"Adding binary: {file}")
+    # Add all .pyd files explicitly as binaries to root PyQt5 folder
+    for file in os.listdir(pyqt5_path):
+        if file.endswith('.pyd') or file.endswith('.dll'):
+            source_path = os.path.join(pyqt5_path, file)
+            PyQt5_binaries.append((source_path, 'PyQt5'))
+            print(f"Adding binary: {file}")
 
-# Also check for Qt5 folder and add those files
-qt5_folder = os.path.join(os.path.dirname(pyqt5_path), 'PyQt5-Qt5', 'PyQt5', 'Qt5')
-if os.path.exists(qt5_folder):
-    for root, dirs, files in os.walk(qt5_folder):
-        for file in files:
-            if file.endswith('.dll'):
-                source_path = os.path.join(root, file)
-                rel_path = os.path.relpath(root, qt5_folder)
-                dest_path = os.path.join('PyQt5', 'Qt5', rel_path) if rel_path != '.' else 'PyQt5/Qt5'
-                PyQt5_binaries.append((source_path, dest_path))
-                print(f"Adding Qt5 DLL: {file}")
+    # Also check for Qt5 folder and add those files
+    qt5_folder = os.path.join(os.path.dirname(pyqt5_path), 'PyQt5-Qt5', 'PyQt5', 'Qt5')
+    if os.path.exists(qt5_folder):
+        for root, dirs, files in os.walk(qt5_folder):
+            for file in files:
+                if file.endswith('.dll'):
+                    source_path = os.path.join(root, file)
+                    rel_path = os.path.relpath(root, qt5_folder)
+                    dest_path = os.path.join('PyQt5', 'Qt5', rel_path) if rel_path != '.' else 'PyQt5/Qt5'
+                    PyQt5_binaries.append((source_path, dest_path))
+                    print(f"Adding Qt5 DLL: {file}")
+except ImportError:
+    print("WARNING: PyQt5 not available during spec file execution - using collect_all only")
 
 print(f"Total PyQt5 binaries: {len(PyQt5_binaries)}")
 print(f"Total PyQt5 hidden imports: {len(PyQt5_hiddenimports)}")

@@ -36,7 +36,7 @@ jobs:
           pip install -r requirements.txt
         } else {
           Write-Output "requirements.txt not found, installing basic dependencies..."
-          pip install PyQt5 sqlite3 cryptography requests
+          pip install PyQt5 PyQt5-Qt5 PyQt5-sip cryptography requests
         }
         
         # Install additional build dependencies
@@ -116,54 +116,60 @@ jobs:
           exit 1
         }
 
-        Write-Output "Building optimized SMIS executable using spec file for maximum compatibility..."
-        
-        # Update spec file with current version
-        $specContent = Get-Content "SMIS.spec" -Raw
-        $specContent = $specContent -replace "name='SMIS'", "name='SMIS-$version'"
-        $specContent | Set-Content "SMIS.spec"
-        
-        # Build using spec file for better control
-        Write-Output "Building with spec file..."
-        pyinstaller SMIS.spec --distpath dist --workpath build --clean
-        
-        # Check if spec build worked
-        if (Test-Path "dist/SMIS-$version.exe") {
-          Write-Output "✅ Spec file build successful"
-          $fileSize = (Get-Item "dist/SMIS-$version.exe").Length / 1MB
-          Write-Output "Executable size: $([math]::Round($fileSize, 2)) MB"
-        } elseif (Test-Path "dist/SMIS.exe") {
-          Move-Item "dist/SMIS.exe" "dist/SMIS-$version.exe"
-          Write-Output "✅ Renamed SMIS.exe to SMIS-$version.exe"
-        } else {
-          Write-Output "❌ Spec build failed, trying debug console build..."
-          
-          # Create debug build with console for troubleshooting
-          pyinstaller --onefile --console --name "SMIS-$version-debug" main.py `
-            --distpath dist --workpath build-debug `
+        # First try: Simple command line approach (most reliable)
+        Write-Output "Trying simple command line build first..."
+        try {
+          pyinstaller --onefile --windowed --name "SMIS-$version" main.py `
+            --distpath dist --workpath build-simple `
             --add-data "resources;resources" `
             --add-data "config;config" `
             --collect-all PyQt5 `
-            --collect-all PyQt5-Qt5 `
-            --collect-all PyQt5-sip `
             --hidden-import PyQt5.sip `
             --hidden-import sip `
-            --hidden-import PyQt5.QtCore `
-            --hidden-import PyQt5.QtWidgets `
-            --hidden-import PyQt5.QtGui `
             --hidden-import sqlite3 `
             --icon "resources/icons/app_icon.ico" `
             --noupx --clean
           
-          # Try fallback windowed build
-          Write-Output "Trying fallback windowed build..."
-          pyinstaller --onefile --windowed --name "SMIS-$version" main.py `
-            --distpath dist --workpath build-fallback `
+          if (Test-Path "dist/SMIS-$version.exe") {
+            Write-Output "✅ Simple build successful!"
+            $fileSize = (Get-Item "dist/SMIS-$version.exe").Length / 1MB
+            Write-Output "Executable size: $([math]::Round($fileSize, 2)) MB"
+          }
+        } catch {
+          Write-Output "Simple build failed: $($_.Exception.Message)"
+        }
+        
+        # If simple build didn't work, try spec file approach
+        if (-not (Test-Path "dist/SMIS-$version.exe")) {
+          Write-Output "Trying spec file build..."
+          
+          # Update spec file with current version
+          $specContent = Get-Content "SMIS.spec" -Raw
+          $specContent = $specContent -replace "name='SMIS'", "name='SMIS-$version'"
+          $specContent | Set-Content "SMIS.spec"
+          
+          try {
+            pyinstaller SMIS.spec --distpath dist --workpath build --clean
+            
+            if (Test-Path "dist/SMIS-$version.exe") {
+              Write-Output "✅ Spec file build successful"
+            } elseif (Test-Path "dist/SMIS.exe") {
+              Move-Item "dist/SMIS.exe" "dist/SMIS-$version.exe"
+              Write-Output "✅ Renamed SMIS.exe to SMIS-$version.exe"
+            }
+          } catch {
+            Write-Output "Spec build failed: $($_.Exception.Message)"
+          }
+        }
+        
+        # Final fallback: Debug console build
+        if (-not (Test-Path "dist/SMIS-$version.exe")) {
+          Write-Output "Trying debug console build..."
+          pyinstaller --onefile --console --name "SMIS-$version" main.py `
+            --distpath dist --workpath build-debug `
             --add-data "resources;resources" `
             --add-data "config;config" `
             --collect-all PyQt5 `
-            --collect-all PyQt5-Qt5 `
-            --collect-all PyQt5-sip `
             --hidden-import PyQt5.sip `
             --hidden-import sip `
             --icon "resources/icons/app_icon.ico" `
@@ -172,13 +178,15 @@ jobs:
         
         # Check final result
         if (-not (Test-Path "dist/SMIS-$version.exe")) {
-          Write-Output "ERROR: PyInstaller build failed!"
+          Write-Output "ERROR: All PyInstaller build attempts failed!"
           Get-ChildItem dist -Name
           exit 1
         }
         
         Write-Output "✅ Build completed successfully!"
-        Get-ChildItem dist -Nameelse {
+        Get-ChildItem dist -Name
+        
+        if (Test-Path "dist/SMIS-$version.exe") {
           Write-Output "Successfully built: SMIS-$version.exe"
           $fileSize = (Get-Item "dist/SMIS-$version.exe").Length / 1MB
           Write-Output "File size: $([math]::Round($fileSize, 2)) MB"
