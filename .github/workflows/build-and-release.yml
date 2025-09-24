@@ -290,8 +290,10 @@ jobs:
         print(f'Original size: {len(file_data)} bytes')
         print(f'Encrypted size: {len(encrypted_data)} bytes')
         
-        # Remove original unencrypted file
-        os.remove(installer_path)
+        # Remove original unencrypted file (but keep a backup)
+        backup_path = f'SMIS-Setup-{version}-unencrypted.exe'
+        os.rename(installer_path, backup_path)
+        print(f'Original installer backed up as: {backup_path}')
         "
       env:
         ENCRYPT_KEY: ${{ secrets.ENCRYPT_KEY }}
@@ -324,21 +326,26 @@ jobs:
           - Encrypted installer for enhanced security
           - Built on ${{ github.run_number }} workflow run
           
-          ### Installation (2 Easy Options)
+          ### Installation (3 Easy Options)
           
           **Option 1 - Easy Installation (Recommended):**
-          1. Download both files below
-          2. Run `SMIS-Install-Helper-${{ steps.get_version.outputs.VERSION }}.bat` as Administrator
+          1. Download the Helper: `SMIS-Install-Helper-${{ steps.get_version.outputs.VERSION }}.bat`
+          2. Run as Administrator
           3. Follow the installation wizard
           
-          **Option 2 - Manual Installation:**
-          1. Download the encrypted installer
+          **Option 2 - Direct Installation:**
+          1. Download: `SMIS-Setup-${{ steps.get_version.outputs.VERSION }}-unencrypted.exe`
           2. Right-click → "Run as Administrator"
-          3. If Windows warns about unknown publisher, click "More info" → "Run anyway"
+          3. If Windows warns, click "More info" → "Run anyway"
+          
+          **Option 3 - Secure Installation:**
+          1. Download: `SMIS-Setup-${{ steps.get_version.outputs.VERSION }}-encrypted.exe`
+          2. Run as Administrator (requires encryption key)
           
           ### File Information
-          - **Installer**: SMIS-Setup-${{ steps.get_version.outputs.VERSION }}-encrypted.exe
-          - **Helper**: SMIS-Install-Helper-${{ steps.get_version.outputs.VERSION }}.bat
+          - **Encrypted**: SMIS-Setup-${{ steps.get_version.outputs.VERSION }}-encrypted.exe (Secure)
+          - **Standard**: SMIS-Setup-${{ steps.get_version.outputs.VERSION }}-unencrypted.exe (Direct)
+          - **Helper**: SMIS-Install-Helper-${{ steps.get_version.outputs.VERSION }}.bat (Easy)
           - **SHA256**: ${{ steps.hash.outputs.SHA256 }}
           - **Build Date**: ${{ github.event.head_commit.timestamp }}
           
@@ -347,6 +354,7 @@ jobs:
           The helper script temporarily adds Windows Defender exclusions for smooth installation.
         files: |
           SMIS-Setup-${{ steps.get_version.outputs.VERSION }}-encrypted.exe
+          SMIS-Setup-${{ steps.get_version.outputs.VERSION }}-unencrypted.exe
           SMIS-Install-Helper-${{ steps.get_version.outputs.VERSION }}.bat
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -357,6 +365,7 @@ jobs:
         name: smis-installer-v${{ steps.get_version.outputs.VERSION }}
         path: |
           SMIS-Setup-${{ steps.get_version.outputs.VERSION }}-encrypted.exe
+          SMIS-Setup-${{ steps.get_version.outputs.VERSION }}-unencrypted.exe
           SMIS-Install-Helper-${{ steps.get_version.outputs.VERSION }}.bat
         retention-days: 30
         
