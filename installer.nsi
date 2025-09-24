@@ -1,94 +1,184 @@
-; ================================================; ================================================; ================================================
+!include "MUI2.nsh"; ================================================; ================================================; ================================================
 
-; SMIS Simple Installer Script (NSIS)
 
-; Single executable, clean installation; SMIS Simple Installer Script (NSIS); SMIS Installer Script (NSIS)
 
-; ================================================
-
-; Single executable, clean installation; Generated and maintained via build workflow
-
-!include "MUI2.nsh"
-
-; ================================================; ================================================
-
-; --------------------------------
-
-; Metadata
-
-; --------------------------------
-
-Name "SMIS - School Management Information System"!include "MUI2.nsh"; NOTE:
+Name "SMIS School Management System"; SMIS Simple Installer Script (NSIS)
 
 OutFile "SMIS-Setup-${VERSION}.exe"
 
-InstallDir "$PROGRAMFILES\SMIS"; If building in GitHub Actions and NSIS is missing, the workflow step will
+InstallDir "$PROGRAMFILES\SMIS"; Single executable, clean installation; SMIS Simple Installer Script (NSIS); SMIS Installer Script (NSIS)
 
 RequestExecutionLevel admin
 
-; --------------------------------; download and silently install NSIS automatically (see build-and-release.yml).
+; ================================================
 
-; Installation attributes
+SetCompressor /SOLID lzma
 
-SetCompressor /SOLID lzma; Metadata; Ensure PyInstaller produced dist/SMIS-<version>.exe before invoking makensis.
+SetCompressorDictSize 32; Single executable, clean installation; Generated and maintained via build workflow
 
-SetCompressorDictSize 32
+SetDatablockOptimize on
 
-SetDatablockOptimize on; --------------------------------; Icon and LICENSE inclusion are conditional.
+CRCCheck on!include "MUI2.nsh"
 
-CRCCheck on
+XPStyle on
 
-XPStyle onName "SMIS - School Management Information System"
+BrandingText "SMIS Development Team"; ================================================; ================================================
 
-BrandingText "SMIS Development Team"
+ShowInstDetails show
 
-ShowInstDetails showOutFile "SMIS-Setup-${VERSION}.exe"!include "MUI2.nsh"
+ShowUnInstDetails show; --------------------------------
 
-ShowUnInstDetails show
 
-InstallDir "$PROGRAMFILES\SMIS"
 
-; VERSION will be injected by GitHub Actions
-
-!ifndef VERSIONRequestExecutionLevel admin; --------------------------------
+!ifndef VERSION; Metadata
 
   !define VERSION "0.0.0"
 
-!endif; Metadata
+!endif; --------------------------------
 
+; Metadata
 
+VIProductVersion "${VERSION}.0"; --------------------------------
 
-VIProductVersion "${VERSION}.0"; Installation attributes; --------------------------------
+VIAddVersionKey /LANG=1033 "ProductName" "SMIS School Management System"Name "SMIS School Management System"
 
-VIAddVersionKey /LANG=1033 "ProductName" "SMIS - School Management Information System"
+VIAddVersionKey /LANG=1033 "FileVersion" "${VERSION}"OutFile "SMIS-Setup-${VERSION}.exe"
 
-VIAddVersionKey /LANG=1033 "FileVersion" "${VERSION}"SetCompressor /SOLID lzmaName "SMIS - School Management Information System"
+VIAddVersionKey /LANG=1033 "CompanyName" "SMIS Development Team"InstallDir "$PROGRAMFILES\SMIS"
 
-VIAddVersionKey /LANG=1033 "CompanyName" "SMIS Development Team"
-
-VIAddVersionKey /LANG=1033 "LegalCopyright" "© 2025 SMIS Development Team"SetCompressorDictSize 32OutFile "SMIS-Setup-${VERSION}.exe"
+VIAddVersionKey /LANG=1033 "LegalCopyright" "© 2025 SMIS Development Team"RequestExecutionLevel admin
 
 VIAddVersionKey /LANG=1033 "FileDescription" "School Management Information System Installer"
 
-SetDatablockOptimize onInstallDir "$PROGRAMFILES\SMIS"
+RequestExecutionLevel admin
 
-; --------------------------------
+!define ICON_PATH "resources\icons\app_icon.ico"
+
+!if /FileExists "${ICON_PATH}"; --------------------------------; download and silently install NSIS automatically (see build-and-release.yml).
+
+  Icon "${ICON_PATH}"
+
+  UninstallIcon "${ICON_PATH}"; Installation attributes
+
+!endif
+
+SetCompressor /SOLID lzma; Metadata; Ensure PyInstaller produced dist/SMIS-<version>.exe before invoking makensis.
+
+!define MUI_WELCOMEPAGE_TITLE "Welcome to SMIS Setup"
+
+!define MUI_WELCOMEPAGE_TEXT "This will install SMIS School Management System on your computer."SetCompressorDictSize 32
+
+!insertmacro MUI_PAGE_WELCOME
+
+!insertmacro MUI_PAGE_LICENSE "LICENSE"SetDatablockOptimize on; --------------------------------; Icon and LICENSE inclusion are conditional.
+
+!insertmacro MUI_PAGE_DIRECTORY
+
+!insertmacro MUI_PAGE_INSTFILESCRCCheck on
+
+!define MUI_FINISHPAGE_RUN "$INSTDIR\SMIS-${VERSION}.exe"
+
+!insertmacro MUI_PAGE_FINISHXPStyle onName "SMIS - School Management Information System"
+
+
+
+!insertmacro MUI_UNPAGE_CONFIRMBrandingText "SMIS Development Team"
+
+!insertmacro MUI_UNPAGE_INSTFILES
+
+ShowInstDetails showOutFile "SMIS-Setup-${VERSION}.exe"!include "MUI2.nsh"
+
+!insertmacro MUI_LANGUAGE "English"
+
+ShowUnInstDetails show
+
+Section "Install"
+
+  SetOutPath "$INSTDIR"InstallDir "$PROGRAMFILES\SMIS"
+
+
+
+  File "dist\SMIS-${VERSION}.exe"; VERSION will be injected by GitHub Actions
+
+  
+
+  !if /FileExists "${ICON_PATH}"!ifndef VERSIONRequestExecutionLevel admin; --------------------------------
+
+    File "${ICON_PATH}"
+
+  !endif  !define VERSION "0.0.0"
+
+
+
+  !if /FileExists "${ICON_PATH}"!endif; Metadata
+
+    CreateShortcut "$DESKTOP\SMIS.lnk" "$INSTDIR\SMIS-${VERSION}.exe" "" "$INSTDIR\app_icon.ico"
+
+  !else
+
+    CreateShortcut "$DESKTOP\SMIS.lnk" "$INSTDIR\SMIS-${VERSION}.exe"
+
+  !endifVIProductVersion "${VERSION}.0"; Installation attributes; --------------------------------
+
+  
+
+  !if /FileExists "${ICON_PATH}"VIAddVersionKey /LANG=1033 "ProductName" "SMIS - School Management Information System"
+
+    CreateShortcut "$SMPROGRAMS\SMIS.lnk" "$INSTDIR\SMIS-${VERSION}.exe" "" "$INSTDIR\app_icon.ico"
+
+  !elseVIAddVersionKey /LANG=1033 "FileVersion" "${VERSION}"SetCompressor /SOLID lzmaName "SMIS - School Management Information System"
+
+    CreateShortcut "$SMPROGRAMS\SMIS.lnk" "$INSTDIR\SMIS-${VERSION}.exe"
+
+  !endifVIAddVersionKey /LANG=1033 "CompanyName" "SMIS Development Team"
+
+
+
+  WriteUninstaller "$INSTDIR\Uninstall.exe"VIAddVersionKey /LANG=1033 "LegalCopyright" "© 2025 SMIS Development Team"SetCompressorDictSize 32OutFile "SMIS-Setup-${VERSION}.exe"
+
+
+
+  WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\SMIS" "DisplayName" "SMIS School Management System"VIAddVersionKey /LANG=1033 "FileDescription" "School Management Information System Installer"
+
+  WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\SMIS" "UninstallString" "$INSTDIR\Uninstall.exe"
+
+  WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\SMIS" "DisplayVersion" "${VERSION}"SetDatablockOptimize onInstallDir "$PROGRAMFILES\SMIS"
+
+  WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\SMIS" "Publisher" "SMIS Development Team"
+
+  WriteRegDWORD HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\SMIS" "NoModify" 1; --------------------------------
+
+  WriteRegDWORD HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\SMIS" "NoRepair" 1
 
 ; Icons (conditional)CRCCheck onRequestExecutionLevel admin
 
+SectionEnd
+
 ; --------------------------------
 
-!define ICON_PATH "resources\icons\app_icon.ico"XPStyle on
+Section "Uninstall"
 
-!if /FileExists "${ICON_PATH}"
+  Delete "$INSTDIR\SMIS-${VERSION}.exe"!define ICON_PATH "resources\icons\app_icon.ico"XPStyle on
 
-  Icon "${ICON_PATH}"BrandingText "SMIS Development Team"; Installation attributes to help with Windows security
+  Delete "$INSTDIR\app_icon.ico"
 
-  UninstallIcon "${ICON_PATH}"
+  Delete "$INSTDIR\Uninstall.exe"!if /FileExists "${ICON_PATH}"
 
-!endifShowInstDetails showSetCompressor /SOLID lzma
+  
 
+  Delete "$DESKTOP\SMIS.lnk"  Icon "${ICON_PATH}"BrandingText "SMIS Development Team"; Installation attributes to help with Windows security
 
+  Delete "$SMPROGRAMS\SMIS.lnk"
+
+    UninstallIcon "${ICON_PATH}"
+
+  DeleteRegKey HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\SMIS"
+
+  !endifShowInstDetails showSetCompressor /SOLID lzma
+
+  RMDir "$INSTDIR"
+
+SectionEnd
 
 ; --------------------------------ShowUnInstDetails showSetCompressorDictSize 32
 
