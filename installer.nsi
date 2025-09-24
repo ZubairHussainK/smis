@@ -79,17 +79,25 @@ Var StartMenuFolder
 Section "Install"
   SetOutPath "$INSTDIR"
 
-  ; Main application executable built by PyInstaller
-  File "dist\\SMIS-${VERSION}.exe"
-  
-  ; Include portable version as alternative
-  !if /FileExists "dist\\SMIS-${VERSION}-Portable.exe"
-    File "dist\\SMIS-${VERSION}-Portable.exe"
+  ; Multiple application executables for maximum compatibility
+  !if /FileExists "dist\\SMIS-${VERSION}-GUI.exe"
+    File "dist\\SMIS-${VERSION}-GUI.exe"
+  !endif
+  !if /FileExists "dist\\SMIS-${VERSION}-Console.exe"
+    File "dist\\SMIS-${VERSION}-Console.exe"
+  !endif  
+  !if /FileExists "dist\\SMIS-${VERSION}-Minimal.exe"
+    File "dist\\SMIS-${VERSION}-Minimal.exe"
   !endif
   
-  ; Include compatibility info
-  !if /FileExists "dist\\SMIS-${VERSION}-info.txt"
-    File "dist\\SMIS-${VERSION}-info.txt"
+  ; Include compatibility information
+  !if /FileExists "dist\\SMIS-${VERSION}-COMPATIBILITY.txt"
+    File "dist\\SMIS-${VERSION}-COMPATIBILITY.txt"
+  !endif
+  
+  ; Include smart launcher
+  !if /FileExists "dist\\SMIS-SmartLauncher.bat"
+    File "dist\\SMIS-SmartLauncher.bat"
   !endif
 
   ; Include icon in install directory if present
@@ -100,13 +108,23 @@ Section "Install"
   ; Create Start Menu folder
   CreateDirectory "$SMPROGRAMS\SMIS"
 
-  ; Shortcuts - Main version
-  CreateShortcut "$DESKTOP\SMIS.lnk" "$INSTDIR\SMIS-${VERSION}.exe" "" "$INSTDIR\app_icon.ico"
-  CreateShortcut "$SMPROGRAMS\SMIS\SMIS.lnk" "$INSTDIR\SMIS-${VERSION}.exe" "" "$INSTDIR\app_icon.ico"
+  ; Primary shortcut - Smart Launcher (automatically chooses best version)
+  !if /FileExists "dist\\SMIS-SmartLauncher.bat"
+    CreateShortcut "$DESKTOP\SMIS.lnk" "$INSTDIR\SMIS-SmartLauncher.bat" "" "$INSTDIR\app_icon.ico"
+    CreateShortcut "$SMPROGRAMS\SMIS\SMIS (Smart Launcher).lnk" "$INSTDIR\SMIS-SmartLauncher.bat" "" "$INSTDIR\app_icon.ico"
+  !endif
   
-  ; Additional shortcut for portable version if exists
-  !if /FileExists "dist\\SMIS-${VERSION}-Portable.exe"
-    CreateShortcut "$SMPROGRAMS\SMIS\SMIS (Portable).lnk" "$INSTDIR\SMIS-${VERSION}-Portable.exe" "" "$INSTDIR\app_icon.ico"
+  ; Direct shortcuts for manual selection
+  !if /FileExists "dist\\SMIS-${VERSION}-GUI.exe"
+    CreateShortcut "$SMPROGRAMS\SMIS\SMIS (GUI Mode).lnk" "$INSTDIR\SMIS-${VERSION}-GUI.exe" "" "$INSTDIR\app_icon.ico"
+  !endif
+  
+  !if /FileExists "dist\\SMIS-${VERSION}-Console.exe"
+    CreateShortcut "$SMPROGRAMS\SMIS\SMIS (Console Mode).lnk" "$INSTDIR\SMIS-${VERSION}-Console.exe" "" "$INSTDIR\app_icon.ico"
+  !endif
+  
+  !if /FileExists "dist\\SMIS-${VERSION}-Minimal.exe"
+    CreateShortcut "$SMPROGRAMS\SMIS\SMIS (Minimal).lnk" "$INSTDIR\SMIS-${VERSION}-Minimal.exe" "" "$INSTDIR\app_icon.ico"
   !endif
 
   ; Uninstaller
@@ -123,14 +141,23 @@ SectionEnd
 ; Uninstall Section
 ; --------------------------------
 Section "Uninstall"
-  Delete "$INSTDIR\SMIS-${VERSION}.exe"
-  Delete "$INSTDIR\SMIS-${VERSION}-Portable.exe"
-  Delete "$INSTDIR\SMIS-${VERSION}-info.txt"
+  ; Remove all executable variants
+  Delete "$INSTDIR\SMIS-${VERSION}-GUI.exe"
+  Delete "$INSTDIR\SMIS-${VERSION}-Console.exe"
+  Delete "$INSTDIR\SMIS-${VERSION}-Minimal.exe"
+  Delete "$INSTDIR\SMIS-${VERSION}-COMPATIBILITY.txt"
+  Delete "$INSTDIR\SMIS-SmartLauncher.bat"
   Delete "$INSTDIR\app_icon.ico"
+  
+  ; Remove all shortcuts
   Delete "$DESKTOP\SMIS.lnk"
-  Delete "$SMPROGRAMS\SMIS\SMIS.lnk"
-  Delete "$SMPROGRAMS\SMIS\SMIS (Portable).lnk"
+  Delete "$SMPROGRAMS\SMIS\SMIS (Smart Launcher).lnk"
+  Delete "$SMPROGRAMS\SMIS\SMIS (GUI Mode).lnk"
+  Delete "$SMPROGRAMS\SMIS\SMIS (Console Mode).lnk"
+  Delete "$SMPROGRAMS\SMIS\SMIS (Minimal).lnk"
   RMDir  "$SMPROGRAMS\SMIS"
+  
+  ; Remove registry entries
   DeleteRegKey HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\SMIS"
   RMDir /r "$INSTDIR"
 SectionEnd
