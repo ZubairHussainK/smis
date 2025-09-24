@@ -117,7 +117,25 @@ jobs:
         }
         
         echo "Building SMIS-$version.exe..."
-        pyinstaller --onefile --windowed --name "SMIS-$version" main.py --distpath dist --workpath build
+        
+        # Enhanced PyInstaller build with compatibility options
+        pyinstaller --onefile --windowed --name "SMIS-$version" main.py `
+          --distpath dist --workpath build `
+          --add-data "resources;resources" `
+          --add-data "config;config" `
+          --hidden-import PyQt5 `
+          --hidden-import PyQt5.QtCore `
+          --hidden-import PyQt5.QtGui `
+          --hidden-import PyQt5.QtWidgets `
+          --hidden-import sqlite3 `
+          --hidden-import cryptography `
+          --exclude-module tkinter `
+          --exclude-module matplotlib `
+          --exclude-module numpy `
+          --optimize 2 `
+          --strip `
+          --upx-dir="" `
+          --console
         
         # Check if build was successful
         if (-not (Test-Path "dist/SMIS-$version.exe")) {
@@ -125,8 +143,31 @@ jobs:
           exit 1
         }
         
+        # Check executable architecture and compatibility
+        echo "Checking executable properties..."
+        Get-ItemProperty "dist/SMIS-$version.exe" | Select-Object Name, Length, LastWriteTime
+        
+        # Create a compatibility info file
+        echo "SMIS Executable Information" > "dist/SMIS-$version-info.txt"
+        echo "Version: $version" >> "dist/SMIS-$version-info.txt"
+        echo "Build Date: $(Get-Date)" >> "dist/SMIS-$version-info.txt"
+        echo "Architecture: x64 (64-bit)" >> "dist/SMIS-$version-info.txt"
+        echo "Minimum Windows Version: Windows 10" >> "dist/SMIS-$version-info.txt"
+        echo "Python Version: 3.11" >> "dist/SMIS-$version-info.txt"
+        
         echo "Build completed successfully: SMIS-$version.exe"
         Get-ChildItem dist -Name
+        
+        # Create alternative portable version with different settings
+        echo "Creating portable version for better compatibility..."
+        pyinstaller --onefile --console --name "SMIS-$version-Portable" main.py `
+          --distpath dist --workpath build-portable `
+          --add-data "resources;resources" `
+          --add-data "config;config" `
+          --hidden-import PyQt5 `
+          --hidden-import sqlite3 `
+          --optimize 1 `
+          --debug=imports
       shell: powershell
         
     - name: Create NSIS installer

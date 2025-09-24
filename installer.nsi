@@ -81,6 +81,16 @@ Section "Install"
 
   ; Main application executable built by PyInstaller
   File "dist\\SMIS-${VERSION}.exe"
+  
+  ; Include portable version as alternative
+  !if /FileExists "dist\\SMIS-${VERSION}-Portable.exe"
+    File "dist\\SMIS-${VERSION}-Portable.exe"
+  !endif
+  
+  ; Include compatibility info
+  !if /FileExists "dist\\SMIS-${VERSION}-info.txt"
+    File "dist\\SMIS-${VERSION}-info.txt"
+  !endif
 
   ; Include icon in install directory if present
   !if /FileExists "${ICON_PATH}"
@@ -90,10 +100,14 @@ Section "Install"
   ; Create Start Menu folder
   CreateDirectory "$SMPROGRAMS\SMIS"
 
-  ; Shortcuts
-  ; Shortcuts use installed icon if available
+  ; Shortcuts - Main version
   CreateShortcut "$DESKTOP\SMIS.lnk" "$INSTDIR\SMIS-${VERSION}.exe" "" "$INSTDIR\app_icon.ico"
   CreateShortcut "$SMPROGRAMS\SMIS\SMIS.lnk" "$INSTDIR\SMIS-${VERSION}.exe" "" "$INSTDIR\app_icon.ico"
+  
+  ; Additional shortcut for portable version if exists
+  !if /FileExists "dist\\SMIS-${VERSION}-Portable.exe"
+    CreateShortcut "$SMPROGRAMS\SMIS\SMIS (Portable).lnk" "$INSTDIR\SMIS-${VERSION}-Portable.exe" "" "$INSTDIR\app_icon.ico"
+  !endif
 
   ; Uninstaller
   WriteUninstaller "$INSTDIR\Uninstall.exe"
@@ -110,9 +124,12 @@ SectionEnd
 ; --------------------------------
 Section "Uninstall"
   Delete "$INSTDIR\SMIS-${VERSION}.exe"
+  Delete "$INSTDIR\SMIS-${VERSION}-Portable.exe"
+  Delete "$INSTDIR\SMIS-${VERSION}-info.txt"
   Delete "$INSTDIR\app_icon.ico"
   Delete "$DESKTOP\SMIS.lnk"
   Delete "$SMPROGRAMS\SMIS\SMIS.lnk"
+  Delete "$SMPROGRAMS\SMIS\SMIS (Portable).lnk"
   RMDir  "$SMPROGRAMS\SMIS"
   DeleteRegKey HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\SMIS"
   RMDir /r "$INSTDIR"
