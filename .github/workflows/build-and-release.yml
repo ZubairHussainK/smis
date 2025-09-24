@@ -164,25 +164,26 @@ jobs:
           if (-not (Test-Path "dist/$build")) {
             echo "WARNING: $build build failed, continuing with other versions..."
           } else {
-            echo "✓ Successfully built: $build"
+            echo "Successfully built: $build"
           }
         }
         
         # Create comprehensive compatibility info
         echo "Creating compatibility information..."
-        echo "SMIS Executable Variants Information" > "dist/SMIS-$version-COMPATIBILITY.txt"
-        echo "=====================================" >> "dist/SMIS-$version-COMPATIBILITY.txt"
-        echo "Version: $version" >> "dist/SMIS-$version-COMPATIBILITY.txt"
-        echo "Build Date: $(Get-Date)" >> "dist/SMIS-$version-COMPATIBILITY.txt"
-        echo "Python Version: 3.11" >> "dist/SMIS-$version-COMPATIBILITY.txt"
-        echo "" >> "dist/SMIS-$version-COMPATIBILITY.txt"
-        echo "Available Variants:" >> "dist/SMIS-$version-COMPATIBILITY.txt"
-        echo "1. SMIS-$version-GUI.exe - Standard windowed version (recommended)" >> "dist/SMIS-$version-COMPATIBILITY.txt"
-        echo "2. SMIS-$version-Console.exe - Console version for debugging" >> "dist/SMIS-$version-COMPATIBILITY.txt"
-        echo "3. SMIS-$version-Minimal.exe - Minimal dependencies (fallback)" >> "dist/SMIS-$version-COMPATIBILITY.txt"
-        echo "" >> "dist/SMIS-$version-COMPATIBILITY.txt"
-        echo "Installation Order:" >> "dist/SMIS-$version-COMPATIBILITY.txt"
-        echo "Try GUI version first, if fails try Console, then Minimal" >> "dist/SMIS-$version-COMPATIBILITY.txt"
+        $compatFile = "dist/SMIS-$version-COMPATIBILITY.txt"
+        "SMIS Executable Variants Information" | Out-File -FilePath $compatFile -Encoding UTF8
+        "=====================================" | Out-File -FilePath $compatFile -Append -Encoding UTF8
+        "Version: $version" | Out-File -FilePath $compatFile -Append -Encoding UTF8
+        "Build Date: $(Get-Date)" | Out-File -FilePath $compatFile -Append -Encoding UTF8
+        "Python Version: 3.11" | Out-File -FilePath $compatFile -Append -Encoding UTF8
+        "" | Out-File -FilePath $compatFile -Append -Encoding UTF8
+        "Available Variants:" | Out-File -FilePath $compatFile -Append -Encoding UTF8
+        "1. SMIS-$version-GUI.exe - Standard windowed version (recommended)" | Out-File -FilePath $compatFile -Append -Encoding UTF8
+        "2. SMIS-$version-Console.exe - Console version for debugging" | Out-File -FilePath $compatFile -Append -Encoding UTF8
+        "3. SMIS-$version-Minimal.exe - Minimal dependencies (fallback)" | Out-File -FilePath $compatFile -Append -Encoding UTF8
+        "" | Out-File -FilePath $compatFile -Append -Encoding UTF8
+        "Installation Order:" | Out-File -FilePath $compatFile -Append -Encoding UTF8
+        "Try GUI version first, if fails try Console, then Minimal" | Out-File -FilePath $compatFile -Append -Encoding UTF8
         
         echo "Build phase completed successfully!"
         Get-ChildItem dist -Name | Sort-Object
