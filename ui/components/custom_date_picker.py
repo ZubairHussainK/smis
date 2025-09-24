@@ -260,6 +260,7 @@ class YearSelectionDialog(QDialog):
             QDialog {{
                 background-color: white;
                 border: 1px solid {BORDER_COLOR};
+                color: {TEXT_COLOR};
                 border-radius: 12px;
                 font-family: 'Segoe UI', Arial, sans-serif;
             }}
@@ -644,10 +645,11 @@ class CustomCalendarWidget(QCalendarWidget):
                 horizontal_header.setStyleSheet("""
                     QHeaderView {
                         background-color: white !important;
+                        color: {TEXT_COLOR}; !important;
                     }
                     QHeaderView::section {
                         background-color: white !important;
-                        color: #333333 !important;
+                        color: {TEXT_COLOR}; !important;
                         font-weight: bold !important;
                         border: none !important;
                         padding: 6px !important;

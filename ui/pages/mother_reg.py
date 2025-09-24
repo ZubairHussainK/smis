@@ -1,6 +1,7 @@
 """Mother Registration management page UI implementation."""
 import os
 import sys
+from typing import List, Dict, Optional, Any
 
 # Add the project root to the path when running this file directly
 if __name__ == "__main__":
@@ -11,7 +12,7 @@ if __name__ == "__main__":
 # PyQt5 imports
 from PyQt5.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, 
-    QFrame, QGridLayout, QLineEdit, QMessageBox, QHeaderView, QTableWidgetItem,
+    QFrame, QGridLayout, QLineEdit, QHeaderView, QTableWidgetItem,
     QScrollArea, QSplitter, QTextEdit, QGroupBox, 
     QFormLayout, QCheckBox, QDateEdit, QSpinBox, QTabWidget, QDialog, 
     QDialogButtonBox, QSizePolicy, QApplication, QStackedWidget, QComboBox
@@ -27,440 +28,74 @@ from ui.components.custom_table import SMISTable
 from models.database import Database
 from config.settings import STUDENT_FIELDS
 from ui.components.custom_date_picker import CustomDateEdit
+
+# Import styling functions
+from resources.styles import get_global_styles, get_modern_widget_styles, COLORS, FONT_REGULAR, FONT_SEMIBOLD
 from ui.components.custom_combo_box import CustomComboBox
 from ui.components.form_components import (
     FormModel, InputField, FormLabel
 )
 from resources.styles import (
      get_global_styles, COLORS, RADIUS, SPACING_LG, SPACING_MD, SPACING_SM,
-    FONT_MEDIUM, FONT_SEMIBOLD, FONT_REGULAR, PRIMARY_COLOR, FOCUS_BORDER_COLOR
+    FONT_MEDIUM, FONT_SEMIBOLD, FONT_REGULAR, PRIMARY_COLOR, FOCUS_BORDER_COLOR,
+    show_info_message, show_warning_message, show_error_message, show_critical_message,
+    show_success_message, show_confirmation_message, show_delete_confirmation
 )
 
-# Form styling utilities
-class FormStyleManager:
-    """Simplified form styling manager with focused responsibilities."""
-    
-    @staticmethod
-    def apply_form_container_style(container):
-        """Apply clean styling to form container."""
-        container.setStyleSheet("""
-            QFrame {
-                background-color: white;
-                border-radius: 8px;
-                border: 1px solid #e9ecef;
-            }
-        """)
-        
-    @staticmethod
-    def ensure_field_transparency(field_container):
-        """Ensure form field container has transparent background."""
-        if field_container and hasattr(field_container, 'setAutoFillBackground'):
-            field_container.setAutoFillBackground(False)
-            field_container.setStyleSheet("background-color: white;")
-            
-            # Fix any label children - make them transparent with no borders
-            for child in field_container.findChildren(QLabel):
-                child.setAutoFillBackground(False)
-                child.setStyleSheet("background: transparent; border: none;")
-                if hasattr(child, 'enforceStyle'):
-                    child.enforceStyle()
-            
-            # Ensure input fields have visible borders
-            for child in field_container.findChildren(QLineEdit):
-                child.setStyleSheet("""
-                    QLineEdit {
-                        border: 1px solid #cccccc;
-                        border-radius: 4px;
-                        padding: 5px;
-                        background-color: #ffffff;
-                    }
-                """)
-            # Do NOT apply any custom inline styling to CustomComboBox
-    
+# Import service layer and validation
+try:
+    from services.mother_service import MotherService, StudentData, MotherFilters
+    from utils.mother_validation import MotherFormValidator, ValidationResult
+except ImportError:
+    # Fallback if service layer not available
+    print("Warning: Service layer not available, using fallback")
+    MotherService = None
+    MotherFormValidator = None
 
 
+# Improved Form styling utilities
 class MotherRegPage(QWidget):
-    def _view_details(self):
-        """Show details of the selected student record (in MotherReg page)."""
-        selected_ids = self.mothers_table.get_selected_rows()
-        if not selected_ids:
-            QMessageBox.warning(self, "No Selection", "Please select a record to view details.")
-            return
-            
-        # Get the selected row from the table
-        student_id = selected_ids[0]
-        for row in range(self.mothers_table.table.rowCount()):
-            item = self.mothers_table.table.item(row, 1)
-            if item and item.text() == student_id:
-                # Get values from the row
-                name = self.mothers_table.table.item(row, 2).text() if self.mothers_table.table.item(row, 2) else ""
-                father = self.mothers_table.table.item(row, 3).text() if self.mothers_table.table.item(row, 3) else ""
-                class_name = self.mothers_table.table.item(row, 4).text() if self.mothers_table.table.item(row, 4) else ""
-                section = self.mothers_table.table.item(row, 5).text() if self.mothers_table.table.item(row, 5) else ""
-                school = self.mothers_table.table.item(row, 6).text() if self.mothers_table.table.item(row, 6) else ""
-                
-                details = (
-                    f"ID: {student_id}\n"
-                    f"Name: {name}\n"
-                    f"Father: {father}\n"
-                    f"Class: {class_name}\n"
-                    f"Section: {section}\n"
-                    f"School: {school}\n"
-                )
-                QMessageBox.information(self, "Student Details", details)
-                return
-                
-        QMessageBox.warning(self, "Error", "Could not find selected student data.")
+    """Modern Mother Registration management page with improved structure."""
+    
+    # Signals
+    mother_added = pyqtSignal(dict)
+    mother_updated = pyqtSignal(dict)
+    mother_deleted = pyqtSignal(str)
+
+    def __init__(self):
+        super().__init__()
+        # Initialize core components first
+        self._init_core_attributes()
+        self._init_ui_components()
+        self._setup_ui()
+        self._load_initial_data()
+    
+    def _init_core_attributes(self):
+        """Initialize core attributes and services."""
+        # Services
+        self.styles = get_global_styles()
         
-    def _delete_mother(self):
-        """Delete the selected mother record."""
-        selected_ids = self.mothers_table.get_selected_rows()
-        if not selected_ids:
-            QMessageBox.warning(self, "No Selection", "Please select a mother to delete.")
-            return
-            
-        # Find student name from ID
-        student_id = selected_ids[0]
-        student_name = ""
-        
-        # Look up the name from the table
-        for row in range(self.mothers_table.table.rowCount()):
-            item = self.mothers_table.table.item(row, 1)
-            if item and item.text() == student_id:
-                name_item = self.mothers_table.table.item(row, 2)
-                if name_item:
-                    student_name = name_item.text()
-                break
-        
-        reply = QMessageBox.question(
-            self, 
-            "Delete Mother", 
-            f"Are you sure you want to delete mother for student: {student_name}?", 
-            QMessageBox.Yes | QMessageBox.No
-        )
-        
-        if reply == QMessageBox.Yes:
-            # Implement actual deletion logic here
-            QMessageBox.information(self, "Deleted", f"Mother for '{student_name}' deleted.")
-            # Refresh the table
-            self._load_data()
-            
-    def _edit_mother(self):
-        """Edit the selected mother record."""
-        selected_ids = self.mothers_table.get_selected_rows()
-        if not selected_ids:
-            QMessageBox.warning(self, "No Selection", "Please select a mother to edit.")
-            return
-            
-        # Find student name from ID
-        student_id = selected_ids[0]
-        student_name = ""
-        
-        # Look up the name from the table
-        for row in range(self.mothers_table.table.rowCount()):
-            item = self.mothers_table.table.item(row, 1)
-            if item and item.text() == student_id:
-                name_item = self.mothers_table.table.item(row, 2)
-                if name_item:
-                    student_name = name_item.text()
-                break
-                
-        QMessageBox.information(
-            self, 
-            "Edit Mother", 
-            f"Editing mother for student: {student_name}\n(Edit form not yet implemented)"
-        )
-    def _on_double_click(self, item):
-        """Handle double-click on a table row to view details or edit."""
-        # Just forward to view details
-        self._view_details()
-        
-    def _on_selection_changed(self):
-        """Enable/disable edit/delete/view buttons based on selection."""
-        selected_ids = self.mothers_table.get_selected_rows()
-        has_selection = bool(selected_ids)
-        self.edit_btn.setEnabled(has_selection)
-        self.delete_btn.setEnabled(has_selection)
-        self.view_details_btn.setEnabled(has_selection)
-        
-    def _on_table_selection_changed(self, selected_ids):
-        """Handle selection changes from the SMISTable component."""
-        # Update the selected IDs list
-        self.selected_snos = set(selected_ids)
-        # Update button states
-        self._on_selection_changed()
-        # Update the summary display
-        self._update_selected_summary()
-    def get_filters(self):
-        """Get the current filter values.
-        
-        Returns:
-            dict: Dictionary with filter values
-        """
-        return {
-            "school": self.school_combo.currentText(),
-            "class": self.class_combo.currentText(),
-            "section": self.section_combo.currentText(),
-            "status": self.status_filter_combo.currentText()
-        }
-        
-    def _apply_filters(self):
-        """Reload data from database when filters change."""
-        # Update filter info label
-        filters = self.get_filters()
-        filter_texts = []
-        
-        if filters["school"] and filters["school"] != "Please Select School" and filters["school"] != "All Schools":
-            filter_texts.append(f"School: {filters['school']}")
-            
-        if filters["class"] and filters["class"] != "Please Select Class" and filters["class"] != "All Classes":
-            filter_texts.append(f"Class: {filters['class']}")
-            
-        if filters["section"] and filters["section"] != "Please Select Section" and filters["section"] != "All Sections":
-            filter_texts.append(f"Section: {filters['section']}")
-            
-        if filters["status"] and filters["status"] != "All Status":
-            filter_texts.append(f"Status: {filters['status']}")
-        
-        if filter_texts:
-            self.filter_info_label.setText("Filters: " + " | ".join(filter_texts))
+        # Initialize services with fallback
+        if MotherService:
+            self.mother_service = MotherService()
         else:
-            self.filter_info_label.setText("No filters applied")
+            self.mother_service = None
+            self.db = Database()  # Fallback to direct database access
             
-        # Reload data with new filters
-        self._load_data()
-    def _show_add_form(self):
-        """Show the form for adding mother/guardian information."""
-        try:
-            if not self._validate_form_frame():
-                return
-            
-            # Setup form before showing
-            self._setup_form_layout()
-            
-            # First make form visible to ensure proper sizing
-            self.form_frame.setVisible(True)
-            
-            # Adjust splitter to show both table and form with emphasis on form
-            total_width = self.content_splitter.width()
-            table_width = int(total_width * 0.4)  # Table gets 40%
-            form_width = int(total_width * 0.6)   # Form gets 60%
-            self.content_splitter.setSizes([table_width, form_width])
-        except Exception as e:
-            QMessageBox.critical(self, "Error", f"Failed to open form:\n{str(e)}")
-            
-    def _show_table(self):
-        """Show the table panel."""
-        # Use splitter to focus on table
-        self.form_frame.setVisible(False)
-        # Reset splitter to emphasize the table
-        self.content_splitter.setSizes([1000, 0])
-    
-    def _validate_form_frame(self):
-        """Validate that form frame is available."""
-        if not hasattr(self, 'form_frame') or not self.form_frame:
-            QMessageBox.critical(self, "Error", "Form frame not available.")
-            return False
-        return True
-    
-    def _setup_form_layout(self):
-        """Setup the main form layout with three containers."""
-        # Clear existing layout
-        current_layout = self.form_frame.layout()
-        if current_layout:
-            QWidget().setLayout(current_layout)
+        if MotherFormValidator:
+            self.validator = MotherFormValidator()
+        else:
+            self.validator = None
         
-        # Apply form styling
-        FormStyleManager.apply_form_container_style(self.form_frame)
+        # Form state
+        self.current_mother_id = None
+        self.is_editing = False
+        self._is_populating = False
         
-        # Create main layout
-        form_layout = QVBoxLayout()
-        form_layout.setContentsMargins(10, 10, 5, 10)
-        form_layout.setSpacing(20)
+        # Selection tracking
+        self.selected_snos = set()
         
-        # Add containers
-        form_layout.addWidget(self._create_recipient_container())
-        form_layout.addWidget(self._create_fields_container(), 1)
-        form_layout.addWidget(self._create_actions_container())
-        
-        self.form_frame.setLayout(form_layout)
-        self._on_recipient_type_changed()  # Set initial field visibility
-    
-    def _create_recipient_container(self):
-        """Create the recipient type selection container."""
-        container = QFrame()
-        container.setObjectName("RecipientTypeContainer")
-        container.setStyleSheet("""
-            QFrame#RecipientTypeContainer {
-                background-color: white;
-                border-radius: 8px;
-                border: none;
-            }
-        """)
-        
-        layout = QVBoxLayout(container)
-        layout.setContentsMargins(0, 0, 25, 5)
-        layout.setSpacing(0)
-        
-
-        self.recipient_combo = CustomComboBox()
-        self.recipient_combo.addItems(["Principal", "Alternate Guardian"])
-        self.recipient_combo.setCurrentText("Principal")
-        self.recipient_combo.currentTextChanged.connect(self._on_recipient_type_changed)
-        
-
-        layout.addWidget(self.recipient_combo)
-        layout.addStretch()
-        
-        return container
-    
-    def _create_fields_container(self):
-        """Create the scrollable form fields container."""
-        container = QFrame()
-        container.setObjectName("FormFieldsContainer")
-        container.setStyleSheet("""
-            QFrame#FormFieldsContainer {
-                background-color: white;
-                border-radius: 8px;
-                border: none;
-            }
-        """)
-        
-        layout = QVBoxLayout(container)
-        layout.setContentsMargins(0, 0, 12, 0)
-        layout.setSpacing(10)
-        
-        
-        # Create scrollable area
-        scroll_area = QScrollArea()
-        scroll_area.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
-        scroll_area.setVerticalScrollBarPolicy(Qt.ScrollBarAsNeeded)
-        scroll_area.setStyleSheet("QScrollArea { border: none; background: white; }")
-        
-        scroll_widget = QWidget()
-        # Removed maximum width restriction to allow full expansion
-        scroll_widget.setStyleSheet("QWidget { background-color: white; }")
-        scroll_layout = QVBoxLayout(scroll_widget)
-        scroll_layout.setContentsMargins(0, 0, 10, 0)
-        scroll_layout.setSpacing(10)
-        
-        # Create form grid
-        self.form_grid = QGridLayout()
-        self.form_grid.setVerticalSpacing(5)  # Even more spacing
-        self.form_grid.setHorizontalSpacing(25)  # Also increased horizontal
-        self.form_grid.setContentsMargins(0, 0, 0, 0)  # More margins all around
-        
-
-        # Initialize field storage and create fields
-        self.mother_fields = {}
-        self._create_form_fields()
-    
-        scroll_layout.addLayout(self.form_grid)
-        scroll_layout.addStretch()
-        
-        scroll_area.setWidget(scroll_widget)
-        scroll_area.setWidgetResizable(True)
-        layout.addWidget(scroll_area)
-        
-        return container
-    
-    def _create_actions_container(self):
-        """Create the action buttons container."""
-        container = QFrame()
-        container.setObjectName("ActionButtonsContainer")
-        container.setStyleSheet("""
-            QFrame#ActionButtonsContainer {
-                background-color: white;
-                border-radius: 8px;
-                border: none;
-            }
-        """)
-        
-        layout = QHBoxLayout(container)
-        layout.setContentsMargins(0, 0, 0, 0)
-        layout.setSpacing(10)
-        
-        # Create buttons
-        reset_btn = QPushButton("Reset")
-        cancel_btn = QPushButton("Cancel")
-        save_btn = QPushButton("Save Information")
-        apply_all_checkbox = QCheckBox("Apply to all filtered rows")
-        
-        # Apply differentiated button styling using theme styles
-        reset_btn.setStyleSheet(self.styles['button_secondary'])  # Secondary for reset
-   
-        
-        cancel_btn.setStyleSheet(self.styles['button_warning'])   # Warning for cancel
-
-        
-        save_btn.setStyleSheet(self.styles['button_success'])     # Success for save
-
-
-        
-        # Connect signals
-        reset_btn.clicked.connect(self._reset_form)
-        cancel_btn.clicked.connect(self._show_table)
-        save_btn.clicked.connect(lambda: self._save_form_data(apply_all_checkbox.isChecked()))
-        
-        # Layout buttons
-        layout.addWidget(reset_btn)
-        layout.addWidget(cancel_btn)
-        layout.addWidget(apply_all_checkbox)
-        layout.addStretch()
-        layout.addWidget(save_btn)
-        
-        return container
-            
-    def _enforce_custom_styles(self):
-        """Enforce custom component styles with highest priority possible."""
-        try:
-            # Apply field styling to form fields
-            if hasattr(self, 'mother_fields'):
-                for field_container in self.mother_fields.values():
-                    FormStyleManager.ensure_field_transparency(field_container)
-                    
-                    # Apply styling to actual field widget
-                    if field_container and field_container.layout():
-                        layout = field_container.layout()
-                        if layout.count() >= 2:
-                            widget = layout.itemAt(1).widget()
-                            
-                            # Ensure input fields have visible borders
-                            if isinstance(widget, QLineEdit):
-                                widget.setStyleSheet("""
-                                    QLineEdit {
-                                        border: 1px solid #cccccc;
-                                        border-radius: 4px;
-                                        padding: 5px;
-                                        background-color: #ffffff;
-                                    }
-                                """)
-                            elif isinstance(widget, QSpinBox):
-                                widget.setStyleSheet("""
-                                    QSpinBox {
-                                        border: 1px solid #cccccc;
-                                        border-radius: 4px;
-                                        padding: 5px;
-                                        background-color: #ffffff;
-                                    }
-                                """)
-                            # Do NOT apply any custom inline styling to CustomComboBox
-            
-            # Additional focused protection for the recipient combo specifically
-            if hasattr(self, 'recipient_combo') and isinstance(self.recipient_combo, CustomComboBox):
-                # Remove any inherited styles first
-                self.recipient_combo.setStyleSheet("")
-                # Then force its own styling
-                self.recipient_combo.enforceStyle()
-                # Ensure consistent height
-              
-                
-        except Exception as e:
-            print(f"Style enforcement error: {e}")
-
-    def _create_form_fields(self):
-        """Create all form fields using configuration-driven approach."""
-        # Define field configurations
+        # Field configurations
         self.principal_fields = [
             ("household_size", "Household Size", "spinbox"),
             ("household_head_name", "Household Head Name", "text"),
@@ -485,479 +120,8 @@ class MotherRegPage(QWidget):
             ("guardian_relation", "Guardian Relation", "combo", ["Father", "Mother", "Uncle", "Aunt", "Grandfather", "Grandmother", "Other"]),
         ]
         
-        # Create unique fields set to avoid duplicates
-        all_unique_fields = []
-        field_names_added = set()
-        
-        # Add all fields but avoid duplicates
-        for field_config in self.principal_fields + self.guardian_fields:
-            field_name = field_config[0]
-            if field_name not in field_names_added:
-                all_unique_fields.append(field_config)
-                field_names_added.add(field_name)
-        
-        self._add_fields_to_grid(all_unique_fields)
-    
-    def _add_fields_to_grid(self, fields):
-        """Add field configurations to the grid layout."""
-        row, col = 0, 0
-        
-        for field_name, label_text, field_type, *extras in fields:
-            field_widget = self._create_field_widget(field_name, label_text, field_type, extras)
-            self.mother_fields[field_name] = field_widget
-            
-            self.form_grid.addWidget(field_widget, row, col)
-            
-            col += 1
-            if col >= 2:
-                col = 0
-                row += 1
-
-    def _create_field_widget(self, field_name, label_text, field_type, extra_params=None):
-        """Create a form field widget with label and input."""
-        container = QWidget()
-        container.setObjectName(f"FormFieldContainer_{field_name}")
-        FormStyleManager.ensure_field_transparency(container)
-        
-        layout = QVBoxLayout(container)
-        layout.setContentsMargins(10, 0, 10, 0)  # More margins, especially bottom
-        layout.setSpacing(10)  # Even more spacing between label and input
-        container.setMinimumHeight(90)  # Minimum height for consistent spacing
-        # Remove maximum height to allow flexibility
-        container.setMinimumWidth(250)  # Minimum width but allow expansion
-        
-        # Make container responsive
-        container.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
-        
-        # Create label
-        label = FormLabel(label_text)
-        
-        label.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
-        layout.addWidget(label)
-        
-        # Create input widget based on type
-        widget = self._create_input_widget(field_type, field_name, label_text, extra_params)
-        # widget.setMinimumHeight(40)  # Minimum height instead of fixed
-        widget.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
-        
-        layout.addWidget(widget)
-        
-        # Add stretch to prevent cutting
-        layout.addStretch(1)
-        
-        return container
-    
-    def _create_input_widget(self, field_type, field_name, label_text, extra_params):
-        """Create the appropriate input widget based on field type."""
-        if field_type in ["text", "cnic", "phone", "mwa"]:
-            widget = InputField.create_field(
-                "cnic" if field_type == "cnic" else "phone" if field_type in ["phone", "mwa"] else "text", 
-                label_text
-            )
-            widget.setObjectName(f"FormField_{field_name}")
-            
-        elif field_type == "date":
-            widget = CustomDateEdit(icon_only=True)
-            widget.setDate(QDate.currentDate())
-            widget.setObjectName(f"CustomDateEdit_{field_name}")
-            
-            # Simple style enforcement without timers
-            if hasattr(widget, 'enforceStyle'):
-                widget.enforceStyle()
-                
-        elif field_type == "combo":
-            widget = CustomComboBox()
-            widget.setObjectName(f"CustomComboBox_{field_name}")
-            if extra_params and len(extra_params) > 0:
-                widget.addItems(extra_params[0])
-                
-        elif field_type == "spinbox":
-            widget = InputField.create_field("spinbox", label_text)
-            widget.setObjectName(f"FormField_{field_name}")
-            
-        else:
-            # Default to text field
-            widget = InputField.create_field("text", label_text)
-            widget.setObjectName(f"FormField_{field_name}")
-        
-        return widget
-
-    def _on_recipient_type_changed(self):
-        """Show/hide fields based on recipient type selection."""
-        recipient_type = self.recipient_combo.currentText()
-        
-        # Hide all fields first
-        for field_name in self.mother_fields:
-            self.mother_fields[field_name].setVisible(False)
-        
-        if recipient_type == "Principal":
-            # Show only principal (mother) fields
-            for field_name, _, _, *_ in self.principal_fields:
-                if field_name in self.mother_fields:
-                    self.mother_fields[field_name].setVisible(True)
-        else:  # Alternate Guardian
-            # Show only guardian fields
-            for field_name, _, _, *_ in self.guardian_fields:
-                if field_name in self.mother_fields:
-                    self.mother_fields[field_name].setVisible(True)
-
-    def _reset_form(self):
-        """Reset all form fields to default values."""
-        for field_name, container in self.mother_fields.items():
-            # Find the actual input widget inside the container
-            layout = container.layout()
-            if layout and layout.count() >= 2:
-                widget = layout.itemAt(1).widget()  # Second item is the input widget
-                
-                if isinstance(widget, QLineEdit):
-                    widget.clear()
-                elif isinstance(widget, QSpinBox):
-                    widget.setValue(1)
-                elif isinstance(widget, CustomComboBox):
-                    widget.setCurrentIndex(0)
-                elif isinstance(widget, QDateEdit) or isinstance(widget, CustomDateEdit):
-                    widget.setDate(QDate.currentDate())
-    
-
-    def _save_form_data(self, apply_all):
-        """Save the form data to selected students."""
-        try:
-            # Get target students
-            target_snos = []
-            if apply_all:
-                for r in range(self.mothers_table.rowCount()):
-                    s_no_item = self.mothers_table.item(r, 1)
-                    if s_no_item and s_no_item.text().strip():
-                        target_snos.append(s_no_item.text().strip())
-            else:
-                target_snos = list(self.selected_snos)
-            
-            if not target_snos:
-                QMessageBox.warning(self, "No Students Selected", 
-                                  "Select one or more students (checkbox), or tick 'Apply to all filtered rows'.")
-                return
-            
-            # Collect form data
-            info = {}
-            recipient_type = self.recipient_combo.currentText()
-            
-            # Get visible fields based on recipient type
-            visible_fields = self.principal_fields if recipient_type == "Principal" else self.guardian_fields
-            
-            for field_name, _, _, *_ in visible_fields:
-                if field_name in self.mother_fields:
-                    container = self.mother_fields[field_name]
-                    layout = container.layout()
-                    if layout and layout.count() >= 2:
-                        widget = layout.itemAt(1).widget()
-                        
-                        if isinstance(widget, QLineEdit):
-                            info[field_name] = widget.text().strip()
-                        elif isinstance(widget, QSpinBox):
-                            info[field_name] = widget.value()
-                        elif isinstance(widget, CustomComboBox):
-                            info[field_name] = widget.currentText()
-                        elif isinstance(widget, QDateEdit) or isinstance(widget, CustomDateEdit):
-                            info[field_name] = widget.date().toString("yyyy-MM-dd")
-            
-            # Save to database
-            updated_count = 0
-            if len(target_snos) == 1:
-                updated = self.db.update_mother_info(target_snos[0], info)
-                updated_count = 1 if updated else 0
-            else:
-                updated_count = self.db.update_mother_info_bulk(target_snos, info)
-            
-            if updated_count > 0:
-                QMessageBox.information(self, "Saved", 
-                                      f"{recipient_type} information saved to {updated_count} student(s).")
-                # Hide form and focus on table
-                self._show_table()
-                self.selected_snos.clear()
-                self._load_data()
-            else:
-                QMessageBox.information(self, "No Changes", "Nothing to save or invalid fields.")
-                
-        except Exception as e:
-            QMessageBox.critical(self, "Save Error", f"Failed to save information:\n{str(e)}")
-    def _create_table_panel(self):
-        """Create the table panel."""
-        table_panel = QFrame()
-        table_panel.setStyleSheet(f"""
-            QFrame {{
-                background: {COLORS['white']};
-                border: none;
-            }}
-        """)
-        
-        # Main panel layout
-        panel_layout = QVBoxLayout(table_panel)
-        panel_layout.setContentsMargins(0, 10, 0, 0)
-        panel_layout.setSpacing(0)
-        
-        # Create and configure the SMISTable component
-        self.mothers_table = SMISTable()
-        self.mothers_table.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
-        
-        # Set up table headers and checkbox column
-        headers = ["", "ID", "Student Name", "Father Name", "Class", "Section", "School"]
-        self.mothers_table.setup_with_headers(headers, checkbox_column=0)
-        
-        # Connect to selection changed signal
-        self.mothers_table.selectionChanged.connect(self._on_table_selection_changed)
-        
-        # Add table directly to the main panel layout
-        panel_layout.addWidget(self.mothers_table, 1)  # Give table stretch factor 1
-        
-        return table_panel
-        
-    # Keep the original method for backward compatibility
-    def _create_left_panel(self):
-        """Deprecated: Use _create_table_panel instead."""
-        return self._create_table_panel()
-
-    def _create_form_panel(self):
-        """Create the form panel for the stacked widget."""
-        self.form_frame = QFrame()
-        self.form_frame.setStyleSheet(f"""
-            QFrame {{
-                background: {COLORS['white']};
-                border: none;
-                min-height: 500px;
-            }}
-        """)
-        return self.form_frame
-        
-    def _create_right_panel(self):
-        """Deprecated: Use _create_form_panel instead."""
-        return self._create_form_panel()
-
-    def _load_data(self):
-        """Load student data that needs mother/guardian information."""
-        try:
-            filters = self.get_filters()
-            students = self._get_students_needing_mother_info(filters)
-            self._populate_table(students)
-        except Exception as e:
-            print(f"Error loading student data: {e}")
-            QMessageBox.warning(self, "Data Load Error", f"Failed to load student data: {str(e)}")
-    
-    def _get_students_needing_mother_info(self, filters=None):
-        """Get students who need mother/guardian information based on filters."""
-        where_clauses = [
-            "is_deleted = 0",
-            "status = 'Active'",
-            """(
-                (COALESCE(mother_name,'') = '' OR COALESCE(mother_cnic,'') = '') 
-                AND 
-                (COALESCE(alternate_name,'') = '' OR COALESCE(alternate_cnic,'') = '' OR COALESCE(alternate_relationship_with_mother,'') = '')
-            )"""
-        ]
-        params = []
-        
-        if filters:
-            # Apply filters
-            if filters.get("class") and filters["class"] not in ["Please Select Class", "All Classes"]:
-                where_clauses.append("class = ?")
-                params.append(filters["class"])
-                
-            if filters.get("section") and filters["section"] not in ["Please Select Section", "All Sections"]:
-                where_clauses.append("section = ?")
-                params.append(filters["section"])
-                
-            if filters.get("status") and filters["status"] != "All Status":
-                where_clauses.append("status = ?")
-                params.append(filters["status"])
-        
-        # Build and execute query
-        where_sql = f"WHERE {' AND '.join(where_clauses)}"
-        sql = f"SELECT student_id, student_name, father_name, class, section FROM students {where_sql} ORDER BY student_name"
-        
-        rows = self.db.execute_secure_query(sql, tuple(params))
-        return [self._format_student_data(row) for row in rows]
-    
-    def _format_student_data(self, row):
-        """Format a database row into standardized student data."""
-        # Convert sqlite3.Row to dict first for consistent access
-        if hasattr(row, 'keys'):
-            row_dict = {key: row[key] for key in row.keys()}
-        else:
-            row_dict = dict(row)
-            
-        return {
-            'Student ID': row_dict.get('student_id', ''),
-            'Name': row_dict.get('student_name', ''),
-            'Father': row_dict.get('father_name', ''),
-            'Class': row_dict.get('class', ''),
-            'Section': row_dict.get('section', '')
-        }
-
-    def _populate_table(self, students):
-        """Populate table with student data."""
-        self._is_populating = True
-        
-        # Convert student data to the format expected by SMISTable
-        table_data = []
-        for student in students:
-            row_data = self._format_student_to_row_data(student)
-            table_data.append(row_data)
-        
-        # Use SMISTable's populate_data method with ID column specified
-        self.mothers_table.populate_data(table_data, id_column=1)
-        
-        # If we have selected student IDs, set them in the table
-        if self.selected_snos:
-            self.mothers_table.set_selected_rows(list(self.selected_snos))
-        
-        self._is_populating = False
-        self._update_selected_summary()
-        
-    def _format_student_to_row_data(self, student_data):
-        """Format student data dictionary into a row for the table."""
-        # Helper to safely get values from various data types
-        def get_value(data, key, alt_keys=()):
-            # Handle sqlite3.Row objects
-            if hasattr(data, 'keys'):
-                data_dict = {k: data[k] for k in data.keys()}
-                val = data_dict.get(key)
-                if val is None:
-                    for k in alt_keys:
-                        v = data_dict.get(k)
-                        if v is not None:
-                            return v
-                return val
-            # Handle dict-like objects
-            if hasattr(data, 'get'):
-                val = data.get(key)
-                if val is None:
-                    for k in alt_keys:
-                        v = data.get(k)
-                        if v is not None:
-                            return v
-                return val
-            # Handle sequence-like access
-            try:
-                return data[key]
-            except Exception:
-                for k in alt_keys:
-                    try:
-                        return data[k]
-                    except Exception:
-                        continue
-                return ""
-        
-        # Create row data array for SMISTable
-        row_data = [""]  # Empty first cell for checkbox
-        
-        # Define the table columns and their mapping to data fields
-        table_columns = [
-            ("Student ID", []),
-            ("Name", []),
-            ("Father", ["Father's Name"]),
-            ("Class", ["class_2025"]),
-            ("Section", []),
-            ("School", ["School Name", "school_name"])
-        ]
-        
-        # Extract values for each column
-        for key, alt_keys in table_columns:
-            value = str(get_value(student_data, key, alt_keys))
-            row_data.append(value)
-            
-        return row_data
-
-    def _connect_signals(self):
-        self.add_new_btn.clicked.connect(self._show_add_form)
-        self.refresh_btn.clicked.connect(self._load_data)
-        # Connect filter comboboxes
-        self.school_combo.currentTextChanged.connect(self._apply_filters)
-        self.class_combo.currentTextChanged.connect(self._apply_filters)
-        self.section_combo.currentTextChanged.connect(self._apply_filters)
-        self.status_filter_combo.currentTextChanged.connect(self._apply_filters)
-        # Table signals
-        # selectionChanged is already connected in table setup
-        self.mothers_table.table.itemDoubleClicked.connect(self._on_double_click)
-        self.edit_btn.clicked.connect(self._edit_mother)
-        self.delete_btn.clicked.connect(self._delete_mother)
-        self.view_details_btn.clicked.connect(self._view_details)
-        # Note: itemChanged signal is now handled by SMISTable internally
-        self.view_selected_btn.clicked.connect(self._view_selected_list)
-
-    def _on_item_changed(self, item):
-        """
-        Legacy method for checkbox state changes.
-        Now handled directly by the TableCheckboxCell widget's signal connections.
-        """
-        pass
-
-    def _update_selected_summary(self):
-        count = len(self.selected_snos)
-        if self.selected_info_label:
-            self.selected_info_label.setText(f"Selected: {count}")
-        if self.view_selected_btn:
-            self.view_selected_btn.setEnabled(count > 0)
-
-    def _view_selected_list(self):
-        """Show a dialog listing selected students (S# and Name if visible)."""
-        selected_list = []
-        # Try to get names for currently visible rows
-        visible_map = {}
-        for r in range(self.mothers_table.rowCount()):
-            sno_item = self.mothers_table.item(r, 1)
-            name_item = self.mothers_table.item(r, 2)
-            if sno_item and name_item:
-                visible_map[sno_item.text().strip()] = name_item.text().strip()
-        for sno in sorted(self.selected_snos):
-            name = visible_map.get(sno, "(hidden)")
-            selected_list.append(f"{sno} - {name}")
-        if not selected_list:
-            QMessageBox.information(self, "Selected Students", "No students selected.")
-            return
-        dlg = QDialog(self)
-        dlg.setWindowTitle("Selected Students")
-        v = QVBoxLayout(dlg)
-        text = QTextEdit()
-        text.setReadOnly(True)
-        text.setText("\n".join(selected_list))
-        v.addWidget(text)
-        btns = QDialogButtonBox(QDialogButtonBox.Ok)
-        btns.accepted.connect(dlg.accept)
-        v.addWidget(btns)
-        dlg.exec_()
-
-    # Add stubs for form and filter logic as needed, or copy from StudentPage and adapt for mothers.
-    """Modern Mother Registration management page (structure based on StudentPage)."""
-    
-    # Signals
-    mother_added = pyqtSignal(dict)
-    mother_updated = pyqtSignal(dict)
-    mother_deleted = pyqtSignal(str)
-
-    def __init__(self):
-        super().__init__()
-        # Initialize core components
-        self._init_core_attributes()
-        self._init_ui_components()
-        self._setup_ui()
-        self._load_initial_data()
-    
-    def _init_core_attributes(self):
-        """Initialize core attributes and services."""
-        # Styling and data services
-        self.styles = get_global_styles()
-        self.form_style_manager = FormStyleManager()
-        self.db = Database()
-        
-        # Form state
-        self.current_mother_id = None
-        self.is_editing = False
-        self._is_populating = False
-        
-        # Selection tracking
-        self.selected_snos = set()
-        
-        # Apply base styles
-        self.apply_stylelogin_styles()
+        # Apply proper styles instead of QSS
+        self.apply_modern_styles()
     
     def _init_ui_components(self):
         """Initialize UI component references."""
@@ -978,11 +142,17 @@ class MotherRegPage(QWidget):
         self.edit_btn = None
         self.delete_btn = None
         self.view_details_btn = None
+        self.add_new_btn = None
+        self.refresh_btn = None
         
         # Main UI components
         self.mothers_table = None
         self.form_frame = None
         self.selected_info_label = None
+        self.recipient_combo = None
+        self.content_splitter = None
+        self.main_container = None
+        self.form_grid = None
     
     def _setup_ui(self):
         """Setup the main UI layout."""
@@ -995,36 +165,27 @@ class MotherRegPage(QWidget):
         self._load_data()
 
     def _init_ui(self):
+        """Initialize the main UI layout."""
         main_layout = QVBoxLayout(self)
-        main_layout.setContentsMargins(20, 5, 20, 20)  # Reduced top margin
-        main_layout.setSpacing(0)  # Remove spacing between components
+        main_layout.setContentsMargins(20, 5, 20, 20)
+        main_layout.setSpacing(0)
         
-        # Create header frame
-        header_frame = self._create_header()
-        main_layout.addWidget(header_frame, 0)
-        
-        # Create the main container that will hold filter, table and form
+        # Create the main container
         self.main_container = QFrame()
-        self.main_container.setStyleSheet(f"""
-            QFrame {{
-                background: {COLORS['white']};
-                border-radius: {RADIUS['lg']};
-                border: 1px solid {COLORS['gray_200']};
-            }}
-        """)
+        # Styling handled by global stylesheet
         
         # Main container layout
         main_container_layout = QVBoxLayout(self.main_container)
         main_container_layout.setContentsMargins(0, 0, 0, 0)
         main_container_layout.setSpacing(0)
         
-        # Create filter section and add to main container
+        # Create filter section
         filter_frame = self._create_filter_section()
         main_container_layout.addWidget(filter_frame)
         
-        # Create content area with splitter for table and form
+        # Create content area with splitter
         content_container = QFrame()
-        content_container.setStyleSheet("background: transparent; border: none;")
+        # Styling handled by global stylesheet
         content_layout = QVBoxLayout(content_container)
         content_layout.setContentsMargins(15, 0, 15, 15)
         content_layout.setSpacing(0)
@@ -1032,68 +193,50 @@ class MotherRegPage(QWidget):
         # Create splitter for table and form
         self.content_splitter = QSplitter(Qt.Horizontal)
         
-        # Create and add table panel
+        # Create and add panels
         table_panel = self._create_table_panel()
         self.content_splitter.addWidget(table_panel)
         
-        # Create and add form panel - reusing the existing form panel logic
         form_panel = self._create_form_panel()
         self.content_splitter.addWidget(form_panel)
         
-        # Set initial sizes for the splitter and hide form initially
+        # Set initial sizes and hide form
         self.content_splitter.setSizes([1000, 0])
         self.content_splitter.setCollapsible(0, False)
         self.content_splitter.setCollapsible(1, False)
         self.form_frame.setVisible(False)
         
-        # Add splitter to content container
+        # Add to layouts
         content_layout.addWidget(self.content_splitter)
-        
-        # Add content container to main container
-        main_container_layout.addWidget(content_container, 1)  # Give it stretch factor
-        
-        # Add main container to the page layout
-        main_layout.addWidget(self.main_container, 1)  # Give it stretch factor
+        main_container_layout.addWidget(content_container, 1)
+        main_layout.addWidget(self.main_container, 1)
 
     def _create_filter_section(self):
-        """Create enhanced filter section with 2x2 grid layout for mother registration."""
-        from resources.styles import COLORS, get_attendance_styles
-        
+        """Create enhanced filter section with 2x2 grid layout."""
         filters_frame = QFrame()
-        filters_frame.setFixedHeight(180)  # Fixed height to prevent stretching
-        filters_frame.setStyleSheet(f"""
-            QFrame {{
-                background:white;
-                border: 1px solid {COLORS['gray_200']};
-                border-radius: 0 0 8px 8px;  /* Rounded only on bottom */
-                padding: 12px;
-                margin-top: -1px;  /* Overlap with header to remove line */
-            }}
-        """)
+        filters_frame.setFixedHeight(180)
+        # Styling handled by global stylesheet
         
         filters_layout = QVBoxLayout(filters_frame)
-        filters_layout.setSpacing(10)  # Slightly reduced vertical spacing
-        filters_layout.setContentsMargins(10, 4, 10, 4)  # Reduced vertical margins
+        filters_layout.setSpacing(10)
+        filters_layout.setContentsMargins(10, 4, 10, 4)
         
         # Create grid layout for filters
         filter_grid = QGridLayout()
-        filter_grid.setSpacing(12)  # Increased horizontal spacing
-        filter_grid.setVerticalSpacing(10)  # Increased vertical spacing
-        filter_grid.setColumnStretch(0, 1)  # Equal column widths
+        filter_grid.setSpacing(12)
+        filter_grid.setVerticalSpacing(10)
+        filter_grid.setColumnStretch(0, 1)
         filter_grid.setColumnStretch(1, 1)
         
-        styles = get_attendance_styles()
-        
-
-        
+        # Create filter combo boxes
         self.school_combo = CustomComboBox()
-        self.school_combo.addItem("Please Select School")  # Placeholder
+        self.school_combo.addItem("Please Select School")
         
         self.class_combo = CustomComboBox()
-        self.class_combo.addItem("Please Select Class")  # Placeholder
+        self.class_combo.addItem("Please Select Class")
         
         self.section_combo = CustomComboBox()
-        self.section_combo.addItem("Please Select Section")  # Placeholder
+        self.section_combo.addItem("Please Select Section")
         
         self.status_filter_combo = CustomComboBox()
         self.status_filter_combo.addItems([
@@ -1101,234 +244,831 @@ class MotherRegPage(QWidget):
         ])
         
         # Add widgets to grid: 2x2 layout
-        filter_grid.addWidget(self.school_combo, 0, 0)          # Row 1, Col 1
-        filter_grid.addWidget(self.class_combo, 0, 1)           # Row 1, Col 2
-        filter_grid.addWidget(self.section_combo, 1, 0)         # Row 2, Col 1
-        filter_grid.addWidget(self.status_filter_combo, 1, 1)   # Row 2, Col 2
+        filter_grid.addWidget(self.school_combo, 0, 0)
+        filter_grid.addWidget(self.class_combo, 0, 1)
+        filter_grid.addWidget(self.section_combo, 1, 0)
+        filter_grid.addWidget(self.status_filter_combo, 1, 1)
         filters_layout.addLayout(filter_grid)
         
-        # Create action bar with filter label and buttons
+        # Create action bar
+        action_bar = self._create_action_bar()
+        filters_layout.addLayout(action_bar)
+        
+        return filters_frame
+
+    def _create_action_bar(self):
+        """Create the action bar with filter info and buttons."""
         action_bar = QHBoxLayout()
-        action_bar.setContentsMargins(15, 5, 15, 5)  # Reduced vertical margins
+        action_bar.setContentsMargins(15, 5, 15, 5)
         action_bar.setSpacing(15)
         
-        # Filter information label (left side)
+        # Filter information label
         self.filter_info_label = QLabel("No filters applied")
-        self.filter_info_label.setStyleSheet(f"""
-            QLabel {{
-                color: {COLORS['gray_600']};
-                font-size: 12px;
-                font-weight: 500;
-                padding: 8px 12px;
-                background: transparent;
-                border: none;
-                margin-top: 5px;
-                min-height: 25px;
-            }}
-        """)
+        # Styling handled by global stylesheet
         action_bar.addWidget(self.filter_info_label)
         
-        # Add spacer to push buttons to the right
+        # Add spacer
         action_bar.addStretch(1)
+        
+        # Actions label
+        actions_label = QLabel("Actions:")
+        # Styling handled by global stylesheet
+        action_bar.addWidget(actions_label)
+        
+        # Add header buttons (moved from header)
+        self.add_new_btn = QPushButton("Add Mother")
+        self.add_new_btn.setProperty("class", "success")
+        action_bar.addWidget(self.add_new_btn)
+        
+        self.refresh_btn = QPushButton("Refresh")
+        self.refresh_btn.setProperty("class", "secondary")
+        action_bar.addWidget(self.refresh_btn)
         
         # Selected count info
         self.selected_info_label = QLabel("Selected: 0")
-        self.selected_info_label.setStyleSheet(f"""
-            QLabel {{
-                color: {COLORS['gray_600']};
-                font-size: 12px;
-                font-weight: 500;
-                padding: 8px 12px;
-                background: transparent;
-                border: none;
-                min-height: 25px;
-            }}
-        """)
+        # Styling handled by global stylesheet
         action_bar.addWidget(self.selected_info_label)
         
-        # Create action buttons with standardized 28px height from constants
-        
-        # View Selected button
+        # Create action buttons
         self.view_selected_btn = QPushButton("View Selected")
         self.view_selected_btn.setEnabled(False)
-        self.view_selected_btn.setStyleSheet(self.styles['button_secondary'])
-  
+        self.view_selected_btn.setProperty("class", "secondary")
         action_bar.addWidget(self.view_selected_btn)
         
-        # Edit Selected button
         self.edit_btn = QPushButton("Edit Selected")
         self.edit_btn.setEnabled(False)
-        self.edit_btn.setStyleSheet(self.styles['button_secondary'])
-
+        self.edit_btn.setProperty("class", "secondary")
         action_bar.addWidget(self.edit_btn)
         
-        # Delete Selected button
         self.delete_btn = QPushButton("Delete Selected")
         self.delete_btn.setEnabled(False)
-        self.delete_btn.setStyleSheet(self.styles['button_warning'])
-
+        self.delete_btn.setProperty("class", "warning")
         action_bar.addWidget(self.delete_btn)
         
-        # View Details button
         self.view_details_btn = QPushButton("View Details")
         self.view_details_btn.setEnabled(False)
-        self.view_details_btn.setStyleSheet(self.styles['button_primary'])
-  
+        self.view_details_btn.setProperty("class", "primary")
         action_bar.addWidget(self.view_details_btn)
         
-        # Add action bar to filters layout
-        filters_layout.addLayout(action_bar)
-        
-        # Note: Signal connections are handled in _connect_signals method
-        
-        return filters_frame
-        
-    def _create_header(self):
-        header_frame = QFrame()
-        header_frame.setFixedHeight(60)  # Slightly reduced height
-        header_frame.setStyleSheet(f"""
-            QFrame {{
-                background: {COLORS['primary']};
-                padding-left: 10px;
-                padding-right: 10px;
-                padding-top: 0px;
-                padding-bottom: 0px;
-                margin-bottom: 10px;
-            }}
-        """)
-        header_layout = QHBoxLayout(header_frame)
-        header_layout.setContentsMargins(0, 0, 0, 0)  # Increased horizontal margins
-        header_layout.setSpacing(10)  # Increased spacing
-        title_layout = QVBoxLayout()
-        title_layout.setSpacing(0)
-        page_title = QLabel("Mother Registration")
-        page_title.setStyleSheet("""
-            QLabel {
-                color: white;
-                font-size: 18px;
-                font-family: 'Poppins Bold';
-                font-weight: 700;
-                border: none;
-                background: transparent;
-            }
-        """)
-        title_layout.addWidget(page_title)
-        actions_layout = QHBoxLayout()
-        actions_layout.setSpacing(8)
-        self.add_new_btn = QPushButton("➕ Add Mother")
-        self.add_new_btn.setStyleSheet(self.styles['button_success'])  # Success style for add actions
+        return action_bar
 
-    
-        self.refresh_btn = QPushButton("🔄 Refresh")
-        self.refresh_btn.setStyleSheet(self.styles['button_secondary'])  # Secondary style for utility actions
-   
- 
-        actions_layout.addWidget(self.add_new_btn)
-        actions_layout.addWidget(self.refresh_btn)
-        header_layout.addLayout(title_layout)
-        header_layout.addStretch()
-        header_layout.addLayout(actions_layout)
-        return header_frame
+    def _create_table_panel(self):
+        """Create the table panel."""
+        table_panel = QFrame()
+        # Styling handled by global stylesheet
+        
+        panel_layout = QVBoxLayout(table_panel)
+        panel_layout.setContentsMargins(0, 10, 0, 0)
+        panel_layout.setSpacing(0)
+        
+        # Create and configure the SMISTable component
+        self.mothers_table = SMISTable()
+        self.mothers_table.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+        
+        # Set up table headers and checkbox column
+        headers = ["", "ID", "Student Name", "Father Name", "Class", "Section", "School"]
+        self.mothers_table.setup_with_headers(headers, checkbox_column=0)
+        
+        # Connect to selection changed signal
+        self.mothers_table.selectionChanged.connect(self._on_table_selection_changed)
+        
+        panel_layout.addWidget(self.mothers_table, 1)
+        
+        return table_panel
+
+    def _create_form_panel(self):
+        """Create the form panel for data entry."""
+        self.form_frame = QFrame()
+        # Styling handled by global stylesheet
+        return self.form_frame
+
+    def _connect_signals(self):
+        """Connect all UI signals to their handlers."""
+        # Header buttons
+        self.add_new_btn.clicked.connect(self._show_add_form)
+        self.refresh_btn.clicked.connect(self._load_data)
+        
+        # Filter combo boxes
+        self.school_combo.currentTextChanged.connect(self._apply_filters)
+        self.class_combo.currentTextChanged.connect(self._apply_filters)
+        self.section_combo.currentTextChanged.connect(self._apply_filters)
+        self.status_filter_combo.currentTextChanged.connect(self._apply_filters)
+        
+        # Action buttons
+        self.edit_btn.clicked.connect(self._edit_mother)
+        self.delete_btn.clicked.connect(self._delete_mother)
+        self.view_details_btn.clicked.connect(self._view_details)
+        self.view_selected_btn.clicked.connect(self._view_selected_list)
+        
+        # Table signals
+        if self.mothers_table:
+            self.mothers_table.table.itemDoubleClicked.connect(self._on_double_click)
 
     def _load_initial_filter_data(self):
         """Load initial data for filter dropdowns."""
         try:
-            # Clear existing items first
+            # Clear existing items
             self.school_combo.clear()
             self.class_combo.clear()
             self.section_combo.clear()
             
-            # Add default "All" options
+            # Add default options
             self.school_combo.addItem("All Schools")
             self.class_combo.addItem("All Classes")
             self.section_combo.addItem("All Sections")
             
-            # Load schools
-            schools = self.db.get_schools()
-            for school in schools:
-                school_name = school.get('name', 'Unknown School')
-                school_id = school.get('id', '')
-                self.school_combo.addItem(school_name, school_id)
-                
-            # Load classes
-            classes = self.db.get_classes()
-            for class_name in classes:
-                self.class_combo.addItem(class_name)
-                
-            # Load sections
-            sections = self.db.get_sections()
-            for section_name in sections:
-                self.section_combo.addItem(section_name)
-                
-            print(f"Loaded filter data in mother registration page")
-        except Exception as e:
-            print(f"❌ Error loading filter data: {e}")
-            # Add some default options if database fails
-            self.school_combo.addItems(["Pine Valley School", "Green Park Academy", "Sunshine High"])
-            self.class_combo.addItems(["Class 1", "Class 2", "Class 3"])
-            self.section_combo.addItems(["A", "B", "C"])
+            # Load data from service or database
+            if self.mother_service:
+                schools = self.mother_service.get_schools()
+                classes = self.mother_service.get_classes()
+                sections = self.mother_service.get_sections()
+            else:
+                schools = self.db.get_schools() if hasattr(self, 'db') else []
+                classes = self.db.get_classes() if hasattr(self, 'db') else []
+                sections = self.db.get_sections() if hasattr(self, 'db') else []
             
-    def _load_schools_data(self):
-        """Load schools from database and populate school combo."""
-        try:
-            schools = self.db.get_schools()
+            # Populate dropdowns
             for school in schools:
                 school_name = school.get('name', 'Unknown School')
                 school_id = school.get('id', '')
                 self.school_combo.addItem(school_name, school_id)
-            print(f"Loaded {len(schools)} schools in mother registration page")
-        except Exception as e:
-            print(f"❌ Error loading schools: {e}")
-            # Add some default options if database fails
-            self.school_combo.addItems(["Pine Valley School", "Green Park Academy", "Sunshine High"])
-
-    def _load_classes_data(self, school_id=None):
-        """Load classes from database and populate class combo."""
-        try:
-            classes = self.db.get_classes(school_id)
+                
             for class_name in classes:
                 self.class_combo.addItem(class_name)
-            print(f"Loaded {len(classes)} classes in mother registration page")
-        except Exception as e:
-            print(f"❌ Error loading classes: {e}")
-            # Add some default options if database fails
-            self.class_combo.addItems([f"Class {i}" for i in range(1, 13)])
-
-    def _load_sections_data(self, school_id=None, class_name=None):
-        """Load sections from database and populate section combo."""
-        try:
-            sections = self.db.get_sections(school_id, class_name)
+                
             for section_name in sections:
                 self.section_combo.addItem(section_name)
-            print(f"Loaded {len(sections)} sections in mother registration page")
+                
         except Exception as e:
-            print(f"❌ Error loading sections: {e}")
-            # Add some default options if database fails
+            print(f"Error loading filter data: {e}")
+            # Add fallback data
+            self.school_combo.addItems(["Pine Valley School", "Green Park Academy"])
+            self.class_combo.addItems([f"Class {i}" for i in range(1, 13)])
             self.section_combo.addItems(["A", "B", "C", "D", "E"])
 
-    def apply_stylelogin_styles(self):
-        """Apply styles from stylelogin.qss for unified look."""
-        qss_path = os.path.join(
-            os.path.dirname(os.path.abspath(__file__)),
-            "..", "..", "resources", "stylelogin.qss"
-        )
-        qss_path = os.path.normpath(qss_path)  # Windows/Linux safe
-        if os.path.exists(qss_path):
-            with open(qss_path, "r", encoding="utf-8") as f:
-                self.setStyleSheet(f.read())
+    def _load_data(self):
+        """Load student data that needs mother/guardian information."""
+        try:
+            filters = self._get_current_filters()
+            
+            if self.mother_service:
+                students = self.mother_service.get_students_needing_mother_info(filters)
+                table_data = [student.to_table_row() for student in students]
+            else:
+                # Fallback to direct database access
+                students = self._get_students_needing_mother_info_fallback(filters)
+                table_data = [self._format_student_to_row_data(student) for student in students]
+            
+            self._populate_table(table_data)
+            
+        except Exception as e:
+            print(f"Error loading student data: {e}")
+            show_warning_message("Data Load Error", f"Failed to load student data: {str(e)}")
+
+    def _get_current_filters(self):
+        """Get current filter values as MotherFilters object."""
+        if MotherFilters:
+            return MotherFilters(
+                school=self.school_combo.currentText(),
+                class_name=self.class_combo.currentText(),
+                section=self.section_combo.currentText(),
+                status=self.status_filter_combo.currentText()
+            )
         else:
-            print(f"⚠️ stylelogin.qss not found at: {qss_path}")
+            # Fallback dictionary
+            return {
+                "school": self.school_combo.currentText(),
+                "class": self.class_combo.currentText(),
+                "section": self.section_combo.currentText(),
+                "status": self.status_filter_combo.currentText()
+            }
 
-    # ...
-    # For brevity, copy all other methods from StudentPage, replacing 'student' with 'mother', and update labels/icons as needed.
+    def _get_students_needing_mother_info_fallback(self, filters):
+        """Fallback method for getting students when service layer not available."""
+        where_clauses = [
+            "is_deleted = 0",
+            "status = 'Active'",
+            """(
+                (COALESCE(mother_name,'') = '' OR COALESCE(mother_cnic,'') = '') 
+                AND 
+                (COALESCE(alternate_name,'') = '' OR COALESCE(alternate_cnic,'') = '')
+            )"""
+        ]
+        params = []
+        
+        # Apply filters
+        if isinstance(filters, dict):
+            if filters.get("class") and filters["class"] not in ["Please Select Class", "All Classes"]:
+                where_clauses.append("class = ?")
+                params.append(filters["class"])
+                
+            if filters.get("section") and filters["section"] not in ["Please Select Section", "All Sections"]:
+                where_clauses.append("section = ?")
+                params.append(filters["section"])
+        
+        where_sql = f"WHERE {' AND '.join(where_clauses)}"
+        sql = f"""
+            SELECT student_id, student_name, father_name, class, section 
+            FROM students {where_sql} 
+            ORDER BY student_name
+        """
+        
+        return self.db.execute_secure_query(sql, tuple(params))
+
+    def _format_student_to_row_data(self, student_data):
+        """Format student data into table row format."""
+        def get_value(data, key, default=""):
+            if hasattr(data, 'keys'):
+                return data.get(key, default)
+            return getattr(data, key, default)
+        
+        return [
+            "",  # Checkbox column
+            str(get_value(student_data, 'student_id')),
+            str(get_value(student_data, 'student_name')),
+            str(get_value(student_data, 'father_name')),
+            str(get_value(student_data, 'class')),
+            str(get_value(student_data, 'section')),
+            str(get_value(student_data, 'school', ''))
+        ]
+
+    def _populate_table(self, table_data):
+        """Populate table with student data."""
+        self._is_populating = True
+        
+        # Use SMISTable's populate_data method
+        self.mothers_table.populate_data(table_data, id_column=1)
+        
+        # Set selected rows if any
+        if self.selected_snos:
+            self.mothers_table.set_selected_rows(list(self.selected_snos))
+        
+        self._is_populating = False
+        self._update_selected_summary()
+
+    def _apply_filters(self):
+        """Apply current filter settings and reload data."""
+        filters = self._get_current_filters()
+        
+        # Update filter info label
+        filter_texts = []
+        
+        if hasattr(filters, 'get_active_filters'):
+            active_filters = filters.get_active_filters()
+            for key, value in active_filters.items():
+                filter_texts.append(f"{key.title()}: {value}")
+        else:
+            # Fallback for dictionary filters
+            for key, value in filters.items():
+                if value and value not in ["Please Select", "All"]:
+                    filter_texts.append(f"{key.title()}: {value}")
+        
+        if filter_texts:
+            self.filter_info_label.setText("Filters: " + " | ".join(filter_texts))
+        else:
+            self.filter_info_label.setText("No filters applied")
+        
+        # Reload data
+        self._load_data()
+
+    def _on_table_selection_changed(self, selected_ids):
+        """Handle table selection changes."""
+        self.selected_snos = set(selected_ids)
+        self._on_selection_changed()
+        self._update_selected_summary()
+
+    def _on_selection_changed(self):
+        """Update button states based on selection."""
+        has_selection = bool(self.selected_snos)
+        self.edit_btn.setEnabled(has_selection)
+        self.delete_btn.setEnabled(has_selection)
+        self.view_details_btn.setEnabled(has_selection)
+
+    def _update_selected_summary(self):
+        """Update the selected count display."""
+        count = len(self.selected_snos)
+        if self.selected_info_label:
+            self.selected_info_label.setText(f"Selected: {count}")
+        if self.view_selected_btn:
+            self.view_selected_btn.setEnabled(count > 0)
+
+    def _show_add_form(self):
+        """Show the form for adding mother/guardian information."""
+        try:
+            if not self._validate_form_frame():
+                return
+            
+            self._setup_form_layout()
+            self.form_frame.setVisible(True)
+            
+            # Adjust splitter to show both table and form
+            total_width = self.content_splitter.width()
+            table_width = int(total_width * 0.4)
+            form_width = int(total_width * 0.6)
+            self.content_splitter.setSizes([table_width, form_width])
+            
+        except Exception as e:
+            show_critical_message("Error", f"Failed to open form:\n{str(e)}")
+
+    def _validate_form_frame(self):
+        """Validate that form frame is available."""
+        if not hasattr(self, 'form_frame') or not self.form_frame:
+            show_critical_message("Error", "Form frame not available.")
+            return False
+        return True
+
+    def _setup_form_layout(self):
+        """Setup the main form layout."""
+        # Clear existing layout
+        current_layout = self.form_frame.layout()
+        if current_layout:
+            QWidget().setLayout(current_layout)
+        
+        # Apply styling
+        # Styling handled by global stylesheet
+        
+        # Create main layout
+        form_layout = QVBoxLayout()
+        form_layout.setContentsMargins(10, 10, 5, 10)
+        form_layout.setSpacing(20)
+        
+        # Add form sections
+        form_layout.addWidget(self._create_recipient_container())
+        form_layout.addWidget(self._create_fields_container(), 1)
+        form_layout.addWidget(self._create_actions_container())
+        
+        self.form_frame.setLayout(form_layout)
+        self._on_recipient_type_changed()
+
+    def _create_recipient_container(self):
+        """Create recipient type selection container."""
+        container = QFrame()
+        # Styling handled by global stylesheet
+        
+        layout = QVBoxLayout(container)
+        layout.setContentsMargins(0, 0, 25, 5)
+        layout.setSpacing(0)
+        
+        self.recipient_combo = CustomComboBox()
+        self.recipient_combo.addItems(["Principal", "Alternate Guardian"])
+        self.recipient_combo.setCurrentText("Principal")
+        self.recipient_combo.currentTextChanged.connect(self._on_recipient_type_changed)
+        
+        layout.addWidget(self.recipient_combo)
+        layout.addStretch()
+        
+        return container
+
+    def _create_fields_container(self):
+        """Create scrollable form fields container."""
+        container = QFrame()
+        # Styling handled by global stylesheet
+        
+        layout = QVBoxLayout(container)
+        layout.setContentsMargins(0, 0, 12, 0)
+        layout.setSpacing(10)
+        
+        # Create scrollable area
+        scroll_area = QScrollArea()
+        scroll_area.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        scroll_area.setVerticalScrollBarPolicy(Qt.ScrollBarAsNeeded)
+        scroll_area.setStyleSheet("")
+        # Styling handled by global stylesheet
+        
+        scroll_widget = QWidget()
+        scroll_widget.setStyleSheet("")
+        # Styling handled by global stylesheet
+        scroll_layout = QVBoxLayout(scroll_widget)
+        scroll_layout.setContentsMargins(0, 0, 10, 0)
+        scroll_layout.setSpacing(10)
+        
+        # Create form grid
+        self.form_grid = QGridLayout()
+        self.form_grid.setVerticalSpacing(5)
+        self.form_grid.setHorizontalSpacing(25)
+        self.form_grid.setContentsMargins(0, 0, 0, 0)
+        
+        # Initialize fields
+        self.mother_fields = {}
+        self._create_form_fields()
+        
+        scroll_layout.addLayout(self.form_grid)
+        scroll_layout.addStretch()
+        
+        scroll_area.setWidget(scroll_widget)
+        scroll_area.setWidgetResizable(True)
+        layout.addWidget(scroll_area)
+        
+        return container
+
+    def _create_actions_container(self):
+        """Create action buttons container."""
+        container = QFrame()
+        # Styling handled by global stylesheet
+        
+        layout = QHBoxLayout(container)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(10)
+        
+        # Create buttons
+        reset_btn = QPushButton("Reset")
+        cancel_btn = QPushButton("Cancel")
+        save_btn = QPushButton("Save Information")
+        apply_all_checkbox = QCheckBox("Apply to all filtered rows")
+        
+        # Apply styling
+        reset_btn.setProperty("class", "secondary")
+        cancel_btn.setProperty("class", "warning")
+        save_btn.setProperty("class", "success")
+        
+        # Connect signals
+        reset_btn.clicked.connect(self._reset_form)
+        cancel_btn.clicked.connect(self._show_table)
+        save_btn.clicked.connect(lambda: self._save_form_data(apply_all_checkbox.isChecked()))
+        
+        # Layout buttons
+        layout.addWidget(reset_btn)
+        layout.addWidget(cancel_btn)
+        layout.addWidget(apply_all_checkbox)
+        layout.addStretch()
+        layout.addWidget(save_btn)
+        
+        return container
+
+    def _create_form_fields(self):
+        """Create form fields based on configurations."""
+        # Create unique fields set
+        all_unique_fields = []
+        field_names_added = set()
+        
+        for field_config in self.principal_fields + self.guardian_fields:
+            field_name = field_config[0]
+            if field_name not in field_names_added:
+                all_unique_fields.append(field_config)
+                field_names_added.add(field_name)
+        
+        self._add_fields_to_grid(all_unique_fields)
+
+    def _add_fields_to_grid(self, fields):
+        """Add field configurations to the grid layout."""
+        row, col = 0, 0
+        
+        for field_name, label_text, field_type, *extras in fields:
+            field_widget = self._create_field_widget(field_name, label_text, field_type, extras)
+            self.mother_fields[field_name] = field_widget
+            
+            self.form_grid.addWidget(field_widget, row, col)
+            
+            col += 1
+            if col >= 2:
+                col = 0
+                row += 1
+
+    def _create_field_widget(self, field_name, label_text, field_type, extra_params=None):
+        """Create a form field widget with label and input."""
+        container = QWidget()
+        container.setObjectName(f"FormFieldContainer_{field_name}")
+        # Styling handled by global stylesheet
+        
+        layout = QVBoxLayout(container)
+        layout.setContentsMargins(10, 0, 10, 0)
+        layout.setSpacing(10)
+        container.setMinimumHeight(90)
+        container.setMinimumWidth(250)
+        container.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+        
+        # Create label
+        label = FormLabel(label_text)
+        label.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+        layout.addWidget(label)
+        
+        # Create input widget
+        widget = self._create_input_widget(field_type, field_name, label_text, extra_params)
+        widget.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+        layout.addWidget(widget)
+        
+        layout.addStretch(1)
+        
+        return container
+
+    def _create_input_widget(self, field_type, field_name, label_text, extra_params):
+        """Create the appropriate input widget based on field type."""
+        if field_type in ["text", "cnic", "phone", "mwa"]:
+            widget = InputField.create_field(
+                "cnic" if field_type == "cnic" else "phone" if field_type in ["phone", "mwa"] else "text", 
+                label_text
+            )
+            widget.setObjectName(f"FormField_{field_name}")
+            
+            # Styling handled by global stylesheet
+            
+        elif field_type == "date":
+            widget = CustomDateEdit(icon_only=True)
+            widget.setDate(QDate.currentDate())
+            widget.setObjectName(f"CustomDateEdit_{field_name}")
+            
+        elif field_type == "combo":
+            widget = CustomComboBox()
+            widget.setObjectName(f"CustomComboBox_{field_name}")
+            if extra_params and len(extra_params) > 0:
+                widget.addItems(extra_params[0])
+                
+        elif field_type == "spinbox":
+            widget = InputField.create_field("spinbox", label_text)
+            widget.setObjectName(f"FormField_{field_name}")
+            
+            # Styling handled by global stylesheet
+            
+        else:
+            widget = InputField.create_field("text", label_text)
+            widget.setObjectName(f"FormField_{field_name}")
+            
+            # Styling handled by global stylesheet
+        
+        return widget
+
+    def _on_recipient_type_changed(self):
+        """Show/hide fields based on recipient type selection."""
+        if not hasattr(self, 'recipient_combo') or not self.recipient_combo:
+            return
+            
+        recipient_type = self.recipient_combo.currentText()
+        
+        # Hide all fields first
+        for field_name in self.mother_fields:
+            self.mother_fields[field_name].setVisible(False)
+        
+        if recipient_type == "Principal":
+            # Show principal (mother) fields
+            for field_name, _, _, *_ in self.principal_fields:
+                if field_name in self.mother_fields:
+                    self.mother_fields[field_name].setVisible(True)
+        else:  # Alternate Guardian
+            # Show guardian fields
+            for field_name, _, _, *_ in self.guardian_fields:
+                if field_name in self.mother_fields:
+                    self.mother_fields[field_name].setVisible(True)
+
+    def _reset_form(self):
+        """Reset all form fields to default values."""
+        for field_name, container in self.mother_fields.items():
+            layout = container.layout()
+            if layout and layout.count() >= 2:
+                widget = layout.itemAt(1).widget()
+                
+                if isinstance(widget, QLineEdit):
+                    widget.clear()
+                elif isinstance(widget, QSpinBox):
+                    widget.setValue(1)
+                elif isinstance(widget, CustomComboBox):
+                    widget.setCurrentIndex(0)
+                elif isinstance(widget, (QDateEdit, CustomDateEdit)):
+                    widget.setDate(QDate.currentDate())
+
+    def _show_table(self):
+        """Show the table panel and hide form."""
+        self.form_frame.setVisible(False)
+        self.content_splitter.setSizes([1000, 0])
+
+    def _save_form_data(self, apply_all):
+        """Save form data with validation."""
+        try:
+            # Get target students
+            target_snos = []
+            if apply_all:
+                for r in range(self.mothers_table.table.rowCount()):
+                    s_no_item = self.mothers_table.table.item(r, 1)
+                    if s_no_item and s_no_item.text().strip():
+                        target_snos.append(s_no_item.text().strip())
+            else:
+                target_snos = list(self.selected_snos)
+            
+            if not target_snos:
+                show_warning_message("No Students Selected", 
+                                  "Select students or tick 'Apply to all filtered rows'.")
+                return
+            
+            # Collect and validate form data
+            form_data = self._collect_form_data()
+            recipient_type = self.recipient_combo.currentText()
+            
+            # Validate if validator available
+            if self.validator:
+                validation_result = self.validator.validate_mother_form(form_data, recipient_type)
+                if not validation_result.is_valid:
+                    error_msg = "Please fix the following errors:\n\n" + "\n".join(validation_result.errors)
+                    show_warning_message("Validation Errors", error_msg)
+                    return
+            
+            # Save data
+            updated_count = 0
+            if self.mother_service:
+                if len(target_snos) == 1:
+                    updated = self.mother_service.update_mother_info(target_snos[0], form_data)
+                    updated_count = 1 if updated else 0
+                else:
+                    updated_count = self.mother_service.update_mother_info_bulk(target_snos, form_data)
+            else:
+                # Fallback implementation
+                updated_count = self._save_form_data_fallback(target_snos, form_data)
+            
+            if updated_count > 0:
+                show_success_message("Saved", 
+                                      f"{recipient_type} info saved to {updated_count} student(s).")
+                self._show_table()
+                self.selected_snos.clear()
+                self._load_data()
+            else:
+                show_info_message("No Changes", "Nothing to save.")
+                
+        except Exception as e:
+            show_critical_message("Save Error", f"Failed to save:\n{str(e)}")
+
+    def _collect_form_data(self):
+        """Collect data from form fields."""
+        form_data = {}
+        recipient_type = self.recipient_combo.currentText()
+        
+        # Get visible fields based on recipient type
+        visible_fields = self.principal_fields if recipient_type == "Principal" else self.guardian_fields
+        
+        for field_name, _, _, *_ in visible_fields:
+            if field_name in self.mother_fields:
+                container = self.mother_fields[field_name]
+                layout = container.layout()
+                if layout and layout.count() >= 2:
+                    widget = layout.itemAt(1).widget()
+                    
+                    if isinstance(widget, QLineEdit):
+                        form_data[field_name] = widget.text().strip()
+                    elif isinstance(widget, QSpinBox):
+                        form_data[field_name] = widget.value()
+                    elif isinstance(widget, CustomComboBox):
+                        form_data[field_name] = widget.currentText()
+                    elif isinstance(widget, (QDateEdit, CustomDateEdit)):
+                        form_data[field_name] = widget.date().toString("yyyy-MM-dd")
+        
+        return form_data
+
+    def _save_form_data_fallback(self, student_ids, form_data):
+        """Fallback save method when service layer not available."""
+        updated_count = 0
+        
+        # Map form fields to database columns
+        field_mapping = {
+            'household_size': 'household_size',
+            'household_head_name': 'household_head_name',
+            'mother_name': 'mother_name',
+            'mother_marital_status': 'mother_marital_status',
+            'mother_cnic': 'mother_cnic',
+            'mother_cnic_doi': 'mother_cnic_doi',
+            'mother_cnic_exp': 'mother_cnic_exp',
+            'mother_mwa': 'mother_mwa',
+            'guardian_name': 'alternate_name',
+            'guardian_cnic': 'alternate_cnic',
+            'guardian_cnic_doi': 'alternate_cnic_doi',
+            'guardian_cnic_exp': 'alternate_cnic_exp',
+            'guardian_marital_status': 'alternate_marital_status',
+            'guardian_mwa': 'alternate_mwa',
+            'guardian_phone': 'alternate_phone',
+            'guardian_relation': 'alternate_relationship_with_mother'
+        }
+        
+        for student_id in student_ids:
+            try:
+                set_clauses = []
+                params = []
+                
+                for field_key, db_column in field_mapping.items():
+                    if field_key in form_data and form_data[field_key]:
+                        set_clauses.append(f"{db_column} = ?")
+                        params.append(form_data[field_key])
+                
+                if set_clauses:
+                    params.append(student_id)
+                    sql = f"UPDATE students SET {', '.join(set_clauses)} WHERE student_id = ?"
+                    
+                    result = self.db.execute_secure_query(sql, tuple(params))
+                    if result is not None:
+                        updated_count += 1
+                        
+            except Exception as e:
+                print(f"Error updating student {student_id}: {e}")
+        
+        return updated_count
+
+    def _view_details(self):
+        """Show details of selected student."""
+        selected_ids = self.mothers_table.get_selected_rows()
+        if not selected_ids:
+            show_warning_message("No Selection", "Please select a record to view details.")
+            return
+        
+        student_id = selected_ids[0]
+        student_details = self._get_student_details(student_id)
+        
+        if student_details:
+            details_text = "\n".join([f"{key}: {value}" for key, value in student_details.items()])
+            show_info_message("Student Details", details_text)
+        else:
+            show_warning_message("Error", "Could not find student details.")
+
+    def _get_student_details(self, student_id):
+        """Get detailed information for a student."""
+        # Find student data from table
+        for row in range(self.mothers_table.table.rowCount()):
+            item = self.mothers_table.table.item(row, 1)
+            if item and item.text() == student_id:
+                return {
+                    "ID": student_id,
+                    "Name": self.mothers_table.table.item(row, 2).text() if self.mothers_table.table.item(row, 2) else "",
+                    "Father": self.mothers_table.table.item(row, 3).text() if self.mothers_table.table.item(row, 3) else "",
+                    "Class": self.mothers_table.table.item(row, 4).text() if self.mothers_table.table.item(row, 4) else "",
+                    "Section": self.mothers_table.table.item(row, 5).text() if self.mothers_table.table.item(row, 5) else "",
+                    "School": self.mothers_table.table.item(row, 6).text() if self.mothers_table.table.item(row, 6) else ""
+                }
+        return None
+
+    def _edit_mother(self):
+        """Edit selected mother record."""
+        selected_ids = self.mothers_table.get_selected_rows()
+        if not selected_ids:
+            show_warning_message("No Selection", "Please select a mother to edit.")
+            return
+        
+        # For now, show edit form (future enhancement)
+        self._show_add_form()
+
+    def _delete_mother(self):
+        """Delete selected mother record."""
+        selected_ids = self.mothers_table.get_selected_rows()
+        if not selected_ids:
+            show_warning_message("No Selection", "Please select a mother to delete.")
+            return
+        
+        student_id = selected_ids[0]
+        student_details = self._get_student_details(student_id)
+        student_name = student_details.get("Name", "Unknown") if student_details else "Unknown"
+        
+        if show_delete_confirmation(f"mother info for: {student_name}"):
+            # Implement deletion logic
+            show_success_message("Deleted", f"Mother info for '{student_name}' deleted.")
+            self._load_data()
+
+    def _view_selected_list(self):
+        """Show dialog with selected students list."""
+        selected_list = []
+        visible_map = {}
+        
+        # Create mapping of visible students
+        for r in range(self.mothers_table.table.rowCount()):
+            sno_item = self.mothers_table.table.item(r, 1)
+            name_item = self.mothers_table.table.item(r, 2)
+            if sno_item and name_item:
+                visible_map[sno_item.text().strip()] = name_item.text().strip()
+        
+        # Build selected list
+        for sno in sorted(self.selected_snos):
+            name = visible_map.get(sno, "(hidden)")
+            selected_list.append(f"{sno} - {name}")
+        
+        if not selected_list:
+            show_info_message("Selected Students", "No students selected.")
+            return
+        
+        # Show dialog
+        dlg = QDialog(self)
+        dlg.setWindowTitle("Selected Students")
+        dlg.setMinimumSize(400, 300)
+        
+        layout = QVBoxLayout(dlg)
+        text_edit = QTextEdit()
+        text_edit.setReadOnly(True)
+        text_edit.setText("\n".join(selected_list))
+        layout.addWidget(text_edit)
+        
+        buttons = QDialogButtonBox(QDialogButtonBox.Ok)
+        buttons.accepted.connect(dlg.accept)
+        layout.addWidget(buttons)
+        
+        dlg.exec_()
+
+    def _on_double_click(self, item):
+        """Handle double-click on table item."""
+        self._view_details()
+
+    def apply_modern_styles(self):
+        """Apply modern styles using centralized theme.py styling."""
+        # Get modern widget styles from theme.py
+        widget_style = get_modern_widget_styles()
+        self.setStyleSheet(widget_style)
 
 
-# Standalone class for directly running the Mother Registration form
+# Standalone application class
 class StandaloneMotherRegApp(QApplication):
-    """Standalone application to run just the Mother Registration form."""
+    """Standalone application to run the Mother Registration form."""
     
     def __init__(self, argv):
-        """Initialize the standalone application."""
         super().__init__(argv)
         self.setStyle("Fusion")
         self.setApplicationName("Mother Registration")
@@ -1347,18 +1087,16 @@ class StandaloneMotherRegApp(QApplication):
         self.main_window.setWindowTitle("Mother Registration Form")
         self.main_window.setGeometry(100, 100, 1200, 800)
         
-        # Create layout
+        # Create layout and add mother registration page
         main_layout = QVBoxLayout(self.main_window)
-        
-        # Add mother registration page
         self.mother_reg_page = MotherRegPage()
         main_layout.addWidget(self.mother_reg_page)
         
-        # Show the window
+        # Show window
         self.main_window.show()
 
 
-# This allows the file to be run directly
+# Main execution
 if __name__ == "__main__":
     import sys
     print("Running Mother Registration form standalone...")

@@ -12,6 +12,11 @@ from PyQt5.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel,
 from PyQt5.QtCore import Qt, QDate, pyqtSignal, QRegExp
 from PyQt5.QtGui import QFont, QIcon, QColor, QRegExpValidator
 from resources.styles import COLORS, SPACING_MD, SPACING_LG
+from resources.styles.messages import (
+    show_info_message, show_warning_message, show_error_message, 
+    show_critical_message, show_success_message, show_confirmation_message, 
+    show_delete_confirmation
+)
 
 class RegistrationFormBase(QFrame):
     """
@@ -394,7 +399,7 @@ class RegistrationFormBase(QFrame):
         is_valid, error_message = self._validate_form()
         
         if not is_valid:
-            QMessageBox.warning(self, "Validation Error", error_message)
+            show_warning_message(self, "Validation Error", error_message)
             return
         
         form_data = self.get_form_data()

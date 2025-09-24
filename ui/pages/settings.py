@@ -13,13 +13,19 @@ from PyQt5.QtGui import QFont
 from models.database import Database
 from ui.components.custom_table import SMISTable
 from PyQt5.QtGui import QDoubleValidator, QIntValidator, QRegularExpressionValidator, QIcon, QKeySequence
+from resources.styles.messages import (
+    show_info_message, show_warning_message, show_error_message, 
+    show_critical_message, show_success_message, show_confirmation_message, 
+    show_delete_confirmation
+)
 
 
 class SettingsPage(QWidget):
     def __init__(self, db=None):
         super().__init__()
-        self.db = db
+        self.db = db or Database()  # Use provided db or create new instance
         self._init_ui()
+        self._load_initial_data()  # Load data from database
 
     # ---------------- Root UI ----------------
     def _init_ui(self):
@@ -52,6 +58,104 @@ class SettingsPage(QWidget):
         self.section_tab = QWidget()
         self._setup_section_tab()
         self.tabs.addTab(self.section_tab, "Sections")
+
+    def _load_initial_data(self):
+        """Load initial data from database for all tables."""
+        try:
+            # Note: Locations table might not be implemented yet, skip for now
+            # self._load_locations()
+            self._load_schools()
+            self._load_classes()
+            self._load_sections()
+            print("✅ Settings page data loaded successfully")
+        except Exception as e:
+            print(f"❌ Error loading settings data: {e}")
+
+    def _load_locations(self):
+        """Load location data from database."""
+        try:
+            if self.db and hasattr(self.location_table, 'table'):
+                locations = self.db.get_locations() if hasattr(self.db, 'get_locations') else []
+                self._populate_location_table(locations)
+        except Exception as e:
+            print(f"Error loading locations: {e}")
+
+    def _load_schools(self):
+        """Load school data from database."""
+        try:
+            if self.db and hasattr(self.school_table, 'table'):
+                schools = self.db.get_schools() if hasattr(self.db, 'get_schools') else []
+                self._populate_school_table(schools)
+        except Exception as e:
+            print(f"Error loading schools: {e}")
+
+    def _load_classes(self):
+        """Load class data from database."""
+        try:
+            if self.db and hasattr(self.class_table, 'table'):
+                classes = self.db.get_classes() if hasattr(self.db, 'get_classes') else []
+                self._populate_class_table(classes)
+        except Exception as e:
+            print(f"Error loading classes: {e}")
+
+    def _load_sections(self):
+        """Load section data from database."""
+        try:
+            if self.db and hasattr(self.section_table, 'table'):
+                sections = self.db.get_sections() if hasattr(self.db, 'get_sections') else []
+                self._populate_section_table(sections)
+        except Exception as e:
+            print(f"Error loading sections: {e}")
+
+    def _populate_location_table(self, locations):
+        """Populate location table with data."""
+        if not hasattr(self, 'location_table') or not locations:
+            return
+        
+        self.location_table.table.setRowCount(len(locations))
+        for row, location in enumerate(locations):
+            # Adjust based on actual location data structure
+            self.location_table.table.setItem(row, 0, QTableWidgetItem(str(location.get('id', ''))))
+            self.location_table.table.setItem(row, 1, QTableWidgetItem(str(location.get('name', ''))))
+            self.location_table.table.setItem(row, 2, QTableWidgetItem(str(location.get('type', ''))))
+
+    def _populate_school_table(self, schools):
+        """Populate school table with data."""
+        if not hasattr(self, 'school_table') or not schools:
+            return
+        
+        self.school_table.table.setRowCount(len(schools))
+        for row, school in enumerate(schools):
+            # BEMIS Code, Name, Address, Longitude, Latitude, Country, Province, District, Union Council
+            self.school_table.table.setItem(row, 0, QTableWidgetItem(str(school.get('bemis_code', ''))))
+            self.school_table.table.setItem(row, 1, QTableWidgetItem(str(school.get('name', ''))))
+            self.school_table.table.setItem(row, 2, QTableWidgetItem(str(school.get('address', ''))))
+            self.school_table.table.setItem(row, 3, QTableWidgetItem(str(school.get('longitude', ''))))
+            self.school_table.table.setItem(row, 4, QTableWidgetItem(str(school.get('latitude', ''))))
+            self.school_table.table.setItem(row, 5, QTableWidgetItem(str(school.get('country', ''))))
+            self.school_table.table.setItem(row, 6, QTableWidgetItem(str(school.get('province', ''))))
+            self.school_table.table.setItem(row, 7, QTableWidgetItem(str(school.get('district', ''))))
+            self.school_table.table.setItem(row, 8, QTableWidgetItem(str(school.get('union_council', ''))))
+
+    def _populate_class_table(self, classes):
+        """Populate class table with data."""
+        if not hasattr(self, 'class_table') or not classes:
+            return
+        
+        self.class_table.table.setRowCount(len(classes))
+        for row, class_name in enumerate(classes):
+            # Assuming classes is a list of class names
+            self.class_table.table.setItem(row, 0, QTableWidgetItem(str(class_name)))
+
+    def _populate_section_table(self, sections):
+        """Populate section table with data."""
+        if not hasattr(self, 'section_table') or not sections:
+            return
+        
+        self.section_table.table.setRowCount(len(sections))
+        for row, section_name in enumerate(sections):
+            # Assuming sections is a list of section names
+            self.section_table.table.setItem(row, 0, QTableWidgetItem(str(section_name)))
 
     # ---------------- Theming ----------------
     def _tabs_stylesheet(self) -> str:
@@ -347,7 +451,7 @@ class SettingsPage(QWidget):
     def _delete_school_row(self):
         r = self.school_table.table.currentRow()
         if r < 0:
-            QMessageBox.information(self, "Delete", "Select a row to delete.")
+            show_info_message(self, "Delete", "Select a row to delete.")
             return
         self.school_table.table.removeRow(r)
         self._show_status(self.school_status, "Row deleted.")
@@ -463,7 +567,7 @@ class SettingsPage(QWidget):
     def _delete_class_row(self):
         r = self.class_table.table.currentRow()
         if r < 0:
-            QMessageBox.information(self, "Delete", "Select a row to delete.")
+            show_info_message(self, "Delete", "Select a row to delete.")
             return
         self.class_table.table.removeRow(r)
         self._show_status(self.class_status, "Row deleted.")
@@ -536,7 +640,7 @@ class SettingsPage(QWidget):
     def _delete_section_row(self):
         r = self.section_table.table.currentRow()
         if r < 0:
-            QMessageBox.information(self, "Delete", "Select a row to delete.")
+            show_info_message(self, "Delete", "Select a row to delete.")
             return
         self.section_table.table.removeRow(r)
         self._show_status(self.section_status, "Row deleted.")

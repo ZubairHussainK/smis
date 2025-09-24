@@ -203,7 +203,7 @@ def get_attendance_styles():
             max-height: 22px;
             font-family: {FONT_REGULAR};
             font-size: 14px;
-            background-image: url(:/icons/search.png);
+            background-image: url("");
             background-position: left center;
             background-repeat: no-repeat;
             background-origin: content;
@@ -261,12 +261,12 @@ def get_attendance_styles():
             background: {COLORS['gray_100']};
         }}
         QSpinBox::up-arrow, QDoubleSpinBox::up-arrow {{
-            image: url(:/icons/up_arrow.png);
+            image: url("");
             width: 8px;
             height: 8px;
         }}
         QSpinBox::down-arrow, QDoubleSpinBox::down-arrow {{
-            image: url(:/icons/down_arrow.png);
+            image: url("");
             width: 8px;
             height: 8px;
         }}
@@ -293,7 +293,7 @@ def get_attendance_styles():
         QCheckBox::indicator:checked {{
             background-color: {COLORS['primary']};
             border-color: {COLORS['primary']};
-            image: url(:/icons/checkmark_white.png);
+            image: url("");
         }}
         QCheckBox::indicator:checked:hover {{
             background-color: {COLORS['primary_dark']};
@@ -625,3 +625,202 @@ def get_sidebar_modern_style(is_dark_mode=False):
         return get_sidebar_dark_theme_style()
     else:
         return get_sidebar_light_theme_style()
+
+def get_modern_widget_styles():
+    """
+    Get comprehensive modern widget styles for forms and pages.
+    Replaces inline styling with centralized theming.
+    
+    Returns:
+        str: Complete CSS stylesheet for modern widget styling
+    """
+    return f"""
+        QWidget {{
+            background-color: #F1F5F9;
+            color: {COLORS['gray_900']};
+            font-family: {FONT_REGULAR};
+        }}
+        
+        QGroupBox {{
+            background-color: {COLORS['white']};
+            border: 1px solid {COLORS['gray_300']};
+            border-radius: 8px;
+            margin-top: 10px;
+            padding: 15px;
+            font-weight: bold;
+            color: {COLORS['gray_700']};
+        }}
+        
+        QGroupBox::title {{
+            color: {COLORS['primary']};
+            font-family: {FONT_SEMIBOLD};
+            padding: 0 10px;
+            top: -7px;
+        }}
+        
+        QLabel {{
+            color: {COLORS['gray_700']};
+            font-family: {FONT_REGULAR};
+        }}
+        
+        /* Input field styles */
+        QLineEdit, QTextEdit, QPlainTextEdit, QSpinBox, QDoubleSpinBox, QDateEdit, QDateTimeEdit {{
+            background-color: {COLORS['white']};
+            color: {COLORS['gray_900']};
+            border: 1px solid {COLORS['gray_300']};
+            border-radius: 6px;
+            padding: 4px 12px;
+            min-height: 22px;
+            max-height: 22px;
+            selection-background-color: {COLORS['primary_light']};
+            selection-color: {COLORS['white']};
+            font-family: {FONT_REGULAR};
+            font-size: 14px;
+        }}
+        QLineEdit:hover, QTextEdit:hover, QPlainTextEdit:hover, QSpinBox:hover, QDoubleSpinBox:hover, QDateEdit:hover, QDateTimeEdit:hover {{
+            border-color: {COLORS['gray_400']};
+        }}
+        QLineEdit:focus, QTextEdit:focus, QPlainTextEdit:focus, QSpinBox:focus, QDoubleSpinBox:focus, QDateEdit:focus, QDateTimeEdit:focus {{
+            border-color: {COLORS['primary']};
+            border-width: 2px;
+        }}
+        QLineEdit:disabled, QTextEdit:disabled, QPlainTextEdit:disabled, QSpinBox:disabled, QDoubleSpinBox:disabled, QDateEdit:disabled, QDateTimeEdit:disabled {{
+            background-color: {COLORS['gray_100']};
+            color: {COLORS['gray_500']};
+            border-color: {COLORS['gray_200']};
+        }}
+        
+        /* Default button style (secondary) */
+        QPushButton {{
+            background: {COLORS['white']};
+            color: {COLORS['gray_700']};
+            border: 2px solid {COLORS['gray_300']};
+            border-radius: 6px;
+            padding-top: 0px;
+            padding-bottom: 0px;
+            padding-left: 10px;
+            padding-right: 10px;
+            min-height: 32px;
+            max-height: 32px;
+            font-family: {FONT_SEMIBOLD};
+            font-size: 14px;
+        }}
+        QPushButton:hover {{
+            background: {COLORS['primary_light']};
+            color: {COLORS['white']};
+            border-color: {COLORS['primary_light']};
+        }}
+        QPushButton:pressed {{
+            background: {COLORS['primary_dark']};
+            color: {COLORS['white']};
+            border-color: {COLORS['primary_dark']};
+        }}
+        QPushButton:disabled {{
+            background: {COLORS['gray_100']};
+            color: {COLORS['gray_400']};
+            border-color: {COLORS['gray_200']};
+        }}
+        
+        /* Primary button style */
+        QPushButton[class="primary"] {{
+            background: qlineargradient(x1:0, y1:0, x2:0, y2:1, 
+            stop:0 {COLORS['primary']}, stop:1 {COLORS['primary_dark']});
+            color: {COLORS['white']};
+            border: none;
+            border-radius: 6px;
+            padding-top: 0px;
+            padding-bottom: 0px;
+            padding-left: 10px;
+            padding-right: 10px;
+            min-height: 32px;
+            max-height: 32px;
+            font-family: {FONT_SEMIBOLD};
+            font-size: 12px;
+        }}
+        QPushButton[class="primary"]:hover {{
+            background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+                stop:0 {COLORS['primary_light']}, stop:1 {COLORS['primary']});
+        }}
+        QPushButton[class="primary"]:pressed {{
+            background: {COLORS['primary_dark']};
+        }}
+        QPushButton[class="primary"]:disabled {{
+            background: {COLORS['gray_300']};
+            color: {COLORS['gray_500']};
+        }}
+        
+        /* Success button style */
+        QPushButton[class="success"] {{
+            background: {COLORS['success']};
+            color: {COLORS['white']};
+            border: none;
+            border-radius: 6px;
+            padding-top: 0px;
+            padding-bottom: 0px;
+            padding-left: 10px;
+            padding-right: 10px;
+            min-height: 32px;
+            max-height: 32px;
+            font-family: {FONT_SEMIBOLD};
+            font-size: 14px;
+        }}
+        QPushButton[class="success"]:hover {{
+            background: #0DA271;
+        }}
+        QPushButton[class="success"]:pressed {{
+            background: #0B8A61;
+        }}
+        QPushButton[class="success"]:disabled {{
+            background: {COLORS['gray_300']};
+            color: {COLORS['gray_500']};
+        }}
+        
+        /* Warning button style */
+        QPushButton[class="warning"] {{
+            background: {COLORS['warning']};
+            color: {COLORS['white']};
+            border: none;
+            border-radius: 6px;
+            padding-top: 0px;
+            padding-bottom: 0px;
+            padding-left: 10px;
+            padding-right: 10px;
+            min-height: 32px;
+            max-height: 32px;
+            font-family: {FONT_SEMIBOLD};
+            font-size: 14px;
+        }}
+        QPushButton[class="warning"]:hover {{
+            background: #E59009;
+        }}
+        QPushButton[class="warning"]:pressed {{
+            background: #D58000;
+        }}
+        QPushButton[class="warning"]:disabled {{
+            background: {COLORS['gray_300']};
+            color: {COLORS['gray_500']};
+        }}
+        
+        /* Danger button style */
+        QPushButton[class="danger"] {{
+            background: {COLORS['danger']};
+            color: {COLORS['white']};
+            border: none;
+            border-radius: 6px;
+            padding: 0px;
+            min-height: 22px;
+            max-height: 22px;
+            font-family: {FONT_SEMIBOLD};
+            font-size: 14px;
+        }}
+        QPushButton[class="danger"]:hover {{
+            background: #E02D2D;
+        }}
+        QPushButton[class="danger"]:pressed {{
+            background: #D01F1F;
+        }}
+        QPushButton[class="danger"]:disabled {{
+            background: {COLORS['gray_300']};
+            color: {COLORS['gray_500']};
+        }}
+    """

@@ -44,7 +44,7 @@ from .utils import (
 from .theme import (
     get_global_styles, get_attendance_styles, 
     get_sidebar_light_theme_style, get_sidebar_dark_theme_style, 
-    get_sidebar_modern_style, get_current_theme_colors
+    get_sidebar_modern_style, get_current_theme_colors, get_modern_widget_styles
 )
 
 # Import widget styling functions
@@ -122,7 +122,7 @@ __all__ = [
     'show_critical_message', 'show_success_message', 'show_confirmation_message',
     'show_save_confirmation', 'show_delete_confirmation',
     # Style utilities
-    'get_global_styles', 'get_attendance_styles',
+    'get_global_styles', 'get_attendance_styles', 'get_modern_widget_styles',
     # Sidebar styling functions
     'get_sidebar_light_theme_style', 'get_sidebar_dark_theme_style', 'get_sidebar_modern_style',
     'get_current_theme_colors',

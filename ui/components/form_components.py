@@ -9,10 +9,10 @@ from .custom_date_picker import CustomDateEdit
 
 # Constants
 TEXT_COLOR = "#333333"        # Normal text
-BORDER_COLOR = "#cccccc"      # Input borders
-BORDER_RADIUS = "12px"        # Standard border radius
-INPUT_PADDING = "15px 20px"   # Standard input padding
-PRIMARY_COLOR = "#0175b6"     # Selection, hover, focus blue
+BORDER_COLOR = "#D1D5DB"      # Input borders (gray_300 color)
+BORDER_RADIUS = "8px"         # Standard border radius (matching RADIUS['md'])
+INPUT_PADDING = "8px 12px"    # Standard input padding (matching SPACING_SM)
+PRIMARY_COLOR = "#12B1D1"     # Selection, hover, focus blue (matching FOCUS_BORDER_COLOR)
 LIGHTER_COLOR = "#ffffff"     # Input field background
 PLACEHOLDER_COLOR = "#999999" # Placeholder text
 

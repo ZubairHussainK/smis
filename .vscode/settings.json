@@ -5,8 +5,10 @@
     "python.analysis.autoImportCompletions": true,
     "python.analysis.diagnosticMode": "openFilesOnly",
     "python.analysis.extraPaths": [
+        ".",
         "./.venv/Lib/site-packages"
     ],
+    "python.analysis.autoSearchPaths": true,
     "python.analysis.stubPath": "./.venv/Lib/site-packages",
     "python.linting.enabled": true,
     "python.linting.pylintEnabled": true,
