@@ -33,7 +33,7 @@ VIAddVersionKey /LANG=1033 "LegalCopyright" "© 2025 YourOrg"
 ; Icons (conditional)
 ; --------------------------------
 !define ICON_PATH "resources\icons\app_icon.ico"
-!ifexist "${ICON_PATH}"
+!if /FileExists "${ICON_PATH}"
   Icon "${ICON_PATH}"
   UninstallIcon "${ICON_PATH}"
 !else
@@ -44,7 +44,7 @@ VIAddVersionKey /LANG=1033 "LegalCopyright" "© 2025 YourOrg"
 ; UI Pages
 ; --------------------------------
 !insertmacro MUI_PAGE_WELCOME
-!ifexist "LICENSE"
+!if /FileExists "LICENSE"
   !insertmacro MUI_PAGE_LICENSE "LICENSE"
 !endif
 !insertmacro MUI_PAGE_DIRECTORY
@@ -69,7 +69,7 @@ Section "Install"
   File "dist\\SMIS-${VERSION}.exe"
 
   ; Include icon in install directory if present
-  !ifexist "${ICON_PATH}"
+  !if /FileExists "${ICON_PATH}"
     File "${ICON_PATH}"
   !endif
 
@@ -96,9 +96,7 @@ SectionEnd
 ; --------------------------------
 Section "Uninstall"
   Delete "$INSTDIR\SMIS-${VERSION}.exe"
-  !ifexist "$INSTDIR\app_icon.ico"
-    Delete "$INSTDIR\app_icon.ico"
-  !endif
+  Delete "$INSTDIR\app_icon.ico"
   Delete "$DESKTOP\SMIS.lnk"
   Delete "$SMPROGRAMS\SMIS\SMIS.lnk"
   RMDir  "$SMPROGRAMS\SMIS"
