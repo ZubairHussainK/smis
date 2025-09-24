@@ -60,3 +60,10 @@ school_backup*.db
 # Backup Files
 backups/
 *.bak
+
+# Build Output - Local executables
+dist/
+build/
+*.exe
+*.spec
+*.manifest
