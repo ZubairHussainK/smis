@@ -116,26 +116,33 @@ jobs:
           exit 1
         }
         
-        Write-Output "Building optimized SMIS executable for maximum compatibility..."
+        Write-Output "Building optimized SMIS executable using spec file for maximum compatibility..."
         
-        # Single optimized build with all necessary modules included
-        pyinstaller --onefile --windowed --name "SMIS-$version" main.py `
-          --distpath dist --workpath build `
-          --add-data "resources;resources" `
-          --add-data "config;config" `
-          --hidden-import PyQt5 `
-          --hidden-import PyQt5.QtCore `
-          --hidden-import PyQt5.QtGui `
-          --hidden-import PyQt5.QtWidgets `
-          --hidden-import PyQt5.QtSql `
-          --hidden-import sqlite3 `
-          --hidden-import sys `
-          --hidden-import os `
-          --hidden-import json `
-          --hidden-import datetime `
-          --collect-all PyQt5 `
-          --noupx `
-          --clean
+        # Update spec file with current version
+        $specContent = Get-Content "SMIS.spec" -Raw
+        $specContent = $specContent -replace "name='SMIS'", "name='SMIS-$version'"
+        $specContent | Set-Content "SMIS.spec"
+        
+        # Build using spec file for better control
+        pyinstaller SMIS.spec --distpath dist --workpath build --clean
+        
+        # Rename output to match expected name
+        if (Test-Path "dist/SMIS-$version.exe") {
+          Write-Output "Spec file build successful"
+        } elseif (Test-Path "dist/SMIS.exe") {
+          Move-Item "dist/SMIS.exe" "dist/SMIS-$version.exe"
+          Write-Output "Renamed SMIS.exe to SMIS-$version.exe"
+        } else {
+          Write-Output "Spec build failed, trying fallback command line build..."
+          # Fallback to command line build
+          pyinstaller --onefile --windowed --name "SMIS-$version" main.py `
+            --distpath dist --workpath build-fallback `
+            --add-data "resources;resources" `
+            --add-data "config;config" `
+            --collect-all PyQt5 `
+            --icon "resources/icons/app_icon.ico" `
+            --noupx --clean
+        }
         
         # Check if build was successful
         if (-not (Test-Path "dist/SMIS-$version.exe")) {
