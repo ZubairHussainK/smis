@@ -131,13 +131,23 @@ jobs:
         Get-ChildItem dist -Name
       shell: powershell
         
-    - name: Create installer with NSIS (optional - if you have NSIS script)
+    - name: Create NSIS installer
       run: |
-        # If you have an NSIS script, use it here
-        # makensis /DVERSION="${{ steps.get_version.outputs.VERSION }}" installer.nsi
-        # For now, we'll just rename the exe as an installer
         $version = "${{ steps.get_version.outputs.VERSION }}"
-        Move-Item "dist/SMIS-$version.exe" "SMIS-Setup-$version.exe"
+        if (-not (Test-Path "installer.nsi")) {
+          echo "ERROR: installer.nsi not found"; exit 1
+        }
+        if (-not (Test-Path "dist/SMIS-$version.exe")) {
+          echo "ERROR: PyInstaller output dist/SMIS-$version.exe not found"; exit 1
+        }
+        # Path to makensis (usually in Program Files (x86))
+        $nsis = "C:/Program Files (x86)/NSIS/makensis.exe"
+        if (-not (Test-Path $nsis)) { $nsis = "C:/Program Files/NSIS/makensis.exe" }
+        if (-not (Test-Path $nsis)) { echo "ERROR: makensis not found on runner"; exit 1 }
+        & "$nsis" /DVERSION=$version installer.nsi
+        if ($LASTEXITCODE -ne 0) { echo "NSIS build failed"; exit 1 }
+        if (-not (Test-Path "SMIS-Setup-$version.exe")) { echo "ERROR: Expected NSIS output SMIS-Setup-$version.exe missing"; Get-ChildItem -Path . -Filter "SMIS-Setup*"; exit 1 }
+        echo "NSIS installer created: SMIS-Setup-$version.exe"
       shell: powershell
       
     - name: Encrypt installer
