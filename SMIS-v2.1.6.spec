@@ -1,7 +1,7 @@
 # -*- mode: python ; coding: utf-8 -*-
 from PyInstaller.utils.hooks import collect_all
 
-datas = [('resources', 'resources'), ('config', 'config')]
+datas = [('resources', 'resources'), ('config', 'config'), ('active_keys.json', '.')]
 binaries = []
 hiddenimports = []
 tmp_ret = collect_all('PyQt5')

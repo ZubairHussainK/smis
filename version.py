@@ -1,8 +1,8 @@
 """Version information for SMIS application."""
 
-__version__ = "2.1.6"
+__version__ = "2.1.7"
 __app_name__ = "School Management Information System"
-__build_date__ = "2025-09-24"
+__build_date__ = "2025-01-27"
 __author__ = "SMIS Development Team"
 
 # Version display formats
