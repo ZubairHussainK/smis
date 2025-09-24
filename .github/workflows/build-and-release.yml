@@ -7,6 +7,10 @@ on:
   release:
     types: [published]
 
+permissions:
+  contents: write
+  packages: read
+
 jobs:
   build-and-release:
     runs-on: windows-latest
@@ -119,6 +123,9 @@ jobs:
       with:
         tag_name: ${{ github.ref_name }}
         name: "SMIS v${{ steps.get_version.outputs.VERSION }}"
+        make_latest: true
+        draft: false
+        prerelease: false
         body: |
           ## SMIS v${{ steps.get_version.outputs.VERSION }}
           
