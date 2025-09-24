@@ -1,27 +1,50 @@
-!include "MUI2.nsh"!include "MUI2.nsh"; ================================================; ================================================; ================================================
+Name "SMIS"!include "MUI2.nsh"!include "MUI2.nsh"; ================================================; ================================================; ================================================
 
+OutFile "SMIS-Setup-${VERSION}.exe"
 
+InstallDir "$PROGRAMFILES64\SMIS"
+
+RequestExecutionLevel admin
 
 Name "SMIS"
 
-OutFile "SMIS-Setup-${VERSION}.exe"
+!ifndef VERSION
+
+  !define VERSION "0.0.0"OutFile "SMIS-Setup-${VERSION}.exe"
+
+!endif
 
 InstallDir "$PROGRAMFILES\SMIS"Name "SMIS School Management System"; SMIS Simple Installer Script (NSIS)
 
-RequestExecutionLevel admin
+Section "Install"
 
-OutFile "SMIS-Setup-${VERSION}.exe"
+  SetOutPath "$INSTDIR"RequestExecutionLevel admin
 
-SetCompressor /SOLID lzma
+  File "dist\SMIS-${VERSION}.exe"
+
+  CreateShortcut "$DESKTOP\SMIS.lnk" "$INSTDIR\SMIS-${VERSION}.exe"OutFile "SMIS-Setup-${VERSION}.exe"
+
+  CreateShortcut "$SMPROGRAMS\SMIS.lnk" "$INSTDIR\SMIS-${VERSION}.exe"
+
+  WriteUninstaller "$INSTDIR\Uninstall.exe"SetCompressor /SOLID lzma
+
+SectionEnd
 
 SetCompressorDictSize 32InstallDir "$PROGRAMFILES\SMIS"; Single executable, clean installation; SMIS Simple Installer Script (NSIS); SMIS Installer Script (NSIS)
 
-BrandingText "SMIS Team"
+Section "Uninstall"
 
-RequestExecutionLevel admin
+  Delete "$INSTDIR\SMIS-${VERSION}.exe"BrandingText "SMIS Team"
 
-!ifndef VERSION
+  Delete "$INSTDIR\Uninstall.exe"
 
+  Delete "$DESKTOP\SMIS.lnk"RequestExecutionLevel admin
+
+  Delete "$SMPROGRAMS\SMIS.lnk"
+
+  RMDir "$INSTDIR"!ifndef VERSION
+
+SectionEnd
   !define VERSION "0.0.0"; ================================================
 
 !endif
