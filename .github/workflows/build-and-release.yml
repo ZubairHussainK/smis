@@ -5,7 +5,8 @@ on:
     tags:
       - 'v*'  # Triggers on version tags like v1.2.3
   release:
-    types: [published]
+    types: [published, created]  # Triggers when release is published or created
+  workflow_dispatch:  # Allows manual trigger from GitHub Actions tab
 
 permissions:
   contents: write
