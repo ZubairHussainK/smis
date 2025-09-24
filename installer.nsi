@@ -29,14 +29,12 @@ VIAddVersionKey /LANG=1033 "ProductName" "SMIS"
 VIAddVersionKey /LANG=1033 "FileVersion" "${VERSION}"
 VIAddVersionKey /LANG=1033 "CompanyName" "YourOrg"
 VIAddVersionKey /LANG=1033 "LegalCopyright" "© 2025 YourOrg"
-
 ; --------------------------------
-; Icons (optional – make sure icon.ico exists in repo root)
+; Icons
 ; --------------------------------
-!ifexist "icon.ico"
-  Icon "icon.ico"
-  UninstallIcon "icon.ico"
-!endif
+; Use application icon from resources (ensure path exists)
+Icon "resources\icons\app_icon.ico"
+UninstallIcon "resources\icons\app_icon.ico"
 
 ; --------------------------------
 ; UI Pages
@@ -66,16 +64,17 @@ Section "Install"
   ; Main application executable built by PyInstaller
   File "dist\\SMIS-${VERSION}.exe"
 
-  !ifexist "icon.ico"
-    File "icon.ico"
+  ; Include icon in install directory if present
+  !ifexist "resources\icons\app_icon.ico"
+    File "resources\icons\app_icon.ico"
   !endif
 
   ; Create Start Menu folder
   CreateDirectory "$SMPROGRAMS\SMIS"
 
   ; Shortcuts
-  CreateShortcut "$DESKTOP\SMIS.lnk" "$INSTDIR\SMIS-${VERSION}.exe" "" "$INSTDIR\icon.ico"
-  CreateShortcut "$SMPROGRAMS\SMIS\SMIS.lnk" "$INSTDIR\SMIS-${VERSION}.exe" "" "$INSTDIR\icon.ico"
+  CreateShortcut "$DESKTOP\SMIS.lnk" "$INSTDIR\SMIS-${VERSION}.exe" "" "$INSTDIR\app_icon.ico"
+  CreateShortcut "$SMPROGRAMS\SMIS\SMIS.lnk" "$INSTDIR\SMIS-${VERSION}.exe" "" "$INSTDIR\app_icon.ico"
 
   ; Uninstaller
   WriteUninstaller "$INSTDIR\Uninstall.exe"
@@ -92,8 +91,8 @@ SectionEnd
 ; --------------------------------
 Section "Uninstall"
   Delete "$INSTDIR\SMIS-${VERSION}.exe"
-  !ifexist "icon.ico"
-    Delete "$INSTDIR\icon.ico"
+  !ifexist "$INSTDIR\app_icon.ico"
+    Delete "$INSTDIR\app_icon.ico"
   !endif
   Delete "$DESKTOP\SMIS.lnk"
   Delete "$SMPROGRAMS\SMIS\SMIS.lnk"
