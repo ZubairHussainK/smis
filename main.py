@@ -11,16 +11,11 @@ try:
     from dotenv import load_dotenv
     DOTENV_AVAILABLE = True
 except ImportError:
-    try:
-        import python_dotenv
-        from python_dotenv import load_dotenv
-        DOTENV_AVAILABLE = True
-    except ImportError:
-        # Fallback when dotenv is not available
-        def load_dotenv():
-            """Fallback function when python-dotenv is not available"""
-            pass
-        DOTENV_AVAILABLE = False
+    # Fallback when dotenv is not available
+    def load_dotenv():
+        """Fallback function when python-dotenv is not available"""
+        pass
+    DOTENV_AVAILABLE = False
 
 try:
     # Import Qt constants properly for Pylance
