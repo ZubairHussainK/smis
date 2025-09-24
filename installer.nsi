@@ -14,10 +14,20 @@
 ; --------------------------------
 ; Metadata
 ; --------------------------------
-Name "SMIS"
+Name "SMIS - School Management Information System"
 OutFile "SMIS-Setup-${VERSION}.exe"
 InstallDir "$PROGRAMFILES\SMIS"
 RequestExecutionLevel admin
+
+; Installation attributes to help with Windows security
+SetCompressor /SOLID lzma
+SetCompressorDictSize 32
+SetDatablockOptimize on
+CRCCheck on
+XPStyle on
+BrandingText "SMIS Development Team"
+ShowInstDetails show
+ShowUnInstDetails show
 
 ; VERSION will be injected by GitHub Actions (makensis /DVERSION=1.2.3)
 !ifndef VERSION
@@ -25,10 +35,14 @@ RequestExecutionLevel admin
 !endif
 
 VIProductVersion "${VERSION}.0"
-VIAddVersionKey /LANG=1033 "ProductName" "SMIS"
+VIAddVersionKey /LANG=1033 "ProductName" "SMIS - School Management Information System"
 VIAddVersionKey /LANG=1033 "FileVersion" "${VERSION}"
-VIAddVersionKey /LANG=1033 "CompanyName" "YourOrg"
-VIAddVersionKey /LANG=1033 "LegalCopyright" "© 2025 YourOrg"
+VIAddVersionKey /LANG=1033 "CompanyName" "SMIS Development Team"
+VIAddVersionKey /LANG=1033 "LegalCopyright" "© 2025 SMIS Development Team"
+VIAddVersionKey /LANG=1033 "FileDescription" "School Management Information System Installer"
+VIAddVersionKey /LANG=1033 "InternalName" "SMIS-Setup"
+VIAddVersionKey /LANG=1033 "OriginalFilename" "SMIS-Setup-${VERSION}.exe"
+VIAddVersionKey /LANG=1033 "ProductVersion" "${VERSION}"
 ; --------------------------------
 ; Icons (conditional)
 ; --------------------------------

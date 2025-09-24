@@ -165,6 +165,10 @@ jobs:
         if ($LASTEXITCODE -ne 0) { echo "NSIS build failed"; exit 1 }
         if (-not (Test-Path "SMIS-Setup-$version.exe")) { echo "ERROR: Expected NSIS output SMIS-Setup-$version.exe missing"; Get-ChildItem -Path . -Filter "SMIS-Setup*"; exit 1 }
         echo "NSIS installer created: SMIS-Setup-$version.exe"
+        
+        # Create installation helper batch file
+        echo "Creating installation helper..."
+        Copy-Item "install_helper.bat" "SMIS-Install-Helper-$version.bat"
       shell: powershell
       
     - name: Encrypt installer
@@ -241,19 +245,30 @@ jobs:
           - Encrypted installer for enhanced security
           - Built on ${{ github.run_number }} workflow run
           
-          ### Installation
-          1. Download the encrypted installer below
-          2. The application will automatically decrypt and install
+          ### Installation (2 Easy Options)
+          
+          **Option 1 - Easy Installation (Recommended):**
+          1. Download both files below
+          2. Run `SMIS-Install-Helper-${{ steps.get_version.outputs.VERSION }}.bat` as Administrator
+          3. Follow the installation wizard
+          
+          **Option 2 - Manual Installation:**
+          1. Download the encrypted installer
+          2. Right-click → "Run as Administrator"
+          3. If Windows warns about unknown publisher, click "More info" → "Run anyway"
           
           ### File Information
-          - **File**: SMIS-Setup-${{ steps.get_version.outputs.VERSION }}-encrypted.exe
+          - **Installer**: SMIS-Setup-${{ steps.get_version.outputs.VERSION }}-encrypted.exe
+          - **Helper**: SMIS-Install-Helper-${{ steps.get_version.outputs.VERSION }}.bat
           - **SHA256**: ${{ steps.hash.outputs.SHA256 }}
           - **Build Date**: ${{ github.event.head_commit.timestamp }}
           
           ### Security
           This installer is encrypted with AES encryption for security.
+          The helper script temporarily adds Windows Defender exclusions for smooth installation.
         files: |
           SMIS-Setup-${{ steps.get_version.outputs.VERSION }}-encrypted.exe
+          SMIS-Install-Helper-${{ steps.get_version.outputs.VERSION }}.bat
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         
@@ -263,6 +278,7 @@ jobs:
         name: smis-installer-v${{ steps.get_version.outputs.VERSION }}
         path: |
           SMIS-Setup-${{ steps.get_version.outputs.VERSION }}-encrypted.exe
+          SMIS-Install-Helper-${{ steps.get_version.outputs.VERSION }}.bat
         retention-days: 30
         
     - name: Notify build completion
