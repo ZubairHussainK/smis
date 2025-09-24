@@ -162,7 +162,8 @@ jobs:
     - name: Notify build completion
       run: |
         echo "✅ Build completed successfully!"
-        echo "📦 Release: ${{ steps.create_release.outputs.upload_url }}"
+        echo "📦 Release created and updated"
         echo "🔐 Encrypted installer uploaded"
         echo "🏷️ Version: ${{ steps.get_version.outputs.VERSION }}"
+        echo "📥 Download: https://github.com/ZubairHussainK/smis/releases/tag/v${{ steps.get_version.outputs.VERSION }}"
       shell: powershell
