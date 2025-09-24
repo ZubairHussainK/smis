@@ -365,6 +365,32 @@ class SMISApplication:
         except Exception as e:
             logging.error(f"Error handling registration success: {e}")
 
+def _is_new_installation():
+    """Check if this is a new installation (no users exist in database)."""
+    try:
+        # Check if database file exists first
+        db_path = os.path.join(os.path.dirname(__file__), 'school.db')
+        if not os.path.exists(db_path):
+            return True
+            
+        # Also check if license key exists
+        from core.security_manager import SMISSecurityManager
+        security_manager = SMISSecurityManager()
+        key_data = security_manager.load_stored_key()
+        if not key_data:
+            return True
+            
+        # Check users in database
+        import_app_modules()
+        from models.database import Database
+        db = Database()
+        db.cursor.execute("SELECT COUNT(*) FROM users")
+        user_count = db.cursor.fetchone()[0]
+        return user_count == 0
+    except Exception:
+        # If there's any error, assume it's a new installation
+        return True
+
 def main():
     """
     Main application entry point with security validation and update checking.
@@ -373,34 +399,51 @@ def main():
         int: Exit code (0 for success, 1 for failure)
     """
     try:
-        # STEP 1: CHECK FOR UPDATES
-        print("🔄 Checking for updates...")
-        
-        try:
-            from services.update_service import check_for_updates_and_launch
-            
-            if not check_for_updates_and_launch():
-                print("Update is being installed. Application will exit.")
-                return 0  # Update installer will restart the app
-                
-        except Exception as e:
-            print(f"Update check failed: {e}")
-            print("Continuing with application startup...")
-        
-        # STEP 2: CRITICAL SECURITY CHECK
+        # STEP 1: Check license status and handle fresh installations
         print("🔐 SMIS Security Validation")
         print("=" * 40)
         
-        if not secure_app_startup():
-            print("\n❌ SECURITY CHECK FAILED")
-            print("This application requires a valid license key.")
-            print("\nOptions:")
-            print("1. Register with a new key: python main.py register")
-            print("2. Get a key from: https://github.com/ZubairHussainK/smis-key-generator")
-            print("\nApplication will now exit.")
-            return 1
+        from core.security_manager import SMISSecurityManager
+        security_manager = SMISSecurityManager()
         
-        print("✅ Security validation passed")
+        # Check if we have a valid license
+        has_license = security_manager.verify_license()
+        
+        if has_license:
+            print("✅ License verified successfully")
+        else:
+            # Check if this is a fresh installation
+            is_fresh = _is_new_installation()
+            
+            if is_fresh:
+                print("🆕 Fresh installation detected")
+                print("Registration is required to continue")
+                print("The application will open the registration window...")
+                
+                # Import modules for registration window
+                import_app_modules()
+                
+                # Create registration window
+                app_temp = QApplication(sys.argv)
+                from ui.registration_window import RegistrationWindow
+                reg_window = RegistrationWindow()
+                
+                if reg_window.exec_() == reg_window.Accepted:
+                    print("✅ Registration successful! Please restart the application.")
+                    return 0
+                else:
+                    print("❌ Registration cancelled or failed")
+                    return 1
+            else:
+                # Existing installation without valid license
+                print("\n❌ SECURITY CHECK FAILED")
+                print("This application requires a valid license key.")
+                print("\nOptions:")
+                print("1. Register with a new key: python main.py register")
+                print("2. Get a key from: https://github.com/ZubairHussainK/smis-key-generator")
+                print("\nApplication will now exit.")
+                return 1
+        
         print("Loading application modules...")
         
         # STEP 3: Import modules only after security validation

@@ -96,15 +96,27 @@ class SMISSecurityManager:
     def _check_integrity(self):
         """Check application integrity - anti-crack measure."""
         try:
-            # Check if critical files exist
-            current_file = __file__
-            if not os.path.exists(current_file):
-                self._security_breach("File integrity compromised")
-            
-            # Check file size (basic tamper detection)
-            file_size = os.path.getsize(current_file)
-            if file_size < 1000:  # Too small = potentially modified
-                self._security_breach("File size anomaly detected")
+            # Check if we're running from PyInstaller executable
+            if getattr(sys, 'frozen', False) and hasattr(sys, '_MEIPASS'):
+                # Running from PyInstaller executable - use different checks
+                current_file = sys.executable
+                if not os.path.exists(current_file):
+                    self._security_breach("Executable integrity compromised")
+                
+                # Check executable size (basic tamper detection)
+                file_size = os.path.getsize(current_file)
+                if file_size < 10000:  # Too small for full app
+                    self._security_breach("Executable size anomaly detected")
+            else:
+                # Running from source - use normal file check
+                current_file = __file__
+                if not os.path.exists(current_file):
+                    self._security_breach("File integrity compromised")
+                
+                # Check file size (basic tamper detection)
+                file_size = os.path.getsize(current_file)
+                if file_size < 1000:  # Too small = potentially modified
+                    self._security_breach("File size anomaly detected")
                 
         except Exception:
             self._security_breach("Integrity check failed")

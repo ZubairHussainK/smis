@@ -63,24 +63,34 @@ class UpdateChecker:
         Returns True if app should continue, False if update is being installed.
         """
         try:
+            print(f"🔍 UpdateChecker: Current version = {self.current_version}")
+            
             # Check internet connection first
             if not self.is_internet_available():
                 self.logger.info("No internet connection. Skipping update check.")
+                print("❌ No internet connection. Skipping update check.")
                 return True
             
+            print("✅ Internet connection available. Checking for updates...")
             self.logger.info("Checking for updates...")
             
             # Get latest release info
             release_info = self.get_latest_release_info()
             if not release_info:
                 self.logger.warning("Could not fetch release information.")
+                print("❌ Could not fetch release information.")
                 return True
             
+            latest_version = release_info.get('tag_name', '')
+            print(f"🔍 Latest version from GitHub: {latest_version}")
+            
             # Compare versions
-            if self.is_newer_version(release_info.get('tag_name', ''), self.current_version):
+            if self.is_newer_version(latest_version, self.current_version):
+                print(f"🔄 Update available: {self.current_version} -> {latest_version}")
                 return self.show_update_dialog(release_info)
             else:
                 self.logger.info("Application is up to date.")
+                print(f"✅ Application is up to date: {self.current_version}")
                 return True
                 
         except Exception as e:
@@ -139,6 +149,10 @@ class UpdateChecker:
     def show_update_dialog(self, release_info):
         """Show update dialog and handle user choice."""
         try:
+            latest_version = release_info.get('tag_name', 'Unknown')
+            self.logger.info(f"Showing update dialog: {self.current_version} -> {latest_version}")
+            print(f"📱 Showing update dialog: {self.current_version} -> {latest_version}")
+            
             # Create root window (hidden)
             root = tk.Tk()
             root.withdraw()
@@ -148,33 +162,91 @@ class UpdateChecker:
                 "Update Available",
                 f"A new update is available!\n\n"
                 f"Current Version: v{self.current_version}\n"
-                f"Latest Version: {release_info.get('tag_name', 'Unknown')}\n\n"
+                f"Latest Version: {latest_version}\n\n"
                 f"Do you want to download and install it?",
                 icon='question'
             )
             
             root.destroy()
             
+            self.logger.info(f"User choice for update: {'Yes' if result else 'No'}")
+            print(f"👤 User choice for update: {'Yes' if result else 'No'}")
+            
             if result:
                 # User chose to update
+                print("⬇️ Starting download and install process...")
                 return self.download_and_install_update(release_info)
             else:
                 # User chose to update later
                 self.logger.info("User postponed update.")
+                print("⏰ User postponed update. Continuing with application...")
                 return True
                 
         except Exception as e:
             self.logger.error(f"Error showing update dialog: {e}")
+            messagebox.showerror("Update Error", f"Error in update dialog: {str(e)}")
+            print(f"❌ Error showing update dialog: {e}")
             return True
+    
+    def show_update_dialog_non_blocking(self, release_info):
+        """Show update dialog without blocking the main application."""
+        try:
+            latest_version = release_info.get('tag_name', 'Unknown')
+            self.logger.info(f"Showing non-blocking update dialog: {self.current_version} -> {latest_version}")
+            print(f"📱 Showing update dialog: {self.current_version} -> {latest_version}")
+            
+            # Create root window (hidden)
+            root = tk.Tk()
+            root.withdraw()
+            
+            # Show update dialog
+            result = messagebox.askyesno(
+                "Update Available",
+                f"A new update is available!\n\n"
+                f"Current Version: v{self.current_version}\n"
+                f"Latest Version: {latest_version}\n\n"
+                f"Do you want to download and install it now?\n\n"
+                f"Note: You can continue using the application if you choose 'No'.",
+                icon='question'
+            )
+            
+            root.destroy()
+            
+            self.logger.info(f"User choice for non-blocking update: {'Yes' if result else 'No'}")
+            print(f"👤 User choice for update: {'Yes' if result else 'No'}")
+            
+            if result:
+                # User chose to update
+                print("⬇️ Starting download and install process...")
+                return self.download_and_install_update(release_info)
+            else:
+                # User chose to continue with current version
+                self.logger.info("User chose to continue with current version.")
+                print("⏰ User chose to continue with current version.")
+                return True  # Continue with application
+                
+        except Exception as e:
+            self.logger.error(f"Error showing non-blocking update dialog: {e}")
+            print(f"❌ Error showing update dialog: {e}")
+            return True  # Continue with application on error
     
     def download_and_install_update(self, release_info):
         """Download and install the update."""
         try:
-            # Find the encrypted installer asset
-            asset = self.find_installer_asset(release_info.get('assets', []))
+            self.logger.info("Starting download and install process...")
+            
+            # Find the installer asset
+            assets = release_info.get('assets', [])
+            self.logger.info(f"Available assets: {[asset['name'] for asset in assets]}")
+            
+            asset = self.find_installer_asset(assets)
             if not asset:
-                messagebox.showerror("Update Error", "Could not find installer in release assets.")
+                error_msg = "Could not find installer in release assets."
+                self.logger.error(error_msg)
+                messagebox.showerror("Update Error", error_msg)
                 return True
+            
+            self.logger.info(f"Selected asset: {asset['name']}")
             
             # Show progress window
             progress_window = self.create_progress_window()
@@ -184,10 +256,12 @@ class UpdateChecker:
                     # Update progress
                     self.update_progress(progress_window, "Downloading update...", 10)
                     
-                    # Download encrypted file
+                    # Download file
                     temp_dir = tempfile.gettempdir()
                     encrypted_path = os.path.join(temp_dir, asset['name'])
                     decrypted_path = os.path.join(temp_dir, asset['name'].replace('-encrypted', ''))
+                    
+                    self.logger.info(f"Downloading to: {encrypted_path}")
                     
                     self.download_file(asset['browser_download_url'], encrypted_path, progress_window)
                     
@@ -218,15 +292,19 @@ class UpdateChecker:
                         # Close progress window
                         progress_window.destroy()
                         
-                        if 'Setup' in asset['name']:
-                            # It's an installer
-                            subprocess.Popen([encrypted_path, '/S'])  # Silent install
-                        else:
-                            # It's a regular executable - replace current one
-                            current_exe = sys.executable
-                            backup_exe = current_exe + '.backup'
-                            
-                            try:
+                        try:
+                            if 'Setup' in asset['name']:
+                                # It's an installer
+                                messagebox.showinfo("Update", f"Running installer: {asset['name']}")
+                                subprocess.Popen([encrypted_path, '/S'])  # Silent install
+                            else:
+                                # It's a regular executable - replace current one
+                                current_exe = sys.executable
+                                backup_exe = current_exe + '.backup'
+                                
+                                messagebox.showinfo("Update", f"Updating executable from {asset['name']}")
+                                self.logger.info(f"Replacing {current_exe} with {encrypted_path}")
+                                
                                 # Backup current executable
                                 shutil.copy2(current_exe, backup_exe)
                                 
@@ -234,12 +312,16 @@ class UpdateChecker:
                                 shutil.copy2(encrypted_path, current_exe)
                                 
                                 messagebox.showinfo("Update Complete", "Update installed successfully! Please restart the application.")
-                            except Exception as e:
-                                messagebox.showerror("Update Error", f"Failed to update executable: {str(e)}")
-                                return True
+                                return True  # Don't exit automatically
+                        except Exception as e:
+                            error_msg = f"Failed to update: {str(e)}"
+                            self.logger.error(error_msg)
+                            messagebox.showerror("Update Error", error_msg)
+                            return True
                         
-                        # Exit current application
-                        sys.exit(0)
+                        # Exit current application only if installer was run
+                        if 'Setup' in asset['name']:
+                            sys.exit(0)
                         
                 except Exception as e:
                     progress_window.destroy()

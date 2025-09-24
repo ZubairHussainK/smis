@@ -82,6 +82,9 @@ class MainWindow(QMainWindow):
         
         # Log the session start
         log_audit_event("session_started", user.id, "application")
+        
+        # Check for updates after user is set (with a small delay to ensure UI is ready)
+        QTimer.singleShot(2000, self._check_for_updates)
     
     def _update_ui_for_user(self):
         """Update UI elements based on current user permissions."""
@@ -742,6 +745,59 @@ class MainWindow(QMainWindow):
         
         if reply == QMessageBox.Yes:
             self.user_logout_requested.emit()
+    
+    def _check_for_updates(self):
+        """Check for updates and show notification in the main application."""
+        try:
+            from version import __version__
+            from services.update_service import UpdateChecker
+            
+            print("🔄 Checking for updates...")
+            print(f"🔍 Current version: {__version__}")
+            
+            # Create update checker
+            updater = UpdateChecker()
+            
+            # Check for updates (non-blocking)
+            if updater.has_internet_connection():
+                release_info = updater.get_latest_release_info()
+                if release_info:
+                    latest_version = release_info.get('tag_name', '')
+                    
+                    if updater.is_newer_version(latest_version, updater.current_version):
+                        print(f"🔄 Update available: {updater.current_version} -> {latest_version}")
+                        
+                        # Show update dialog within the main application
+                        reply = QMessageBox.question(
+                            self,
+                            "Update Available",
+                            f"A new update is available!\n\n"
+                            f"Current Version: v{updater.current_version}\n"
+                            f"Latest Version: {latest_version}\n\n"
+                            f"Do you want to download and install it now?\n\n"
+                            f"Note: The application will close during the update process.",
+                            QMessageBox.Yes | QMessageBox.No,
+                            QMessageBox.No
+                        )
+                        
+                        if reply == QMessageBox.Yes:
+                            print("⬇️ Starting download and install process...")
+                            # Start update process
+                            result = updater.download_and_install_update(release_info)
+                            if not result:  # Update started, close application
+                                self.close()
+                        else:
+                            print("⏰ User postponed update.")
+                    else:
+                        print(f"✅ Application is up to date: {updater.current_version}")
+                else:
+                    print("❌ Could not fetch release information.")
+            else:
+                print("❌ No internet connection. Skipping update check.")
+                
+        except Exception as e:
+            print(f"Update check failed: {e}")
+            logging.error(f"Update check error: {e}")
             
     def closeEvent(self, event):
         """Clean up persistent protection timers on close."""
