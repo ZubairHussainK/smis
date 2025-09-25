@@ -300,8 +300,13 @@ class SMISApplication:
             if not self.initialize():
                 return 1
             
-            # Always show login window (removed first-time user check)
-            # Registration will be available from login window
+            # Check if this is first time user (no users exist)
+            if self._is_first_time_user():
+                print("🆕 First time user detected - showing registration window")
+                if not self.show_registration_window():
+                    return 1
+            
+            # Show login window
             if not self.show_login_window():
                 return 1
             
@@ -347,14 +352,16 @@ class SMISApplication:
                 "You'll be able to create additional users after login."
             )
             
-            registration_window = RegistrationWindow()
-            registration_window.setWindowTitle("SMIS - First Time Setup")
+            self.registration_window = RegistrationWindow()
+            self.registration_window.setWindowTitle("SMIS - First Time Setup")
             
-            # Connect registration success signal if it exists
-            if hasattr(registration_window, 'registration_successful'):
-                registration_window.registration_successful.connect(self._on_registration_successful)
+            # Connect registration success signal - use the correct signal name
+            if hasattr(self.registration_window, 'registration_completed'):
+                self.registration_window.registration_completed.connect(self._on_registration_successful)
+            elif hasattr(self.registration_window, 'registration_successful'):
+                self.registration_window.registration_successful.connect(self._on_registration_successful)
             
-            result = registration_window.exec_()
+            result = self.registration_window.exec_()
             
             if result == RegistrationWindow.Rejected:
                 # User closed registration window
@@ -367,6 +374,7 @@ class SMISApplication:
                 )
                 return False
             
+            # If registration was successful, return True to continue to login
             return True
             
         except Exception as e:
@@ -386,10 +394,14 @@ class SMISApplication:
                 None,
                 "Registration Successful!",
                 "Your administrator account has been created successfully!\n\n"
-                "You can now login with your new credentials.\n"
-                "Please remember to create additional user accounts as needed."
+                "The application will now proceed to the login screen.\n"
+                "Please login with your new credentials to continue."
             )
             
+            # Force close the registration window properly
+            if hasattr(self, 'registration_window'):
+                self.registration_window.close()
+                
         except Exception as e:
             logging.error(f"Error handling registration success: {e}")
 

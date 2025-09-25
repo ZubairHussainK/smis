@@ -326,7 +326,7 @@ class RegistrationWindow(QDialog):
                 'email': self.email_input.input_field.text().strip(),
                 'phone': "",  # Default empty phone
                 'organization': self.organization_input.input_field.text().strip(),
-                'role': "user",  # Default role
+                'role': "admin",  # First user is admin for fresh installation
                 'registration_key': self.key_input.text().strip()
             }
             
@@ -350,21 +350,30 @@ class RegistrationWindow(QDialog):
                 # Mark key as used (you would implement this in your key management system)
                 self._mark_key_as_used(user_data['registration_key'])
                 
+                # Success message with clear instructions
                 QMessageBox.information(self, "Registration Successful", 
-                                      f"Account created successfully for {user_data['username']}!\n\n"
-                                      f"You can now login with username: {user_data['username']}")
+                                      f"Account created successfully!\n\n"
+                                      f"Username: {user_data['username']}\n"
+                                      f"Organization: {user_data['organization']}\n\n"
+                                      f"The application will now proceed to the login screen.\n"
+                                      f"Please use your new credentials to login.")
                 
-                # Emit registration completed signal
+                # Log successful registration
+                logging.info(f"User registration successful: {user_data['username']}")
+                
+                # Emit registration completed signal first
                 self.registration_completed.emit(user_data)
                 
-                # Accept dialog (close with success)
+                # Then accept dialog (close with success)
                 self.accept()
             else:
-                QMessageBox.critical(self, "Registration Error", "Failed to create user account. Please try again.")
+                QMessageBox.critical(self, "Registration Error", 
+                                   "Failed to create user account. Please check if the username already exists or try again.")
+                logging.error(f"User registration failed: {user_data['username']}")
                 
         except Exception as e:
             logging.error(f"Registration error: {e}")
-            QMessageBox.critical(self, "Registration Error", f"An error occurred during registration: {str(e)}")
+            QMessageBox.critical(self, "Registration Error", f"An error occurred during registration:\n{str(e)}")
             
     def _mark_key_as_used(self, key):
         """Mark the registration key as used using the security manager."""
