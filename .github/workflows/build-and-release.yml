@@ -157,6 +157,12 @@ jobs:
             --distpath dist --workpath build-simple `
             --add-data "resources;resources" `
             --add-data "config;config" `
+            --add-data "core;core" `
+            --add-data "ui;ui" `
+            --add-data "models;models" `
+            --add-data "utils;utils" `
+            --add-data "services;services" `
+            --add-data "controllers;controllers" `
             --add-data "version.py;." `
             --collect-all PyQt5 `
             --collect-all dotenv `
@@ -164,6 +170,23 @@ jobs:
             --hidden-import sip `
             --hidden-import sqlite3 `
             --hidden-import version `
+            --hidden-import core `
+            --hidden-import core.security_manager `
+            --hidden-import core.auth `
+            --hidden-import core.exceptions `
+            --hidden-import ui `
+            --hidden-import ui.main_window `
+            --hidden-import ui.login_window `
+            --hidden-import models `
+            --hidden-import models.database `
+            --hidden-import utils `
+            --hidden-import utils.logger `
+            --hidden-import utils.fonts `
+            --hidden-import config `
+            --hidden-import config.settings `
+            --hidden-import services `
+            --hidden-import services.backup_service `
+            --hidden-import controllers `
             --hidden-import dotenv `
             --hidden-import dotenv.main `
             --hidden-import dotenv.parser `
@@ -223,11 +246,25 @@ jobs:
             --distpath dist --workpath build-debug `
             --add-data "resources;resources" `
             --add-data "config;config" `
+            --add-data "core;core" `
+            --add-data "ui;ui" `
+            --add-data "models;models" `
+            --add-data "utils;utils" `
+            --add-data "services;services" `
+            --add-data "controllers;controllers" `
             --add-data "version.py;." `
             --collect-all PyQt5 `
             --hidden-import PyQt5.sip `
             --hidden-import sip `
             --hidden-import version `
+            --hidden-import core `
+            --hidden-import core.security_manager `
+            --hidden-import ui.main_window `
+            --hidden-import ui.login_window `
+            --hidden-import models.database `
+            --hidden-import utils.logger `
+            --hidden-import config.settings `
+            --hidden-import services.backup_service `
             --hidden-import dotenv `
             --hidden-import dotenv.main `
             --hidden-import cryptography `
