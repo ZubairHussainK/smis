@@ -391,11 +391,11 @@ jobs:
         Get-ChildItem dist -Name | Sort-Object
       shell: powershell
         
-    - name: Create NSIS installer
+    - name: Create Inno Setup installer
       run: |
         $version = "${{ steps.get_version.outputs.VERSION }}"
-        if (-not (Test-Path "installer.nsi")) {
-          Write-Output "ERROR: installer.nsi not found"; exit 1
+        if (-not (Test-Path "setup_script.iss")) {
+          Write-Output "ERROR: setup_script.iss not found"; exit 1
         }
         
         # Check if executable was built successfully
@@ -407,43 +407,65 @@ jobs:
           exit 1
         }
         
+        # Rename executable to SMIS.exe for Inno Setup script
+        if (Test-Path "dist/SMIS.exe") { Remove-Item "dist/SMIS.exe" -Force }
+        Copy-Item $executablePath "dist/SMIS.exe"
+        Write-Output "Copied $executablePath to dist/SMIS.exe for Inno Setup"
+        
         Write-Output "Building installer for: $executablePath"
         $fileSize = (Get-Item $executablePath).Length / 1MB
         Write-Output "Executable size: $([math]::Round($fileSize, 2)) MB"
-        Write-Output "Listing icon path (resources/icons):"
+        Write-Output "Checking icon path (resources/icons):"
         if (Test-Path "resources/icons") { Get-ChildItem -Recurse -Path resources/icons } else { Write-Output "resources/icons directory missing" }
         if (Test-Path "resources/icons/app_icon.ico") { echo "Icon file found." } else { echo "WARNING: resources/icons/app_icon.ico not found; build will continue with default icon." }
-        # Path to makensis (usually in Program Files (x86))
-        $nsis = "C:/Program Files (x86)/NSIS/makensis.exe"
-        if (-not (Test-Path $nsis)) { $nsis = "C:/Program Files/NSIS/makensis.exe" }
-        if (-not (Test-Path $nsis)) {
-          echo "makensis not found. Attempting silent installation of NSIS..."
-          $temp = "$env:RUNNER_TEMP/nsis"
+        
+        # Update Inno Setup script with current version
+        $issContent = Get-Content "setup_script.iss" -Raw
+        $issContent = $issContent -replace "AppVersion=2\.3\.4", "AppVersion=$version"
+        $issContent = $issContent -replace "SMIS_Setup_v2\.3\.4", "SMIS_Setup_v$version"
+        $issContent = $issContent -replace "v2\.3\.4", "v$version"
+        $issContent | Set-Content "setup_script.iss"
+        Write-Output "Updated setup_script.iss with version $version"
+        
+        # Create installer directory if it doesn't exist
+        if (-not (Test-Path "installer")) { New-Item -ItemType Directory -Force -Path "installer" }
+        
+        # Path to Inno Setup Compiler (usually in Program Files (x86))
+        $iscc = "C:/Program Files (x86)/Inno Setup 6/ISCC.exe"
+        if (-not (Test-Path $iscc)) { $iscc = "C:/Program Files/Inno Setup 6/ISCC.exe" }
+        if (-not (Test-Path $iscc)) {
+          echo "Inno Setup not found. Attempting silent installation..."
+          $temp = "$env:RUNNER_TEMP/innosetup"
           New-Item -ItemType Directory -Force -Path $temp | Out-Null
-          $nsisUrl = "https://downloads.sourceforge.net/project/nsis/NSIS%203/3.10/nsis-3.10-setup.exe"
-          $installerPath = Join-Path $temp "nsis-setup.exe"
-          echo "Downloading NSIS from $nsisUrl"
-          Invoke-WebRequest -Uri $nsisUrl -OutFile $installerPath -UseBasicParsing
-          if (-not (Test-Path $installerPath)) { echo "ERROR: Failed to download NSIS installer"; exit 1 }
-          echo "Running silent NSIS installer..."
-          Start-Process -FilePath $installerPath -ArgumentList "/S" -Wait -NoNewWindow
+          $innoUrl = "https://jrsoftware.org/download.php/is.exe"
+          $installerPath = Join-Path $temp "innosetup.exe"
+          echo "Downloading Inno Setup from $innoUrl"
+          Invoke-WebRequest -Uri $innoUrl -OutFile $installerPath -UseBasicParsing
+          if (-not (Test-Path $installerPath)) { echo "ERROR: Failed to download Inno Setup installer"; exit 1 }
+          echo "Running silent Inno Setup installer..."
+          Start-Process -FilePath $installerPath -ArgumentList "/SILENT", "/SUPPRESSMSGBOXES" -Wait -NoNewWindow
           # Re-check standard install locations
-          $nsis = "C:/Program Files (x86)/NSIS/makensis.exe"
-          if (-not (Test-Path $nsis)) { $nsis = "C:/Program Files/NSIS/makensis.exe" }
-          if (-not (Test-Path $nsis)) { echo "ERROR: makensis still not found after install"; exit 1 }
-          echo "NSIS installed successfully. Proceeding with build."
+          $iscc = "C:/Program Files (x86)/Inno Setup 6/ISCC.exe"
+          if (-not (Test-Path $iscc)) { $iscc = "C:/Program Files/Inno Setup 6/ISCC.exe" }
+          if (-not (Test-Path $iscc)) { echo "ERROR: ISCC still not found after install"; exit 1 }
+          echo "Inno Setup installed successfully. Proceeding with build."
         }
-        & "$nsis" /DVERSION=$version installer.nsi
-        if ($LASTEXITCODE -ne 0) { echo "NSIS build failed"; exit 1 }
-        if (-not (Test-Path "SMIS-Setup-$version.exe")) { echo "ERROR: Expected NSIS output SMIS-Setup-$version.exe missing"; Get-ChildItem -Path . -Filter "SMIS-Setup*"; exit 1 }
-        echo "NSIS installer created: SMIS-Setup-$version.exe"
+        & "$iscc" "setup_script.iss"
+        if ($LASTEXITCODE -ne 0) { echo "Inno Setup build failed"; exit 1 }
         
-        # Create installation helper batch file
-        echo "Creating installation helper..."
-        Copy-Item "install_helper.bat" "SMIS-Install-Helper-$version.bat"
+        $expectedInstaller = "installer/SMIS_Setup_v$version.exe"
+        if (-not (Test-Path $expectedInstaller)) { 
+          echo "ERROR: Expected Inno Setup output $expectedInstaller missing"
+          Write-Output "Available files in installer folder:"
+          if (Test-Path "installer") { Get-ChildItem installer -Name }
+          exit 1 
+        }
         
-        # Create smart launcher for installed system
-        Copy-Item "SMIS-SmartLauncher.bat" "dist/SMIS-SmartLauncher.bat"
+        # Copy installer to root for encryption step
+        Copy-Item $expectedInstaller "SMIS-Setup-$version.exe"
+        echo "Inno Setup installer created: SMIS-Setup-$version.exe"
+        
+        Write-Output "✅ Inno Setup installer build completed successfully!"
       shell: powershell
       
     - name: Encrypt installer
@@ -519,47 +541,44 @@ jobs:
           
           ### What's New
           - Auto-generated release from tag v${{ steps.get_version.outputs.VERSION }}
-          - Encrypted installer for enhanced security
+          - Built with Inno Setup installer for enhanced security and user experience
+          - Encrypted installer with AES encryption
           - Built on ${{ github.run_number }} workflow run
           
-          ### Installation (2 Easy Options)
+          ### Installation
           
-          **Option 1 - Easy Installation (Recommended):**
-          1. Download: `SMIS-Install-Helper-${{ steps.get_version.outputs.VERSION }}.bat`
-          2. Run as Administrator
-          3. Follow the installation wizard
-          
-          **Option 2 - Direct Installation:**
+          **Standard Installation (Recommended):**
           1. Download: `SMIS-Setup-${{ steps.get_version.outputs.VERSION }}-unencrypted.exe`
           2. Right-click → "Run as Administrator"
-          3. If Windows warns, click "More info" → "Run anyway"
+          3. Follow the installation wizard
+          4. If Windows warns, click "More info" → "Run anyway"
           
-          ### What's Fixed in This Version
+          ### Features
+          - ✅ Professional Inno Setup installer with app icon
           - ✅ Single executable (no multiple files)
-          - ✅ Single Start Menu entry (no folder)
+          - ✅ Clean Start Menu and Desktop shortcuts
           - ✅ Enhanced PyQt5 module inclusion
           - ✅ Optimized for maximum compatibility
-          - ✅ Clean installation experience
+          - ✅ Smart uninstaller with optional data cleanup
+          - ✅ Fresh installation reset functionality
           
           ### File Information
-          - **Installer**: SMIS-Setup-${{ steps.get_version.outputs.VERSION }}-unencrypted.exe
-          - **Helper**: SMIS-Install-Helper-${{ steps.get_version.outputs.VERSION }}.bat
+          - **Installer**: SMIS-Setup-${{ steps.get_version.outputs.VERSION }}-unencrypted.exe (Inno Setup)
           - **Debug Executable**: SMIS-${{ steps.get_version.outputs.VERSION }}-Debug.exe (for troubleshooting)
           - **SHA256**: ${{ steps.hash.outputs.SHA256 }}
           - **Build Date**: ${{ github.event.head_commit.timestamp }}
           
           ### Troubleshooting
-          If the regular installer doesn't work, download the Debug version:
+          If the installer doesn't work, download the Debug version:
           1. Download: `SMIS-${{ steps.get_version.outputs.VERSION }}-Debug.exe`
           2. Run it from Command Prompt to see any error messages
           3. This console version shows all startup errors for diagnosis
           
           ### Security
           This installer is encrypted with AES encryption for security.
-          The helper script temporarily adds Windows Defender exclusions for smooth installation.
+          The Inno Setup installer provides a professional installation experience with proper Windows integration.
         files: |
           SMIS-Setup-${{ steps.get_version.outputs.VERSION }}-unencrypted.exe
-          SMIS-Install-Helper-${{ steps.get_version.outputs.VERSION }}.bat
           dist/SMIS-${{ steps.get_version.outputs.VERSION }}-Debug.exe
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -570,7 +589,6 @@ jobs:
         name: smis-installer-v${{ steps.get_version.outputs.VERSION }}
         path: |
           SMIS-Setup-${{ steps.get_version.outputs.VERSION }}-unencrypted.exe
-          SMIS-Install-Helper-${{ steps.get_version.outputs.VERSION }}.bat
           dist/SMIS-${{ steps.get_version.outputs.VERSION }}-Debug.exe
         retention-days: 30
         

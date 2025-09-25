@@ -357,6 +357,36 @@ class SMISSecurityManager:
         except Exception:
             return None
     
+    def reset_license_data(self):
+        """Reset all license and registration data - for fresh installations."""
+        try:
+            # Remove stored license key
+            if os.path.exists(self.local_key_file):
+                os.remove(self.local_key_file)
+                print("✅ License key cleared")
+            
+            # Remove registration database
+            reg_db_path = self._get_registration_db_path()
+            if os.path.exists(reg_db_path):
+                os.remove(reg_db_path)
+                print("✅ Registration data cleared")
+            
+            # Remove entire .smis_data directory if empty
+            try:
+                smis_data_dir = os.path.dirname(self.local_key_file)
+                if os.path.exists(smis_data_dir) and not os.listdir(smis_data_dir):
+                    os.rmdir(smis_data_dir)
+                    print("✅ Security directory cleaned")
+            except:
+                pass  # Ignore if directory not empty or can't be removed
+            
+            print("🔄 All license data reset successfully")
+            return True
+            
+        except Exception as e:
+            print(f"⚠️ Warning: Could not fully reset license data: {e}")
+            return False
+
     def is_key_expired(self, key_data: Dict[str, Any]) -> bool:
         """Check if key is expired."""
         try:

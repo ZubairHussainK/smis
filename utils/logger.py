@@ -41,10 +41,28 @@ class JSONFormatter(logging.Formatter):
 
 def setup_logging():
     """Configure enhanced application logging."""
+    # Get secure logs directory in AppData
+    try:
+        from config.settings import Config
+        log_dir = os.path.join(Config.APP_DATA_DIR, 'logs')
+    except ImportError:
+        # Fallback if config not available
+        if hasattr(sys, '_MEIPASS'):
+            # Running as PyInstaller executable - use AppData
+            app_data = os.path.join(os.environ.get('APPDATA', ''), 'SMIS')
+        else:
+            # Running from source
+            app_data = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        log_dir = os.path.join(app_data, 'logs')
+    
     # Create logs directory if it doesn't exist
-    log_dir = 'logs'
-    if not os.path.exists(log_dir):
-        os.makedirs(log_dir)
+    try:
+        os.makedirs(log_dir, exist_ok=True)
+        print(f"📋 Logs directory created: {log_dir}")
+    except Exception as e:
+        print(f"❌ Failed to create logs directory: {e}")
+        # Fallback to current directory
+        log_dir = '.'
     
     # Configure structlog
     structlog.configure(
@@ -131,12 +149,30 @@ def setup_security_logger():
     """Set up dedicated security event logger."""
     security_logger = logging.getLogger('security')
     
+    # Get secure logs directory
+    try:
+        from config.settings import Config
+        log_dir = os.path.join(Config.APP_DATA_DIR, 'logs')
+        max_bytes = Config.LOG_FILE_MAX_SIZE
+        backup_count = Config.LOG_BACKUP_COUNT
+    except ImportError:
+        # Fallback
+        if hasattr(sys, '_MEIPASS'):
+            app_data = os.path.join(os.environ.get('APPDATA', ''), 'SMIS')
+        else:
+            app_data = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        log_dir = os.path.join(app_data, 'logs')
+        max_bytes = 10485760  # 10MB
+        backup_count = 5
+    
+    os.makedirs(log_dir, exist_ok=True)
+    
     # Security log file
-    security_log_file = os.path.join('logs', f'security_{datetime.now().strftime("%Y%m%d")}.log')
+    security_log_file = os.path.join(log_dir, f'security_{datetime.now().strftime("%Y%m%d")}.log')
     security_handler = logging.handlers.RotatingFileHandler(
         security_log_file,
-        maxBytes=Config.LOG_FILE_MAX_SIZE,
-        backupCount=Config.LOG_BACKUP_COUNT
+        maxBytes=max_bytes,
+        backupCount=backup_count
     )
     
     security_formatter = logging.Formatter(
@@ -151,17 +187,33 @@ def setup_security_logger():
 
 def setup_audit_logger():
     """Set up dedicated audit trail logger."""
-    if not Config.ENABLE_AUDIT_LOG:
-        return
+    try:
+        from config.settings import Config
+        if not Config.ENABLE_AUDIT_LOG:
+            return
+        log_dir = os.path.join(Config.APP_DATA_DIR, 'logs')
+        max_bytes = Config.LOG_FILE_MAX_SIZE
+        backup_count = Config.LOG_BACKUP_COUNT
+    except ImportError:
+        # Fallback - enable audit logging
+        if hasattr(sys, '_MEIPASS'):
+            app_data = os.path.join(os.environ.get('APPDATA', ''), 'SMIS')
+        else:
+            app_data = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        log_dir = os.path.join(app_data, 'logs')
+        max_bytes = 10485760  # 10MB
+        backup_count = 5
     
     audit_logger = logging.getLogger('audit')
     
+    os.makedirs(log_dir, exist_ok=True)
+    
     # Audit log file
-    audit_log_file = os.path.join('logs', f'audit_{datetime.now().strftime("%Y%m%d")}.log')
+    audit_log_file = os.path.join(log_dir, f'audit_{datetime.now().strftime("%Y%m%d")}.log')
     audit_handler = logging.handlers.RotatingFileHandler(
         audit_log_file,
-        maxBytes=Config.LOG_FILE_MAX_SIZE,
-        backupCount=Config.LOG_BACKUP_COUNT
+        maxBytes=max_bytes,
+        backupCount=backup_count
     )
     
     audit_formatter = JSONFormatter()

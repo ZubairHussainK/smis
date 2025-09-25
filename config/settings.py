@@ -20,6 +20,20 @@ def get_app_data_dir():
     os.makedirs(app_data, exist_ok=True)
     return app_data
 
+def get_resource_path(relative_path):
+    """Get absolute path to resource, works for dev and for PyInstaller."""
+    try:
+        if hasattr(sys, '_MEIPASS'):
+            # Running as PyInstaller bundle
+            base_path = sys._MEIPASS
+        else:
+            # Running from source
+            base_path = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        return os.path.join(base_path, relative_path)
+    except Exception:
+        # Fallback to current directory
+        return os.path.abspath(relative_path)
+
 class Config:
     """Main configuration class."""
     
@@ -29,6 +43,10 @@ class Config:
     
     # Get application data directory
     APP_DATA_DIR = get_app_data_dir()
+    
+    # Resource paths - for bundled files
+    RESOURCE_DIR = get_resource_path('resources')
+    CONFIG_DIR = get_resource_path('config')
     
     # Database - Use absolute path in AppData for installed version
     DATABASE_PATH = os.path.join(APP_DATA_DIR, "school.db")

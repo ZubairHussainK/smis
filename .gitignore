@@ -64,6 +64,7 @@ backups/
 # Build Output - Local executables
 dist/
 build/
+build-Local/
 *.exe
 *.spec
 *.manifest

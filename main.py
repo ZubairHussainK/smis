@@ -63,10 +63,21 @@ def import_app_modules():
     from models.database import Database
     from utils.logger import setup_logging, log_security_event, log_audit_event
     from utils.fonts import setup_fonts
-    from config.settings import Config
     from core.auth import get_auth_manager
     from services.backup_service import get_backup_manager
     from core.exceptions import SMISException, handle_exception
+
+    # Import config with proper error handling for PyInstaller
+    try:
+        from config.settings import Config
+        print(f"✅ Config loaded successfully from: {Config.CONFIG_DIR}")
+    except ImportError as e:
+        print(f"❌ Config import error: {e}")
+        print(f"Current working directory: {os.getcwd()}")
+        print(f"Python path: {sys.path}")
+        if hasattr(sys, '_MEIPASS'):
+            print(f"PyInstaller temp path: {sys._MEIPASS}")
+        raise
 
 logger = logging.getLogger(__name__)
 
@@ -329,11 +340,12 @@ class SMISApplication:
             return 1
     
     def _is_first_time_user(self):
-        """Check if this is the first time the application is being run (no users exist)."""
+        """Check if this is the first time the application is being run (no users exist and no license)."""
         try:
             # Import here to avoid circular imports
             from models.database import Database
             from config.settings import Config
+            from core.security_manager import SMISSecurityManager
             
             # Check if database file exists at the configured path
             if not os.path.exists(Config.DATABASE_PATH):
@@ -345,10 +357,23 @@ class SMISApplication:
             db.cursor.execute("SELECT COUNT(*) FROM users")
             user_count = db.cursor.fetchone()[0]
             
-            logging.info(f"Found {user_count} users in database at {Config.DATABASE_PATH}")
+            # Additionally check if license data exists
+            security_manager = SMISSecurityManager()
+            stored_key = security_manager.load_stored_key()
+            has_license = stored_key is not None
             
-            # Return True if no users exist (first time run)
-            return user_count == 0
+            logging.info(f"Found {user_count} users in database at {Config.DATABASE_PATH}")
+            logging.info(f"License data exists: {has_license}")
+            
+            # Return True if no users exist AND no license data (truly fresh install)
+            is_first_time = (user_count == 0) and (not has_license)
+            
+            if is_first_time:
+                logging.info("🔄 Fresh installation detected - will show registration")
+            else:
+                logging.info("👤 Existing installation detected - will show login")
+                
+            return is_first_time
             
         except Exception as e:
             logging.error(f"Error checking first time user status: {e}")
@@ -540,6 +565,51 @@ def handle_registration():
         print("\nRegistration failed.")
         print("Please ensure you have a valid key and try again.")
 
+def handle_reset():
+    """Handle fresh installation reset."""
+    print("🔄 SMIS Fresh Installation Reset")
+    print("=" * 50)
+    print("⚠️  WARNING: This will permanently delete:")
+    print("   • All license and registration data")
+    print("   • All student records and database")
+    print("   • All application settings")
+    print("   • All attendance records")
+    print()
+    
+    response = input("Are you sure you want to reset everything? (type 'RESET' to confirm): ")
+    if response != 'RESET':
+        print("❌ Reset cancelled")
+        return False
+    
+    try:
+        # Import security manager
+        from core.security_manager import SMISSecurityManager
+        from config.settings import Config
+        import shutil
+        
+        print("\n🔄 Resetting license data...")
+        security_manager = SMISSecurityManager()
+        security_manager.reset_license_data()
+        
+        print("🔄 Removing database...")
+        if os.path.exists(Config.DATABASE_PATH):
+            os.remove(Config.DATABASE_PATH)
+            print("✅ Database removed")
+        
+        print("🔄 Removing AppData directory...")
+        if os.path.exists(Config.APP_DATA_DIR):
+            shutil.rmtree(Config.APP_DATA_DIR)
+            print("✅ AppData directory removed")
+        
+        print("\n✅ Fresh installation reset completed!")
+        print("🔄 Next time you run SMIS, it will show registration page.")
+        print("💡 Restart the application to begin fresh setup.")
+        return True
+        
+    except Exception as e:
+        print(f"❌ Reset failed: {e}")
+        return False
+
 # Make the main function available for import
 __all__ = ['main']
 
@@ -548,6 +618,9 @@ if __name__ == "__main__":
     if len(sys.argv) > 1:
         if sys.argv[1].lower() in ['register', 'reg', '-r', '--register']:
             handle_registration()
+            sys.exit(0)
+        elif sys.argv[1].lower() in ['reset', '--reset', '-reset']:
+            handle_reset()
             sys.exit(0)
         elif sys.argv[1].lower() in ['help', '-h', '--help']:
             print("SMIS - School Management Information System")
