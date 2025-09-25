@@ -166,6 +166,7 @@ jobs:
             --add-data "version.py;." `
             --collect-all PyQt5 `
             --collect-all dotenv `
+            --collect-all cryptography `
             --hidden-import PyQt5.sip `
             --hidden-import sip `
             --hidden-import sqlite3 `
@@ -196,7 +197,14 @@ jobs:
             --hidden-import cryptography.fernet `
             --hidden-import cryptography.hazmat `
             --hidden-import cryptography.hazmat.primitives `
+            --hidden-import cryptography.hazmat.primitives.kdf `
+            --hidden-import cryptography.hazmat.primitives.kdf.pbkdf2 `
+            --hidden-import cryptography.hazmat.primitives.ciphers `
+            --hidden-import cryptography.hazmat.primitives.ciphers.algorithms `
+            --hidden-import cryptography.hazmat.primitives.ciphers.modes `
+            --hidden-import cryptography.hazmat.primitives.hashes `
             --hidden-import cryptography.hazmat.backends `
+            --hidden-import cryptography.hazmat.backends.openssl `
             --hidden-import requests `
             --hidden-import urllib3 `
             --hidden-import urllib3.util `
@@ -254,6 +262,7 @@ jobs:
             --add-data "controllers;controllers" `
             --add-data "version.py;." `
             --collect-all PyQt5 `
+            --collect-all cryptography `
             --hidden-import PyQt5.sip `
             --hidden-import sip `
             --hidden-import version `
@@ -268,6 +277,11 @@ jobs:
             --hidden-import dotenv `
             --hidden-import dotenv.main `
             --hidden-import cryptography `
+            --hidden-import cryptography.fernet `
+            --hidden-import cryptography.hazmat.primitives.kdf `
+            --hidden-import cryptography.hazmat.primitives.kdf.pbkdf2 `
+            --hidden-import cryptography.hazmat.primitives.hashes `
+            --hidden-import cryptography.hazmat.backends.openssl `
             --hidden-import requests `
             --hidden-import urllib3 `
             --icon "resources/icons/app_icon.ico" `
