@@ -4,7 +4,14 @@ on:
   push:
     tags:
       - 'v*'  # Triggers on version tags like v1.2.3
-  workflow_dispatch:  # Allows manual trigger from GitHub Actions tab
+  workflow_dispatch:  # Allows manual trigger from         pyinstaller --clean --onefile --windowed --name "SMIS-$version" main.py `
+          --icon="resources/icons/app_icon.ico" `
+          --add-data="resources;resources" `
+          --add-data="ui;ui" `
+          --add-data="config;config" `
+          --add-data="version.py;." `
+          --hidden-import="PyQt5.sip" `
+          --hidden-import="sqlite3" `Actions tab
 
 permissions:
   contents: write
@@ -180,6 +187,7 @@ jobs:
           --add-data="resources;resources" `
           --add-data="ui;ui" `
           --add-data="config;config" `
+          --add-data="version.py;." `
           --hidden-import="PyQt5.sip" `
           --hidden-import="sqlite3" `
           --hidden-import="cryptography" `
@@ -211,6 +219,7 @@ jobs:
           --add-data="resources;resources" `
           --add-data="ui;ui" `
           --add-data="config;config" `
+          --add-data="version.py;." `
           --hidden-import="PyQt5.sip" `
           --hidden-import="sqlite3" `
           --hidden-import="cryptography" `
