@@ -175,19 +175,57 @@ jobs:
             --hidden-import core.security_manager `
             --hidden-import core.auth `
             --hidden-import core.exceptions `
+            --hidden-import core.validators `
             --hidden-import ui `
             --hidden-import ui.main_window `
             --hidden-import ui.login_window `
+            --hidden-import ui.registration_window `
+            --hidden-import ui.registration_window1 `
+            --hidden-import ui.pages `
+            --hidden-import ui.pages.dashboard `
+            --hidden-import ui.pages.student `
+            --hidden-import ui.pages.student_list `
+            --hidden-import ui.pages.attendance `
+            --hidden-import ui.pages.reports `
+            --hidden-import ui.pages.settings `
+            --hidden-import ui.pages.mother_reg `
+            --hidden-import ui.components `
+            --hidden-import ui.components.sidebar `
+            --hidden-import ui.components.custom_table `
+            --hidden-import ui.components.custom_combo_box `
+            --hidden-import ui.components.custom_date_picker `
+            --hidden-import ui.components.form_components `
+            --hidden-import ui.components.registration_form `
+            --hidden-import ui.components.student_registration_form `
+            --hidden-import ui.components.mother_form_widget `
+            --hidden-import ui.components.tables `
             --hidden-import models `
             --hidden-import models.database `
             --hidden-import utils `
             --hidden-import utils.logger `
             --hidden-import utils.fonts `
+            --hidden-import utils.material_icons `
+            --hidden-import utils.mother_validation `
             --hidden-import config `
             --hidden-import config.settings `
+            --hidden-import config.security `
+            --hidden-import config.update_config `
             --hidden-import services `
             --hidden-import services.backup_service `
+            --hidden-import services.mother_service `
+            --hidden-import services.update_service `
             --hidden-import controllers `
+            --hidden-import controllers.dashboard_controller `
+            --hidden-import controllers.student_controller `
+            --hidden-import controllers.attendance_controller `
+            --hidden-import controllers.reports_controller `
+            --hidden-import resources `
+            --hidden-import resources.styles `
+            --hidden-import resources.styles.theme `
+            --hidden-import resources.styles.constants `
+            --hidden-import resources.styles.utils `
+            --hidden-import resources.styles.widgets `
+            --hidden-import resources.styles.messages `
             --hidden-import dotenv `
             --hidden-import dotenv.main `
             --hidden-import dotenv.parser `
@@ -211,7 +249,27 @@ jobs:
             --hidden-import urllib3.exceptions `
             --hidden-import certifi `
             --hidden-import json `
+            --hidden-import csv `
+            --hidden-import pandas `
+            --hidden-import openpyxl `
+            --hidden-import bcrypt `
+            --hidden-import jwt `
+            --hidden-import hashlib `
+            --hidden-import base64 `
+            --hidden-import secrets `
+            --hidden-import datetime `
+            --hidden-import time `
+            --hidden-import threading `
+            --hidden-import subprocess `
+            --hidden-import tempfile `
+            --hidden-import shutil `
+            --hidden-import tkinter `
+            --hidden-import tkinter.messagebox `
             --hidden-import email.mime `
+            --hidden-import typing `
+            --hidden-import logging `
+            --hidden-import re `
+            --hidden-import unittest.mock `
             --icon "resources/icons/app_icon.ico" `
             --noupx --clean --log-level INFO
           
@@ -247,45 +305,58 @@ jobs:
           }
         }
         
-        # Final fallback: Debug console build
+        # ALWAYS build debug console version for troubleshooting
+        Write-Output "Building debug console version for troubleshooting..."
+        pyinstaller --onefile --console --name "SMIS-$version-Debug" main.py `
+          --distpath dist --workpath build-debug `
+          --add-data "resources;resources" `
+          --add-data "config;config" `
+          --add-data "core;core" `
+          --add-data "ui;ui" `
+          --add-data "models;models" `
+          --add-data "utils;utils" `
+          --add-data "services;services" `
+          --add-data "controllers;controllers" `
+          --add-data "version.py;." `
+          --collect-all PyQt5 `
+          --collect-all cryptography `
+          --hidden-import PyQt5.sip `
+          --hidden-import sip `
+          --hidden-import version `
+          --hidden-import core `
+          --hidden-import core.security_manager `
+          --hidden-import ui.main_window `
+          --hidden-import ui.login_window `
+          --hidden-import models.database `
+          --hidden-import utils.logger `
+          --hidden-import config.settings `
+          --hidden-import services.backup_service `
+          --hidden-import dotenv `
+          --hidden-import dotenv.main `
+          --hidden-import cryptography `
+          --hidden-import cryptography.fernet `
+          --hidden-import cryptography.hazmat.primitives.kdf `
+          --hidden-import cryptography.hazmat.primitives.kdf.pbkdf2 `
+          --hidden-import cryptography.hazmat.primitives.hashes `
+          --hidden-import cryptography.hazmat.backends.openssl `
+          --hidden-import requests `
+          --hidden-import urllib3 `
+          --icon "resources/icons/app_icon.ico" `
+          --noupx --clean
+        
+        if (Test-Path "dist/SMIS-$version-Debug.exe") {
+          Write-Output "✅ Debug console version built successfully!"
+          $debugSize = (Get-Item "dist/SMIS-$version-Debug.exe").Length / 1MB
+          Write-Output "Debug executable size: $([math]::Round($debugSize, 2)) MB"
+        }
+        
+        # Final fallback: Debug console build (if main build failed)
         if (-not (Test-Path "dist/SMIS-$version.exe")) {
-          Write-Output "Trying debug console build..."
-          pyinstaller --onefile --console --name "SMIS-$version" main.py `
-            --distpath dist --workpath build-debug `
-            --add-data "resources;resources" `
-            --add-data "config;config" `
-            --add-data "core;core" `
-            --add-data "ui;ui" `
-            --add-data "models;models" `
-            --add-data "utils;utils" `
-            --add-data "services;services" `
-            --add-data "controllers;controllers" `
-            --add-data "version.py;." `
-            --collect-all PyQt5 `
-            --collect-all cryptography `
-            --hidden-import PyQt5.sip `
-            --hidden-import sip `
-            --hidden-import version `
-            --hidden-import core `
-            --hidden-import core.security_manager `
-            --hidden-import ui.main_window `
-            --hidden-import ui.login_window `
-            --hidden-import models.database `
-            --hidden-import utils.logger `
-            --hidden-import config.settings `
-            --hidden-import services.backup_service `
-            --hidden-import dotenv `
-            --hidden-import dotenv.main `
-            --hidden-import cryptography `
-            --hidden-import cryptography.fernet `
-            --hidden-import cryptography.hazmat.primitives.kdf `
-            --hidden-import cryptography.hazmat.primitives.kdf.pbkdf2 `
-            --hidden-import cryptography.hazmat.primitives.hashes `
-            --hidden-import cryptography.hazmat.backends.openssl `
-            --hidden-import requests `
-            --hidden-import urllib3 `
-            --icon "resources/icons/app_icon.ico" `
-            --noupx --clean
+          Write-Output "Main build failed, using debug console build as fallback..."
+          if (Test-Path "dist/SMIS-$version-Debug.exe") {
+            Copy-Item "dist/SMIS-$version-Debug.exe" "dist/SMIS-$version.exe"
+            Write-Output "✅ Using debug version as main executable"
+          }
         }
         
         # Check final result
@@ -473,8 +544,15 @@ jobs:
           ### File Information
           - **Installer**: SMIS-Setup-${{ steps.get_version.outputs.VERSION }}-unencrypted.exe
           - **Helper**: SMIS-Install-Helper-${{ steps.get_version.outputs.VERSION }}.bat
+          - **Debug Executable**: SMIS-${{ steps.get_version.outputs.VERSION }}-Debug.exe (for troubleshooting)
           - **SHA256**: ${{ steps.hash.outputs.SHA256 }}
           - **Build Date**: ${{ github.event.head_commit.timestamp }}
+          
+          ### Troubleshooting
+          If the regular installer doesn't work, download the Debug version:
+          1. Download: `SMIS-${{ steps.get_version.outputs.VERSION }}-Debug.exe`
+          2. Run it from Command Prompt to see any error messages
+          3. This console version shows all startup errors for diagnosis
           
           ### Security
           This installer is encrypted with AES encryption for security.
@@ -482,6 +560,7 @@ jobs:
         files: |
           SMIS-Setup-${{ steps.get_version.outputs.VERSION }}-unencrypted.exe
           SMIS-Install-Helper-${{ steps.get_version.outputs.VERSION }}.bat
+          dist/SMIS-${{ steps.get_version.outputs.VERSION }}-Debug.exe
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         
@@ -492,6 +571,7 @@ jobs:
         path: |
           SMIS-Setup-${{ steps.get_version.outputs.VERSION }}-unencrypted.exe
           SMIS-Install-Helper-${{ steps.get_version.outputs.VERSION }}.bat
+          dist/SMIS-${{ steps.get_version.outputs.VERSION }}-Debug.exe
         retention-days: 30
         
     - name: Notify build completion
