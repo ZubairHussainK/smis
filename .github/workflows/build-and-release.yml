@@ -250,7 +250,13 @@ jobs:
           
           # Test critical imports in the build environment
           Write-Output "Testing critical imports for bundling verification..."
-          python -c "try: import dotenv; from PyQt5.QtWidgets import QApplication; import cryptography; print('✅ All critical imports verified for bundling')" | Out-Null; if ($LASTEXITCODE -eq 0) { Write-Output "✅ Import verification successful" } else { Write-Output "❌ Import verification failed"; exit 1 }
+          python -c "import dotenv, PyQt5.QtWidgets, cryptography; print('✅ All critical imports verified')"
+          if ($LASTEXITCODE -eq 0) { 
+            Write-Output "✅ Import verification successful" 
+          } else { 
+            Write-Output "❌ Import verification failed"
+            exit 1 
+          }
           
           Write-Output "✅ Executable build and verification completed"
         }
