@@ -248,39 +248,23 @@ jobs:
           $fileSize = (Get-Item "dist/SMIS-$version.exe").Length / 1MB
           Write-Output "File size: $([math]::Round($fileSize, 2)) MB"
           
-          # Test the executable for basic functionality
-          Write-Output "Testing executable for dotenv import..."
-          $testScript = @"
-import sys
-import os
-sys.path.insert(0, '.')
-
-# Test critical imports that often fail in PyInstaller builds
-try:
-    print('Testing dotenv import...')
-    from dotenv import load_dotenv
-    print('✅ dotenv import successful')
-    
-    print('Testing PyQt5 import...')
-    from PyQt5.QtWidgets import QApplication
-    print('✅ PyQt5 import successful')
-    
-    print('Testing cryptography import...')
-    import cryptography
-    print('✅ cryptography import successful')
-    
-    print('✅ All critical imports working in build environment')
-    sys.exit(0)
-except Exception as e:
-    print(f'❌ Import test failed: {e}')
-    sys.exit(1)
-"@
+          # Test critical imports in the build environment
+          Write-Output "Testing critical imports for bundling verification..."
+          python -c "
+          try:
+              from dotenv import load_dotenv
+              print('✅ dotenv import successful')
+              from PyQt5.QtWidgets import QApplication  
+              print('✅ PyQt5 import successful')
+              import cryptography
+              print('✅ cryptography import successful')
+              print('✅ All critical imports verified for bundling')
+          except Exception as e:
+              print(f'❌ Import verification failed: {e}')
+              exit(1)
+          "
           
-          $testScript | Out-File -FilePath "test_imports.py" -Encoding UTF8
-          python test_imports.py
-          Remove-Item "test_imports.py" -ErrorAction SilentlyContinue
-          
-          Write-Output "✅ Executable verification completed"
+          Write-Output "✅ Executable build and verification completed"
         }
         
         Write-Output "Build phase completed successfully!"
