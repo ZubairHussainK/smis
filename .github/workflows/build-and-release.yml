@@ -158,7 +158,6 @@ jobs:
             --add-data="resources;resources" `
             --add-data="ui;ui" `
             --add-data="config;config" `
-            --add-data="docs;docs" `
             --hidden-import="PyQt5.sip" `
             --hidden-import="sqlite3" `
             --hidden-import="cryptography" `
@@ -181,7 +180,6 @@ jobs:
           --add-data="resources;resources" `
           --add-data="ui;ui" `
           --add-data="config;config" `
-          --add-data="docs;docs" `
           --hidden-import="PyQt5.sip" `
           --hidden-import="sqlite3" `
           --hidden-import="cryptography" `
@@ -213,7 +211,6 @@ jobs:
           --add-data="resources;resources" `
           --add-data="ui;ui" `
           --add-data="config;config" `
-          --add-data="docs;docs" `
           --hidden-import="PyQt5.sip" `
           --hidden-import="sqlite3" `
           --hidden-import="cryptography" `
