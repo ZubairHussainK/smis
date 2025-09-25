@@ -152,126 +152,50 @@ jobs:
         # First try: Simple command line approach (most reliable)
         Write-Output "Trying simple command line build first..."
         try {
-          # Add comprehensive dotenv imports to ensure bundling
-          pyinstaller --onefile --windowed --name "SMIS-$version" main.py `
-            --distpath dist --workpath build-simple `
-            --add-data "resources;resources" `
-            --add-data "config;config" `
-            --add-data "core;core" `
-            --add-data "ui;ui" `
-            --add-data "models;models" `
-            --add-data "utils;utils" `
-            --add-data "services;services" `
-            --add-data "controllers;controllers" `
-            --add-data "version.py;." `
-            --collect-all PyQt5 `
-            --collect-all dotenv `
-            --collect-all cryptography `
-            --hidden-import PyQt5.sip `
-            --hidden-import sip `
-            --hidden-import sqlite3 `
-            --hidden-import version `
-            --hidden-import core `
-            --hidden-import core.security_manager `
-            --hidden-import core.auth `
-            --hidden-import core.exceptions `
-            --hidden-import core.validators `
-            --hidden-import ui `
-            --hidden-import ui.main_window `
-            --hidden-import ui.login_window `
-            --hidden-import ui.registration_window `
-            --hidden-import ui.registration_window1 `
-            --hidden-import ui.pages `
-            --hidden-import ui.pages.dashboard `
-            --hidden-import ui.pages.student `
-            --hidden-import ui.pages.student_list `
-            --hidden-import ui.pages.attendance `
-            --hidden-import ui.pages.reports `
-            --hidden-import ui.pages.settings `
-            --hidden-import ui.pages.mother_reg `
-            --hidden-import ui.components `
-            --hidden-import ui.components.sidebar `
-            --hidden-import ui.components.custom_table `
-            --hidden-import ui.components.custom_combo_box `
-            --hidden-import ui.components.custom_date_picker `
-            --hidden-import ui.components.form_components `
-            --hidden-import ui.components.registration_form `
-            --hidden-import ui.components.student_registration_form `
-            --hidden-import ui.components.mother_form_widget `
-            --hidden-import ui.components.tables `
-            --hidden-import models `
-            --hidden-import models.database `
-            --hidden-import utils `
-            --hidden-import utils.logger `
-            --hidden-import utils.fonts `
-            --hidden-import utils.material_icons `
-            --hidden-import utils.mother_validation `
-            --hidden-import config `
-            --hidden-import config.settings `
-            --hidden-import config.security `
-            --hidden-import config.update_config `
-            --hidden-import services `
-            --hidden-import services.backup_service `
-            --hidden-import services.mother_service `
-            --hidden-import services.update_service `
-            --hidden-import controllers `
-            --hidden-import controllers.dashboard_controller `
-            --hidden-import controllers.student_controller `
-            --hidden-import controllers.attendance_controller `
-            --hidden-import controllers.reports_controller `
-            --hidden-import resources `
-            --hidden-import resources.styles `
-            --hidden-import resources.styles.theme `
-            --hidden-import resources.styles.constants `
-            --hidden-import resources.styles.utils `
-            --hidden-import resources.styles.widgets `
-            --hidden-import resources.styles.messages `
-            --hidden-import dotenv `
-            --hidden-import dotenv.main `
-            --hidden-import dotenv.parser `
-            --hidden-import dotenv.core `
-            --hidden-import python_dotenv `
-            --hidden-import cryptography `
-            --hidden-import cryptography.fernet `
-            --hidden-import cryptography.hazmat `
-            --hidden-import cryptography.hazmat.primitives `
-            --hidden-import cryptography.hazmat.primitives.kdf `
-            --hidden-import cryptography.hazmat.primitives.kdf.pbkdf2 `
-            --hidden-import cryptography.hazmat.primitives.ciphers `
-            --hidden-import cryptography.hazmat.primitives.ciphers.algorithms `
-            --hidden-import cryptography.hazmat.primitives.ciphers.modes `
-            --hidden-import cryptography.hazmat.primitives.hashes `
-            --hidden-import cryptography.hazmat.backends `
-            --hidden-import cryptography.hazmat.backends.openssl `
-            --hidden-import requests `
-            --hidden-import urllib3 `
-            --hidden-import urllib3.util `
-            --hidden-import urllib3.exceptions `
-            --hidden-import certifi `
-            --hidden-import json `
-            --hidden-import csv `
-            --hidden-import pandas `
-            --hidden-import openpyxl `
-            --hidden-import bcrypt `
-            --hidden-import jwt `
-            --hidden-import hashlib `
-            --hidden-import base64 `
-            --hidden-import secrets `
-            --hidden-import datetime `
-            --hidden-import time `
-            --hidden-import threading `
-            --hidden-import subprocess `
-            --hidden-import tempfile `
-            --hidden-import shutil `
-            --hidden-import tkinter `
-            --hidden-import tkinter.messagebox `
-            --hidden-import email.mime `
-            --hidden-import typing `
-            --hidden-import logging `
-            --hidden-import re `
-            --hidden-import unittest.mock `
-            --icon "resources/icons/app_icon.ico" `
-            --noupx --clean --log-level INFO
+          # Use the same PyInstaller command that works locally
+          pyinstaller --clean --onefile --windowed --name "SMIS-$version" main.py `
+            --icon="resources/icons/app_icon.ico" `
+            --add-data="resources;resources" `
+            --add-data="ui;ui" `
+            --add-data="config;config" `
+            --add-data="docs;docs" `
+            --hidden-import="PyQt5.sip" `
+            --hidden-import="sqlite3" `
+            --hidden-import="cryptography" `
+            --hidden-import="bcrypt" `
+            --hidden-import="PIL" `
+            --hidden-import="PIL.Image" `
+            --hidden-import="PIL.ImageTk" `
+            --hidden-import="tkinter.ttk" `
+            --hidden-import="tkinter.filedialog" `
+            --hidden-import="controllers" `
+            --hidden-import="pandas" `
+            --hidden-import="openpyxl" `
+            --hidden-import="reportlab" `
+            --noupx --log-level INFO
+        
+        # ALWAYS build debug console version for troubleshooting
+        Write-Output "Building debug console version for troubleshooting..."
+        pyinstaller --clean --onefile --console --name "SMIS-$version-Debug" main.py `
+          --icon="resources/icons/app_icon.ico" `
+          --add-data="resources;resources" `
+          --add-data="ui;ui" `
+          --add-data="config;config" `
+          --add-data="docs;docs" `
+          --hidden-import="PyQt5.sip" `
+          --hidden-import="sqlite3" `
+          --hidden-import="cryptography" `
+          --hidden-import="bcrypt" `
+          --hidden-import="PIL" `
+          --hidden-import="PIL.Image" `
+          --hidden-import="PIL.ImageTk" `
+          --hidden-import="tkinter.ttk" `
+          --hidden-import="tkinter.filedialog" `
+          --hidden-import="controllers" `
+          --hidden-import="pandas" `
+          --hidden-import="openpyxl" `
+          --hidden-import="reportlab" `
+          --noupx
           
           if (Test-Path "dist/SMIS-$version.exe") {
             Write-Output "✅ Simple build successful!"
@@ -282,73 +206,28 @@ jobs:
           Write-Output "Simple build failed: $($_.Exception.Message)"
         }
         
-        # If simple build didn't work, try spec file approach
-        if (-not (Test-Path "dist/SMIS-$version.exe")) {
-          Write-Output "Trying spec file build..."
-          
-          # Update spec file with current version
-          $specContent = Get-Content "SMIS.spec" -Raw
-          $specContent = $specContent -replace "name='SMIS'", "name='SMIS-$version'"
-          $specContent | Set-Content "SMIS.spec"
-          
-          try {
-            pyinstaller SMIS.spec --distpath dist --workpath build --clean
-            
-            if (Test-Path "dist/SMIS-$version.exe") {
-              Write-Output "✅ Spec file build successful"
-            } elseif (Test-Path "dist/SMIS.exe") {
-              Move-Item "dist/SMIS.exe" "dist/SMIS-$version.exe"
-              Write-Output "✅ Renamed SMIS.exe to SMIS-$version.exe"
-            }
-          } catch {
-            Write-Output "Spec build failed: $($_.Exception.Message)"
-          }
-        }
-        
         # ALWAYS build debug console version for troubleshooting
         Write-Output "Building debug console version for troubleshooting..."
-        pyinstaller --onefile --console --name "SMIS-$version-Debug" main.py `
-          --distpath dist --workpath build-debug `
-          --add-data "resources;resources" `
-          --add-data "config;config" `
-          --add-data "core;core" `
-          --add-data "ui;ui" `
-          --add-data "models;models" `
-          --add-data "utils;utils" `
-          --add-data "services;services" `
-          --add-data "controllers;controllers" `
-          --add-data "version.py;." `
-          --collect-all PyQt5 `
-          --collect-all cryptography `
-          --hidden-import PyQt5.sip `
-          --hidden-import sip `
-          --hidden-import version `
-          --hidden-import core `
-          --hidden-import core.security_manager `
-          --hidden-import ui.main_window `
-          --hidden-import ui.login_window `
-          --hidden-import models.database `
-          --hidden-import utils.logger `
-          --hidden-import config.settings `
-          --hidden-import services.backup_service `
-          --hidden-import dotenv `
-          --hidden-import dotenv.main `
-          --hidden-import cryptography `
-          --hidden-import cryptography.fernet `
-          --hidden-import cryptography.hazmat.primitives.kdf `
-          --hidden-import cryptography.hazmat.primitives.kdf.pbkdf2 `
-          --hidden-import cryptography.hazmat.primitives.hashes `
-          --hidden-import cryptography.hazmat.backends.openssl `
-          --hidden-import requests `
-          --hidden-import urllib3 `
-          --icon "resources/icons/app_icon.ico" `
-          --noupx --clean
-        
-        if (Test-Path "dist/SMIS-$version-Debug.exe") {
-          Write-Output "✅ Debug console version built successfully!"
-          $debugSize = (Get-Item "dist/SMIS-$version-Debug.exe").Length / 1MB
-          Write-Output "Debug executable size: $([math]::Round($debugSize, 2)) MB"
-        }
+        pyinstaller --clean --onefile --console --name "SMIS-$version-Debug" main.py `
+          --icon="resources/icons/app_icon.ico" `
+          --add-data="resources;resources" `
+          --add-data="ui;ui" `
+          --add-data="config;config" `
+          --add-data="docs;docs" `
+          --hidden-import="PyQt5.sip" `
+          --hidden-import="sqlite3" `
+          --hidden-import="cryptography" `
+          --hidden-import="bcrypt" `
+          --hidden-import="PIL" `
+          --hidden-import="PIL.Image" `
+          --hidden-import="PIL.ImageTk" `
+          --hidden-import="tkinter.ttk" `
+          --hidden-import="tkinter.filedialog" `
+          --hidden-import="controllers" `
+          --hidden-import="pandas" `
+          --hidden-import="openpyxl" `
+          --hidden-import="reportlab" `
+          --noupx
         
         # Final fallback: Debug console build (if main build failed)
         if (-not (Test-Path "dist/SMIS-$version.exe")) {
