@@ -157,11 +157,13 @@ jobs:
             --distpath dist --workpath build-simple `
             --add-data "resources;resources" `
             --add-data "config;config" `
+            --add-data "version.py;." `
             --collect-all PyQt5 `
             --collect-all dotenv `
             --hidden-import PyQt5.sip `
             --hidden-import sip `
             --hidden-import sqlite3 `
+            --hidden-import version `
             --hidden-import dotenv `
             --hidden-import dotenv.main `
             --hidden-import dotenv.parser `
@@ -221,9 +223,11 @@ jobs:
             --distpath dist --workpath build-debug `
             --add-data "resources;resources" `
             --add-data "config;config" `
+            --add-data "version.py;." `
             --collect-all PyQt5 `
             --hidden-import PyQt5.sip `
             --hidden-import sip `
+            --hidden-import version `
             --hidden-import dotenv `
             --hidden-import dotenv.main `
             --hidden-import cryptography `
@@ -250,7 +254,7 @@ jobs:
           
           # Test critical imports in the build environment
           Write-Output "Testing critical imports for bundling verification..."
-          python -c "import dotenv, PyQt5.QtWidgets, cryptography; print('✅ All critical imports verified')"
+          python -c "import dotenv, PyQt5.QtWidgets, cryptography, version; print('✅ All critical imports verified')"
           if ($LASTEXITCODE -eq 0) { 
             Write-Output "✅ Import verification successful" 
           } else { 
