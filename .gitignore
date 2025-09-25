@@ -19,6 +19,9 @@ auto_*.py
 # KeyGenerator - Separate repository
 KeyGenerator/
 
+# Allow important .txt files
+!requirements.txt
+
 # Backup and Temporary Folders
 backup_attendance_files/
 attendance_modular_temp/
