@@ -300,11 +300,19 @@ class SMISApplication:
             if not self.initialize():
                 return 1
             
+            # Debug: Print current configuration paths
+            from config.settings import Config
+            print(f"🗂️  App Data Directory: {Config.APP_DATA_DIR}")
+            print(f"🗄️  Database Path: {Config.DATABASE_PATH}")
+            print(f"📁 Database Exists: {os.path.exists(Config.DATABASE_PATH)}")
+            
             # Check if this is first time user (no users exist)
             if self._is_first_time_user():
                 print("🆕 First time user detected - showing registration window")
                 if not self.show_registration_window():
                     return 1
+            else:
+                print("👤 Existing users found - proceeding to login")
             
             # Show login window
             if not self.show_login_window():
@@ -323,19 +331,29 @@ class SMISApplication:
     def _is_first_time_user(self):
         """Check if this is the first time the application is being run (no users exist)."""
         try:
-            # Check if any users exist in the database
+            # Import here to avoid circular imports
             from models.database import Database
+            from config.settings import Config
+            
+            # Check if database file exists at the configured path
+            if not os.path.exists(Config.DATABASE_PATH):
+                logging.info(f"Database file not found at {Config.DATABASE_PATH}, treating as first time user")
+                return True
+            
+            # Check if any users exist in the database
             db = Database()
             db.cursor.execute("SELECT COUNT(*) FROM users")
             user_count = db.cursor.fetchone()[0]
+            
+            logging.info(f"Found {user_count} users in database at {Config.DATABASE_PATH}")
             
             # Return True if no users exist (first time run)
             return user_count == 0
             
         except Exception as e:
             logging.error(f"Error checking first time user status: {e}")
-            # If there's an error, assume it's not first time to avoid issues
-            return False
+            # If there's an error, assume it's first time to allow registration
+            return True
     
     def show_registration_window(self):
         """Show registration window for first-time users."""

@@ -1,9 +1,24 @@
 """Enhanced application settings and constants."""
 import os
+import sys
 from dotenv import load_dotenv
 
 # Load environment variables
 load_dotenv()
+
+def get_app_data_dir():
+    """Get the application data directory for storing database and files."""
+    if hasattr(sys, '_MEIPASS'):
+        # Running as PyInstaller executable
+        # Use AppData directory for user data
+        app_data = os.path.join(os.environ.get('APPDATA', ''), 'SMIS')
+    else:
+        # Running from source
+        app_data = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    
+    # Ensure directory exists
+    os.makedirs(app_data, exist_ok=True)
+    return app_data
 
 class Config:
     """Main configuration class."""
@@ -12,9 +27,12 @@ class Config:
     ENVIRONMENT = os.getenv('ENVIRONMENT', 'development')
     DEBUG = os.getenv('DEBUG', 'True').lower() == 'true'
     
-    # Database
-    DATABASE_PATH = os.getenv('DATABASE_PATH', "school.db")
-    DATABASE_BACKUP_PATH = os.getenv('DATABASE_BACKUP_PATH', "backups/")
+    # Get application data directory
+    APP_DATA_DIR = get_app_data_dir()
+    
+    # Database - Use absolute path in AppData for installed version
+    DATABASE_PATH = os.path.join(APP_DATA_DIR, "school.db")
+    DATABASE_BACKUP_PATH = os.path.join(APP_DATA_DIR, "backups")
     BACKUP_INTERVAL_HOURS = int(os.getenv('BACKUP_INTERVAL_HOURS', '24'))
     
     # Security

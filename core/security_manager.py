@@ -46,16 +46,38 @@ class SMISSecurityManager:
     
     def _get_secure_key_path(self) -> str:
         """Get secure path for key storage."""
-        # Use local directory for better compatibility
-        app_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        # Import config to use centralized app data directory
+        try:
+            from config.settings import Config
+            app_dir = Config.APP_DATA_DIR
+        except ImportError:
+            # Fallback if config not available
+            if hasattr(sys, '_MEIPASS'):
+                # Running as PyInstaller executable - use AppData
+                app_dir = os.path.join(os.environ.get('APPDATA', ''), 'SMIS')
+            else:
+                # Running from source
+                app_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        
         secure_dir = os.path.join(app_dir, '.smis_data')
         os.makedirs(secure_dir, exist_ok=True)
         return os.path.join(secure_dir, '.activation_key')
     
     def _get_registration_db_path(self) -> str:
         """Get secure path for registration database."""
-        # Use local directory for better compatibility
-        app_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        # Import config to use centralized app data directory
+        try:
+            from config.settings import Config
+            app_dir = Config.APP_DATA_DIR
+        except ImportError:
+            # Fallback if config not available
+            if hasattr(sys, '_MEIPASS'):
+                # Running as PyInstaller executable - use AppData
+                app_dir = os.path.join(os.environ.get('APPDATA', ''), 'SMIS')
+            else:
+                # Running from source
+                app_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        
         secure_dir = os.path.join(app_dir, '.smis_data')
         os.makedirs(secure_dir, exist_ok=True)
         return os.path.join(secure_dir, '.registration.db')
