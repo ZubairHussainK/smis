@@ -138,10 +138,21 @@ class SMISApplication:
     def _set_application_icon(self):
         """Set application icon."""
         try:
-            icon_path = os.path.join(os.path.dirname(__file__), 'resources', 'app_icon.svg')
-            if os.path.exists(icon_path):
-                self.app.setWindowIcon(QIcon(icon_path))  # type: ignore
-            else:
+            # Try different icon file formats
+            icon_paths = [
+                os.path.join(os.path.dirname(__file__), 'resources', 'icons', 'app_icon.ico'),
+                os.path.join(os.path.dirname(__file__), 'resources', 'icons', 'app_icon.svg'),
+                os.path.join(os.path.dirname(__file__), 'resources', 'app_icon.svg'),
+            ]
+            
+            icon_loaded = False
+            for icon_path in icon_paths:
+                if os.path.exists(icon_path):
+                    self.app.setWindowIcon(QIcon(icon_path))  # type: ignore
+                    icon_loaded = True
+                    break
+            
+            if not icon_loaded:
                 # Create a simple default icon if file not found
                 pixmap = QPixmap(32, 32)
                 pixmap.fill(Qt.transparent)
