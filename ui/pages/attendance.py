@@ -54,6 +54,10 @@ class MonthSelectionDialog(QDialog):
         self.setFixedSize(340, 210)
         self.setWindowFlags(Qt.Popup | Qt.FramelessWindowHint | Qt.NoDropShadowWindowHint)
         
+        # Set application icon
+        from utils.ui_helpers import set_app_icon
+        set_app_icon(self)
+        
         # Store the current month
         self.current_month = current_month
         self.selected_month = current_month
@@ -231,6 +235,10 @@ class YearSelectionDialog(QDialog):
         self.setModal(True)
         self.setFixedSize(340, 240)
         self.setWindowFlags(Qt.Popup | Qt.FramelessWindowHint | Qt.NoDropShadowWindowHint)
+        
+        # Set application icon
+        from utils.ui_helpers import set_app_icon
+        set_app_icon(self)
         
         # Store the current year and calculate range
         self.current_year = current_year
@@ -3440,6 +3448,10 @@ if __name__ == "__main__":
             super().__init__()
             self.setWindowTitle("SMIS - Attendance Test")
             self.setGeometry(100, 100, 1200, 800)
+            
+            # Set application icon
+            from utils.ui_helpers import set_app_icon
+            set_app_icon(self)
             
             # Create attendance page as central widget
             # AttendancePage doesn't accept a parent parameter

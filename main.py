@@ -149,8 +149,9 @@ class SMISApplication:
     def _set_application_icon(self):
         """Set application icon."""
         try:
-            # Try different icon file formats
+            # Try different icon file formats with priority on icon.ico
             icon_paths = [
+                os.path.join(os.path.dirname(__file__), 'resources', 'icons', 'icon.ico'),
                 os.path.join(os.path.dirname(__file__), 'resources', 'icons', 'app_icon.ico'),
                 os.path.join(os.path.dirname(__file__), 'resources', 'icons', 'app_icon.svg'),
                 os.path.join(os.path.dirname(__file__), 'resources', 'app_icon.svg'),

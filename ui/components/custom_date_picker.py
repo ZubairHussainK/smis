@@ -46,6 +46,10 @@ class MonthSelectionDialog(QDialog):
         self.setFixedSize(340, 210)  # Matched size with standard calendar popup
         self.setWindowFlags(Qt.Popup | Qt.FramelessWindowHint | Qt.NoDropShadowWindowHint)
         
+        # Set application icon
+        from utils.ui_helpers import set_app_icon
+        set_app_icon(self)
+        
         # Store the current month
         self.current_month = current_month
         self.selected_month = current_month
@@ -244,6 +248,10 @@ class YearSelectionDialog(QDialog):
         self.setModal(True)
         self.setFixedSize(340, 210)  # Matched size with standard calendar popup
         self.setWindowFlags(Qt.Popup | Qt.FramelessWindowHint | Qt.NoDropShadowWindowHint)
+        
+        # Set application icon
+        from utils.ui_helpers import set_app_icon
+        set_app_icon(self)
         
         # Store the current year and set initial range
         self.current_year = current_year

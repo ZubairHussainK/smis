@@ -90,6 +90,10 @@ class RegistrationWindow(QDialog):
     def init_ui(self):
         self.setWindowTitle("SMIS - User Registration")
         self.setFixedSize(520, 620)
+        
+        # Set application icon
+        from utils.ui_helpers import set_app_icon
+        set_app_icon(self)
 
         main_layout = QVBoxLayout()
         main_layout.setContentsMargins(15, 10, 15, 10)

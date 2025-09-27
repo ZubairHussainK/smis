@@ -129,6 +129,15 @@ class LoginWindow(QDialog):
         self.setFixedSize(480, 560)  # Reduced height since we removed show password checkbox
         self.setWindowFlags(Qt.Dialog | Qt.WindowTitleHint | Qt.WindowCloseButtonHint)
         
+        # Set application icon using helper function
+        from utils.ui_helpers import set_app_icon
+        set_app_icon(self)
+        
+        # Set application icon explicitly for the login window
+        icon_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'resources', 'icons', 'icon.ico')
+        if os.path.exists(icon_path):
+            self.setWindowIcon(QIcon(icon_path))
+        
         # Center window on screen
         self._center_window()
         

@@ -41,6 +41,10 @@ class MainWindow(QMainWindow):
             self.setWindowTitle(f"{Config.WINDOW_TITLE} v{__version__}")
             self.setGeometry(*Config.WINDOW_GEOMETRY)
             
+            # Set application icon using helper function
+            from utils.ui_helpers import set_app_icon
+            set_app_icon(self)
+            
             # Set window size policy to prevent unwanted resizing
             self.setMinimumSize(1000, 700)  # Minimum reasonable size
             self.resize(1200, 800)  # Default size

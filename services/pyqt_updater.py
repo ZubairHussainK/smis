@@ -149,6 +149,10 @@ class UpdateDialog(QDialog):
         self.setFixedSize(450, 200)
         self.setWindowFlags(Qt.Dialog | Qt.WindowCloseButtonHint)
         
+        # Set application icon
+        from utils.ui_helpers import set_app_icon
+        set_app_icon(self)
+        
         layout = QVBoxLayout()
         
         # Title

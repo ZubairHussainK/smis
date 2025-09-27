@@ -1,0 +1,134 @@
+﻿name: Build and Release Windows Application
+
+on:
+  push:
+    tags:
+      - 'v*'  # Triggers on version tags like v1.2.3
+  workflow_dispatch:  # Allows manual trigger from Actions tab
+
+permissions:
+  contents: write
+  packages: read
+
+jobs:
+  build-and-release:
+    runs-on: windows-2022
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Setup Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+        
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install python-dotenv==1.0.0
+        pip install PyQt5>=5.15.9
+        pip install cryptography==41.0.3
+        pip install requests==2.31.0
+        pip install pyinstaller
+        
+        if (Test-Path "requirements.txt") {
+          pip install -r requirements.txt
+        }
+        
+        pip install --force-reinstall python-dotenv==1.0.0
+      shell: powershell
+        
+    - name: Extract version from tag
+      id: get_version
+      run: |
+        $ref = "${{ github.ref_name }}"
+        
+        if ($ref -eq "main" -or $ref -notmatch "^v\d+\.\d+\.\d+") {
+          if (Test-Path "version.py") {
+            $content = Get-Content version.py
+            $version = ($content | Select-String '__version__ = "(.+)"' | ForEach-Object { $_.Matches.Groups[1].Value })
+            if (-not $version) {
+              $version = "2.0.2"
+            }
+          } else {
+            $version = "2.0.2"
+          }
+        } else {
+          $version = $ref -replace '^v', ''
+        }
+        
+        echo "VERSION=$version" >> $env:GITHUB_OUTPUT
+      shell: powershell
+      
+    - name: Update version in application
+      run: |
+        $version = "${{ steps.get_version.outputs.VERSION }}"
+        $content = Get-Content version.py
+        $content = $content -replace '__version__ = ".*"', "__version__ = \"$version\""
+        $content | Set-Content version.py
+      shell: powershell
+      
+    - name: Build executable with PyInstaller
+      run: |
+        $version = "${{ steps.get_version.outputs.VERSION }}"
+        
+        if (-not (Test-Path "main.py")) {
+          exit 1
+        }
+
+        # Main build
+        pyinstaller --clean --onefile --windowed --name "SMIS-$version" main.py --icon="resources/icons/app_icon.ico" --add-data="resources;resources" --add-data="ui;ui" --add-data="config;config" --add-data="version.py;." --hidden-import="PyQt5.sip" --hidden-import="sqlite3" --hidden-import="cryptography" --hidden-import="bcrypt" --hidden-import="PIL" --hidden-import="PIL.Image" --hidden-import="PIL.ImageTk" --hidden-import="tkinter.ttk" --hidden-import="tkinter.filedialog" --hidden-import="controllers" --hidden-import="pandas" --hidden-import="openpyxl" --hidden-import="reportlab" --noupx --log-level INFO
+        
+        # Debug build
+        pyinstaller --clean --onefile --console --name "SMIS-$version-Debug" main.py --icon="resources/icons/app_icon.ico" --add-data="resources;resources" --add-data="ui;ui" --add-data="config;config" --add-data="version.py;." --hidden-import="PyQt5.sip" --hidden-import="sqlite3" --hidden-import="cryptography" --hidden-import="bcrypt" --hidden-import="PIL" --hidden-import="PIL.Image" --hidden-import="PIL.ImageTk" --hidden-import="tkinter.ttk" --hidden-import="tkinter.filedialog" --hidden-import="controllers" --hidden-import="pandas" --hidden-import="openpyxl" --hidden-import="reportlab" --noupx
+      shell: powershell
+      
+    - name: Setup Inno Setup
+      run: |
+        $installerDir = "installer"
+        $setupScriptPath = "$installerDir/setup.iss"
+        
+        if (-not (Test-Path $installerDir)) {
+          New-Item -ItemType Directory -Path $installerDir | Out-Null
+        }
+        
+        # Download Inno Setup
+        $innoUrl = "https://files.jrsoftware.org/is/6/innosetup-6.2.2.exe"
+        $innoInstaller = "$installerDir/inno_setup.exe"
+        
+        Invoke-WebRequest -Uri $innoUrl -OutFile $innoInstaller
+        
+        # Install Inno Setup silently
+        Start-Process -FilePath $innoInstaller -ArgumentList "/VERYSILENT", "/SUPPRESSMSGBOXES" -Wait
+      shell: powershell
+      
+    - name: Create installer with Inno Setup
+      run: |
+        $version = "${{ steps.get_version.outputs.VERSION }}"
+        $installerDir = "installer"
+        $setupScriptPath = "$installerDir/setup.iss"
+        
+        @"
+[Setup]
+AppName=SMIS
+AppVersion=$version
+AppPublisher=School Management Information System
+AppPublisherURL=https://github.com/ZubairHussainK/smis
+DefaultDirName={autopf}\SMIS
+DefaultGroupName=SMIS
+UninstallDisplayIcon={app}\SMIS.exe
+Compression=lzma2
+SolidCompression=yes
+OutputDir=installer_output
+OutputBaseFilename=SMIS-$version-Setup
+PrivilegesRequired=lowest
+
+[Files]
+Source: "dist\SMIS-$version.exe"; DestDir: "{app}"; DestName: "SMIS.exe"; Flags: ignoreversion
+Source: "dist\SMIS-$version-Debug.exe"; DestDir: "{app}"; DestName: "SMIS-Debug.exe"; Flags: ignoreversion
+
+[Icons]
+Name: "{group}\SMIS"; Filename: "{app}\SMIS.exe"
+Name: "{group}\SMIS Debug"; Filename: "{app}\SMIS-Debug.exe"
+Name: "{commondesktop}\SMIS"; Filename: "{app}\SMIS.exe"
